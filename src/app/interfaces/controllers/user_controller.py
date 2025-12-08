@@ -7,6 +7,11 @@ from sqlalchemy.orm import Session
 from datetime import timedelta, datetime, timezone
 from jose import jwt, JWTError
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import JSONResponse
+
+from src.app.infrastructure.database_config import get_db
+from src.app.infrastructure.repositories.user_repository import UserRepository
+from src.app.domain.validators.user_validator import UserValidator
 
 # from src.app.interfaces.schemas.auth_schema import TokenPayload
 # from src.app.interfaces.schemas.user_schema import (
@@ -23,15 +28,9 @@ from src.app.interfaces.schemas.user_schema import (
 )
 from src.app.interfaces.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
 
-from src.app.infrastructure.database_config import get_db
-from src.app.infrastructure.repositories.user_repository import UserRepository
-from src.app.entities.user import User as UserEntity
-# from src.app.security.auth import get_current_active_user
-from src.config import settings
-
-from src.app.domain.validators.user_validator import UserValidator
 from src.app.use_cases.user_use_cases import (
     CreateUserUseCase,
+    GetUserByIdUseCase,  # <--- adicionado
     pwd_context,
 )
 from src.app.use_cases.user_use_cases import GetAllUsersUseCase
@@ -82,12 +81,13 @@ def create_user(
     validation_errors = validator.validate_create_request(user_in)
     
     if validation_errors:
-        # Retornar o primeiro erro com seu status code apropriado
+        # Retornar o primeiro erro com seu status code apropriado como documento JSON:API
         first_error = validation_errors[0]
         status_code = int(first_error.status)
-        raise HTTPException(
+        return JSONResponse(
             status_code=status_code,
-            detail=JsonApiErrorResponse(errors=validation_errors).model_dump(),
+            content=JsonApiErrorResponse(errors=validation_errors).model_dump(),
+            media_type="application/vnd.api+json",
         )
 
     # Criar usuário
@@ -108,9 +108,10 @@ def create_user(
                 detail="An unexpected error occurred while creating the user",
             )
         ]
-        raise HTTPException(
+        return JSONResponse(
             status_code=500,
-            detail=JsonApiErrorResponse(errors=errors).model_dump(),
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
         )
 
 
@@ -192,23 +193,36 @@ def read_users(
     return {"data": data}
 
 
-# @router.get("/{user_id}", response_model=UserResponseSchema)
-# def read_user(
-#     user_id: int,
-#     user_repo: UserRepository = Depends(get_user_repository),
-#     current_user: UserEntity = Depends(get_current_active_user),
-# ):
-#     if user_id != current_user.id:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Not authorized to access this user's data",
-#         )
+@router.get("/{user_id}", response_model=UserReadResponse)
+def read_user(
+    user_id: int,
+    user_repo: UserRepository = Depends(get_user_repository),
+    # current_user: UserEntity = Depends(get_current_active_user),
+):
+    """
+    Retorna um único usuário no formato JSON:API:
+    - 200: { "data": { ...resource object... } }
+    - 404: { "errors": [ { status, code, title, detail, source } ] }
+    """
+    get_user_uc = GetUserByIdUseCase(user_repo)
+    user_entity = get_user_uc.execute(user_id)
+    if not user_entity:
+        errors = [
+            JsonApiError(
+                status="404",
+                code="NOT_FOUND",
+                title="User not found",
+                detail=f"User with id {user_id} not found",
+                source={"pointer": "/data/id"},
+            )
+        ]
+        return JSONResponse(
+            status_code=404,
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
 
-#     get_user_by_id_uc = GetUserByIdUseCase(user_repo)
-#     user_entity = get_user_by_id_uc.execute(user_id)
-#     if not user_entity:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return user_entity
+    return UserReadResponse(data=UserResource.from_entity(user_entity))
 
 
 # @router.put("/{user_id}", response_model=UserResponseSchema)

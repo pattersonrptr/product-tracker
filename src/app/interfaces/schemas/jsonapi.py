@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Any, Dict, Optional, List, Type, TypeVar
 
 T = TypeVar("T", bound=BaseModel)
@@ -10,7 +10,7 @@ class ResourceIdentifier(BaseModel):
 
 
 class ResourceObject(BaseModel):
-    type: str
+    type: str = Field(..., example="users")
     id: Optional[str] = None
     attributes: Any = None
     relationships: Optional[Dict[str, Any]] = None
@@ -61,7 +61,7 @@ class ResourceObject(BaseModel):
 
 class ResourceObjectForCreation(BaseModel):
     """ResourceObject para requests de criação (POST) - sem campo id"""
-    type: str
+    type: str = Field(..., example="users")
     attributes: Any = None
     relationships: Optional[Dict[str, Any]] = None
 

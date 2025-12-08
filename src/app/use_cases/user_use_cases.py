@@ -31,12 +31,12 @@ class CreateUserUseCase:
         return created_user
 
 
-# class GetUserByIdUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
+class GetUserByIdUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
 
-#     def execute(self, user_id: int) -> Optional[UserEntity.User]:
-#         return self.user_repo.get_by_id(user_id)
+    def execute(self, user_id: int) -> Optional[UserEntity]:
+        return self.user_repo.get_by_id(user_id)
 
 
 # class GetUserByUsernameUseCase:

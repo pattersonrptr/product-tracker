@@ -26,6 +26,13 @@ class UserAttributesForCreation(BaseModel):
     is_active: Optional[bool] = True
 
 
+class UserAttributesForUpdate(BaseModel):
+    """Attributes para atualização - campos opcionais"""
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
+
+
 class UserResource(ResourceObject):
     attributes: UserAttributes
 
@@ -49,8 +56,17 @@ class UserResourceForCreation(ResourceObjectForCreation):
     attributes: UserAttributesForCreation
 
 
+class UserResourceForUpdate(ResourceObjectForCreation):
+    """ResourceObject para atualização de users (sem id)"""
+    attributes: UserAttributesForUpdate
+
+
 class UserCreateRequest(SingleResourceRequest):
     data: UserResourceForCreation
+
+
+class UserUpdateRequest(SingleResourceRequest):
+    data: UserResourceForUpdate
 
 
 class UserReadResponse(SingleResourceResponse):

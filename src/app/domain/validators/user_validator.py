@@ -1,7 +1,7 @@
 from typing import List
 
 from src.app.interfaces.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
-from src.app.interfaces.schemas.user_schema import UserCreateRequest
+from src.app.interfaces.schemas.user_schema import UserCreateRequest, UserUpdateRequest
 from src.app.interfaces.repositories.user_repository import UserRepositoryInterface
 
 
@@ -93,6 +93,92 @@ class UserValidator:
                     title="Conflict",
                     detail=f"Email '{attrs.email}' is already registered",
                     source={"pointer": "/data/attributes/email"},
+                )
+            )
+
+        return errors
+
+    def validate_update_request(self, user_in: UserUpdateRequest, user_id: int) -> List[JsonApiError]:
+        """
+        Valida um request de atualização de usuário.
+        Retorna lista de erros (vazia se válido).
+        """
+        errors = []
+
+        # Validação 1: type deve ser "users"
+        if user_in.data.type != "users":
+            errors.append(
+                JsonApiError(
+                    status="400",
+                    code="INVALID_TYPE",
+                    title="Invalid resource type",
+                    detail=f"Expected type 'users', got '{user_in.data.type}'",
+                    source={"pointer": "/data/type"},
+                )
+            )
+
+        attrs = user_in.data.attributes
+
+        # Validação 2: pelo menos um campo deve ser fornecido
+        if not any([attrs.username, attrs.email, attrs.is_active is not None]):
+            errors.append(
+                JsonApiError(
+                    status="422",
+                    code="EMPTY_UPDATE",
+                    title="Validation error",
+                    detail="At least one field must be provided for update",
+                    source={"pointer": "/data/attributes"},
+                )
+            )
+            return errors
+
+        # Validação 3: username já existe (se fornecido e diferente do atual)
+        if attrs.username:
+            existing_user = self.user_repo.get_by_username(attrs.username)
+            if existing_user and existing_user.id != user_id:
+                errors.append(
+                    JsonApiError(
+                        status="409",
+                        code="DUPLICATE_USERNAME",
+                        title="Conflict",
+                        detail=f"Username '{attrs.username}' is already registered",
+                        source={"pointer": "/data/attributes/username"},
+                    )
+                )
+
+        # Validação 4: email já existe (se fornecido e diferente do atual)
+        if attrs.email:
+            existing_user = self.user_repo.get_by_email(attrs.email)
+            if existing_user and existing_user.id != user_id:
+                errors.append(
+                    JsonApiError(
+                        status="409",
+                        code="DUPLICATE_EMAIL",
+                        title="Conflict",
+                        detail=f"Email '{attrs.email}' is already registered",
+                        source={"pointer": "/data/attributes/email"},
+                    )
+                )
+
+        return errors
+
+    def validate_delete_request(self, user_id: int) -> List[JsonApiError]:
+        """
+        Valida um request de deletação de usuário.
+        Retorna lista de erros (vazia se válido).
+        """
+        errors = []
+
+        # Validação: usuário existe
+        existing_user = self.user_repo.get_by_id(user_id)
+        if not existing_user:
+            errors.append(
+                JsonApiError(
+                    status="404",
+                    code="NOT_FOUND",
+                    title="User not found",
+                    detail=f"User with id {user_id} not found",
+                    source={"pointer": "/data/id"},
                 )
             )
 

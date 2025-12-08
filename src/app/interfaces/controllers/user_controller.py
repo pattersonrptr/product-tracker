@@ -25,12 +25,15 @@ from src.app.interfaces.schemas.user_schema import (
     UserResource,
     UserCreateRequest,
     UserReadResponse,
+    UserUpdateRequest,
 )
 from src.app.interfaces.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
 
 from src.app.use_cases.user_use_cases import (
     CreateUserUseCase,
-    GetUserByIdUseCase,  # <--- adicionado
+    GetUserByIdUseCase,
+    UpdateUserUseCase,
+    DeleteUserUseCase,
     pwd_context,
 )
 from src.app.use_cases.user_use_cases import GetAllUsersUseCase
@@ -225,54 +228,133 @@ def read_user(
     return UserReadResponse(data=UserResource.from_entity(user_entity))
 
 
-# @router.put("/{user_id}", response_model=UserResponseSchema)
-# def update_user(
-#     user_id: int,
-#     user_in: UserUpdate,
-#     user_repo: UserRepository = Depends(get_user_repository),
-#     current_user: UserEntity = Depends(get_current_active_user),
-# ):
-#     if user_id != current_user.id:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Not authorized to update this user",
-#         )
+@router.put("/{user_id}", response_model=UserReadResponse)
+def update_user(
+    user_id: int,
+    user_in: UserUpdateRequest,
+    user_repo: UserRepository = Depends(get_user_repository),
+    # current_user: UserEntity = Depends(get_current_active_user),
+):
+    """
+    Atualiza um usuário no formato JSON:API.
+    - 200: { "data": { ...resource object... } }
+    - 404: { "errors": [ { status, code, title, detail, source } ] }
+    - 409: { "errors": [ conflito de duplicate username/email ] }
+    - 422: { "errors": [ validação ] }
+    """
+    # Validar request
+    validator = UserValidator(user_repo)
+    validation_errors = validator.validate_update_request(user_in, user_id)
+    
+    if validation_errors:
+        first_error = validation_errors[0]
+        status_code = int(first_error.status)
+        return JSONResponse(
+            status_code=status_code,
+            content=JsonApiErrorResponse(errors=validation_errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
 
-#     update_user_uc = UpdateUserUseCase(user_repo)
-#     try:
-#         updated_user_entity = update_user_uc.execute(user_id, user_in)
-#         if not updated_user_entity:
-#             raise HTTPException(
-#                 status_code=404, detail="User not found or update failed."
-#             )
-#         return updated_user_entity
-#     except ValueError as e:
-#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-#     except Exception as e:
-#         logger.exception(f"Unexpected error updating user {user_id}: {e}")
-#         raise HTTPException(
-#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             detail="An unexpected error occurred during update.",
-#         )
+    # Verificar se usuário existe
+    get_user_uc = GetUserByIdUseCase(user_repo)
+    user_entity = get_user_uc.execute(user_id)
+    if not user_entity:
+        errors = [
+            JsonApiError(
+                status="404",
+                code="NOT_FOUND",
+                title="User not found",
+                detail=f"User with id {user_id} not found",
+                source={"pointer": "/data/id"},
+            )
+        ]
+        return JSONResponse(
+            status_code=404,
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
+
+    # Atualizar usuário
+    update_uc = UpdateUserUseCase(user_repo)
+    try:
+        updated_user = update_uc.execute(user_id, user_in)
+        return UserReadResponse(data=UserResource.from_entity(updated_user))
+    except Exception as e:
+        logger.exception(f"Error updating user {user_id}: {e}")
+        errors = [
+            JsonApiError(
+                status="500",
+                code="INTERNAL_ERROR",
+                title="Internal server error",
+                detail="An unexpected error occurred while updating the user",
+            )
+        ]
+        return JSONResponse(
+            status_code=500,
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
 
 
-# @router.delete("/{user_id}", status_code=204)
-# def delete_user(
-#     user_id: int,
-#     user_repo: UserRepository = Depends(get_user_repository),
-#     current_user: UserEntity = Depends(get_current_active_user),
-# ):
-#     if user_id != current_user.id:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Not authorized to delete this user",
-#         )
+@router.delete("/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    user_repo: UserRepository = Depends(get_user_repository),
+    # current_user: UserEntity = Depends(get_current_active_user),
+):
+    """
+    Deleta um usuário no formato JSON:API.
+    - 204: No Content (sucesso, sem body)
+    - 404: { "errors": [ { status, code, title, detail, source } ] }
+    """
+    # Validar request
+    validator = UserValidator(user_repo)
+    validation_errors = validator.validate_delete_request(user_id)
+    
+    if validation_errors:
+        errors = validation_errors
+        return JSONResponse(
+            status_code=404,
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
 
-#     delete_user_uc = DeleteUserUseCase(user_repo)
-#     deleted = delete_user_uc.execute(user_id)
-#     if not deleted:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return
+    # Deletar usuário
+    delete_uc = DeleteUserUseCase(user_repo)
+    try:
+        deleted = delete_uc.execute(user_id)
+        if not deleted:
+            errors = [
+                JsonApiError(
+                    status="404",
+                    code="NOT_FOUND",
+                    title="User not found",
+                    detail=f"User with id {user_id} not found",
+                    source={"pointer": "/data/id"},
+                )
+            ]
+            return JSONResponse(
+                status_code=404,
+                content=JsonApiErrorResponse(errors=errors).model_dump(),
+                media_type="application/vnd.api+json",
+            )
+        # Sucesso: 204 No Content (sem body)
+        return None
+    except Exception as e:
+        logger.exception(f"Error deleting user {user_id}: {e}")
+        errors = [
+            JsonApiError(
+                status="500",
+                code="INTERNAL_ERROR",
+                title="Internal server error",
+                detail="An unexpected error occurred while deleting the user",
+            )
+        ]
+        return JSONResponse(
+            status_code=500,
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
 
 
 # @router.get("/username/{username}", response_model=UserResponseSchema)

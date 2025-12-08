@@ -63,50 +63,40 @@ class GetAllUsersUseCase:
         return self.user_repo.get_all()
 
 
-# class UpdateUserUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
+class UpdateUserUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
 
-#     def execute(self, user_id: int, user_in: UserUpdate) -> Optional[UserEntity.User]:
-#         existing_user = self.user_repo.get_by_id(user_id)
-#         if not existing_user:
-#             return None
+    def execute(self, user_id: int, user_data) -> Optional[UserEntity]:
+        """
+        Atualiza um usuário com os dados fornecidos.
+        Apenas campos não-None são atualizados.
+        """
+        existing_user = self.user_repo.get_by_id(user_id)
+        if not existing_user:
+            return None
 
-#         update_data = user_in.model_dump(
-#             exclude_unset=True, exclude={"current_password", "new_password"}
-#         )
+        attrs = user_data.data.attributes
 
-#         if user_in.new_password:
-#             if not user_in.current_password:
-#                 raise ValueError("Current password is required to set a new password.")
+        # Atualizar apenas campos fornecidos (não-None)
+        if attrs.username is not None:
+            existing_user.username = attrs.username
+        if attrs.email is not None:
+            existing_user.email = attrs.email
+        if attrs.is_active is not None:
+            existing_user.is_active = attrs.is_active
 
-#             if not pwd_context.verify(
-#                 user_in.current_password, existing_user.hashed_password
-#             ):
-#                 raise ValueError("Incorrect current password.")
-
-#             existing_user.hashed_password = pwd_context.hash(user_in.new_password)
-
-#         if (
-#             "username" in update_data
-#             and update_data["username"] != existing_user.username
-#         ):
-#             if self.user_repo.get_by_username(update_data["username"]):
-#                 raise ValueError("New username already registered")
-
-#         if "email" in update_data and update_data["email"] != existing_user.email:
-#             if self.user_repo.get_by_email(update_data["email"]):
-#                 raise ValueError("New email already registered by another user")
-
-#         for key, value in update_data.items():
-#             setattr(existing_user, key, value)
-
-#         return self.user_repo.update(user_id, existing_user)
+        updated_user = self.user_repo.update(user_id, existing_user)
+        return updated_user
 
 
-# class DeleteUserUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
+class DeleteUserUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
 
-#     def execute(self, user_id: int) -> bool:
-#         return self.user_repo.delete(user_id)
+    def execute(self, user_id: int) -> bool:
+        """
+        Deleta um usuário.
+        Retorna True se deletado com sucesso, False se não encontrado.
+        """
+        return self.user_repo.delete(user_id)

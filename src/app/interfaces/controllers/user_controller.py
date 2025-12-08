@@ -34,6 +34,8 @@ from src.app.use_cases.user_use_cases import (
     GetUserByIdUseCase,
     UpdateUserUseCase,
     DeleteUserUseCase,
+    GetUserByUsernameUseCase,
+    GetUserByEmailUseCase,
     pwd_context,
 )
 from src.app.use_cases.user_use_cases import GetAllUsersUseCase
@@ -357,39 +359,95 @@ def delete_user(
         )
 
 
-# @router.get("/username/{username}", response_model=UserResponseSchema)
-# def read_user_by_username(
-#     username: str,
-#     user_repo: UserRepository = Depends(get_user_repository),
-#     current_user: UserEntity = Depends(get_current_active_user),
-# ):
-#     if username != current_user.username:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Not authorized to access this username's data",
-#         )
+@router.get("/username/{username}", response_model=UserReadResponse)
+def read_user_by_username(
+    username: str,
+    user_repo: UserRepository = Depends(get_user_repository),
+    # current_user: UserEntity = Depends(get_current_active_user),
+):
+    """
+    Retorna um usuário pelo username no formato JSON:API.
+    - 200: { "data": { ...resource object... } }
+    - 400: { "errors": [ validação ] }
+    - 404: { "errors": [ { status, code, title, detail, source } ] }
+    """
+    # Validar request
+    validator = UserValidator(user_repo)
+    validation_errors = validator.validate_get_by_username_request(username)
+    
+    if validation_errors:
+        first_error = validation_errors[0]
+        status_code = int(first_error.status)
+        return JSONResponse(
+            status_code=status_code,
+            content=JsonApiErrorResponse(errors=validation_errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
 
-#     get_user_by_username_uc = GetUserByUsernameUseCase(user_repo)
-#     user_entity = get_user_by_username_uc.execute(username)
-#     if not user_entity:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return user_entity
+    # Buscar usuário
+    get_user_uc = GetUserByUsernameUseCase(user_repo)
+    user_entity = get_user_uc.execute(username)
+    if not user_entity:
+        errors = [
+            JsonApiError(
+                status="404",
+                code="NOT_FOUND",
+                title="User not found",
+                detail=f"User with username '{username}' not found",
+                source={"pointer": "/username"},
+            )
+        ]
+        return JSONResponse(
+            status_code=404,
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
+
+    return UserReadResponse(data=UserResource.from_entity(user_entity))
 
 
-# @router.get("/email/{email}", response_model=UserResponseSchema)
-# def read_user_by_email(
-#     email: str,
-#     user_repo: UserRepository = Depends(get_user_repository),
-#     current_user: UserEntity = Depends(get_current_active_user),
-# ):
-#     if email != current_user.email:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="Not authorized to access this email's data",
-#         )
+@router.get("/email/{email}", response_model=UserReadResponse)
+def read_user_by_email(
+    email: str,
+    user_repo: UserRepository = Depends(get_user_repository),
+    # current_user: UserEntity = Depends(get_current_active_user),
+):
+    """
+    Retorna um usuário pelo email no formato JSON:API.
+    - 200: { "data": { ...resource object... } }
+    - 400: { "errors": [ validação ] }
+    - 404: { "errors": [ { status, code, title, detail, source } ] }
+    """
+    # Validar request
+    validator = UserValidator(user_repo)
+    validation_errors = validator.validate_get_by_email_request(email)
+    
+    if validation_errors:
+        first_error = validation_errors[0]
+        status_code = int(first_error.status)
+        return JSONResponse(
+            status_code=status_code,
+            content=JsonApiErrorResponse(errors=validation_errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
 
-#     get_user_by_email_uc = GetUserByEmailUseCase(user_repo)
-#     user_entity = get_user_by_email_uc.execute(email)
-#     if not user_entity:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return user_entity
+    # Buscar usuário
+    get_user_uc = GetUserByEmailUseCase(user_repo)
+    user_entity = get_user_uc.execute(email)
+    if not user_entity:
+        errors = [
+            JsonApiError(
+                status="404",
+                code="NOT_FOUND",
+                title="User not found",
+                detail=f"User with email '{email}' not found",
+                source={"pointer": "/email"},
+            )
+        ]
+        return JSONResponse(
+            status_code=404,
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
+
+    return UserReadResponse(data=UserResource.from_entity(user_entity))

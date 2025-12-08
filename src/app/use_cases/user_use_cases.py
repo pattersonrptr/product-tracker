@@ -39,20 +39,20 @@ class GetUserByIdUseCase:
         return self.user_repo.get_by_id(user_id)
 
 
-# class GetUserByUsernameUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
+class GetUserByUsernameUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
 
-#     def execute(self, username: str) -> Optional[UserEntity.User]:
-#         return self.user_repo.get_by_username(username)
+    def execute(self, username: str) -> Optional[UserEntity]:
+        return self.user_repo.get_by_username(username)
 
 
-# class GetUserByEmailUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
+class GetUserByEmailUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
 
-#     def execute(self, email: str) -> Optional[UserEntity.User]:
-#         return self.user_repo.get_by_email(email)
+    def execute(self, email: str) -> Optional[UserEntity]:
+        return self.user_repo.get_by_email(email)
 
 
 class GetAllUsersUseCase:

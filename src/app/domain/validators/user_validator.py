@@ -183,3 +183,45 @@ class UserValidator:
             )
 
         return errors
+
+    def validate_get_by_username_request(self, username: str) -> List[JsonApiError]:
+        """
+        Valida um request de busca por username.
+        Retorna lista de erros (vazia se válido).
+        """
+        errors = []
+
+        # Validação: username fornecido
+        if not username or not username.strip():
+            errors.append(
+                JsonApiError(
+                    status="400",
+                    code="MISSING_FIELD",
+                    title="Validation error",
+                    detail="Field 'username' is required",
+                    source={"pointer": "/username"},
+                )
+            )
+
+        return errors
+
+    def validate_get_by_email_request(self, email: str) -> List[JsonApiError]:
+        """
+        Valida um request de busca por email.
+        Retorna lista de erros (vazia se válido).
+        """
+        errors = []
+
+        # Validação: email fornecido
+        if not email or not email.strip():
+            errors.append(
+                JsonApiError(
+                    status="400",
+                    code="MISSING_FIELD",
+                    title="Validation error",
+                    detail="Field 'email' is required",
+                    source={"pointer": "/email"},
+                )
+            )
+
+        return errors

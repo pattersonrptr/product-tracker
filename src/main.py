@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # )
 from src.app.interfaces.controllers import (
     user_controller,
+    auth_controller,
+    register_controller,
     # source_website_controller,
     # price_history_controller,
     # search_config_controller,
@@ -25,6 +27,8 @@ app.add_middleware(
 
 # Register routers
 app.include_router(user_controller.router)
+app.include_router(auth_controller.auth_router)
+app.include_router(register_controller.register_router)
 
 # Register global exception handlers (JSON:API)
 from fastapi.exceptions import RequestValidationError

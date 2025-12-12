@@ -69,8 +69,8 @@ class UpdateUserUseCase:
 
     def execute(self, user_id: int, user_data) -> Optional[UserEntity]:
         """
-        Atualiza um usuário com os dados fornecidos.
-        Apenas campos não-None são atualizados.
+        Updates a user with the provided data.
+        Only non-None fields are updated.
         """
         existing_user = self.user_repo.get_by_id(user_id)
         if not existing_user:
@@ -78,7 +78,7 @@ class UpdateUserUseCase:
 
         attrs = user_data.data.attributes
 
-        # Atualizar apenas campos fornecidos (não-None)
+        # Update only provided fields (non-None)
         if attrs.username is not None:
             existing_user.username = attrs.username
         if attrs.email is not None:
@@ -96,7 +96,7 @@ class DeleteUserUseCase:
 
     def execute(self, user_id: int) -> bool:
         """
-        Deleta um usuário.
-        Retorna True se deletado com sucesso, False se não encontrado.
+        Deletes a user.
+        Returns True if successfully deleted, False if not found.
         """
         return self.user_repo.delete(user_id)

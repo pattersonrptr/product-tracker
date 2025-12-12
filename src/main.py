@@ -48,8 +48,8 @@ app.add_exception_handler(Exception, handle_generic_exception)
 @app.middleware("http")
 async def set_default_jsonapi_content_type(request, call_next):
     """
-    Ajusta o media_type para 'application/vnd.api+json' para endpoints JSON:API.
-    Atualmente aplicado para paths que começam com '/users'.
+    Adjusts the media_type to 'application/vnd.api+json' for JSON:API endpoints.
+    Currently applied to paths starting with '/users'.
     """
     response = await call_next(request)
     try:

@@ -36,8 +36,8 @@ logger.setLevel(logging.INFO)
 
 def get_user_repository(db = Depends(get_db)) -> UserRepository:
     """
-    TODO: Mover para módulo compartilhado (ex: src/app/infrastructure/dependencies.py)
-    para reutilização em múltiplos routers (auth, register, etc).
+    TODO: Move to shared module (e.g., src/app/infrastructure/dependencies.py)
+    for reuse across multiple routers (auth, register, etc.).
     """
     return UserRepository(db)
 
@@ -80,9 +80,9 @@ def read_user_by_username(
     user_repo: UserRepository = Depends(get_user_repository),
 ):
     """
-    Retorna um usuário pelo username no formato JSON:API.
+    Returns a user by username in JSON:API format.
     - 200: { "data": { ...resource object... } }
-    - 400: { "errors": [ validação ] }
+    - 400: { "errors": [ validation ] }
     - 404: { "errors": [ { status, code, title, detail, source } ] }
     """
     validator = UserValidator(user_repo)
@@ -106,9 +106,9 @@ def read_user_by_email(
     user_repo: UserRepository = Depends(get_user_repository),
 ):
     """
-    Retorna um usuário pelo email no formato JSON:API.
+    Returns a user by email in JSON:API format.
     - 200: { "data": { ...resource object... } }
-    - 400: { "errors": [ validação ] }
+    - 400: { "errors": [ validation ] }
     - 404: { "errors": [ { status, code, title, detail, source } ] }
     """
     validator = UserValidator(user_repo)
@@ -132,7 +132,7 @@ def read_user(
     user_repo: UserRepository = Depends(get_user_repository),
 ):
     """
-    Retorna um único usuário no formato JSON:API.
+    Returns a single user in JSON:API format.
     - 200: { "data": { ...resource object... } }
     - 404: { "errors": [ { status, code, title, detail, source } ] }
     """
@@ -152,11 +152,11 @@ def update_user(
     user_repo: UserRepository = Depends(get_user_repository),
 ):
     """
-    Atualiza um usuário no formato JSON:API.
+    Updates a user in JSON:API format.
     - 200: { "data": { ...resource object... } }
     - 404: { "errors": [ { status, code, title, detail, source } ] }
-    - 409: { "errors": [ conflito de duplicate username/email ] }
-    - 422: { "errors": [ validação ] }
+    - 409: { "errors": [ duplicate username/email conflict ] }
+    - 422: { "errors": [ validation ] }
     """
     validator = UserValidator(user_repo)
     validation_errors = validator.validate_update_request(user_in, user_id)
@@ -181,8 +181,8 @@ def delete_user(
     user_repo: UserRepository = Depends(get_user_repository),
 ):
     """
-    Deleta um usuário no formato JSON:API.
-    - 204: No Content (sucesso, sem body)
+    Deletes a user in JSON:API format.
+    - 204: No Content (success, no body)
     - 404: { "errors": [ { status, code, title, detail, source } ] }
     """
     validator = UserValidator(user_repo)

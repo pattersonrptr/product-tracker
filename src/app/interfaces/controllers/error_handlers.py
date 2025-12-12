@@ -13,8 +13,8 @@ logger.setLevel(logging.INFO)
 
 def _pydantic_error_to_jsonapi(err: dict) -> JsonApiError:
     """
-    Converte um erro Pydantic (item de exc.errors()) em JsonApiError.
-    Tenta montar um pointer amigável para /data/attributes/...
+    Converts a Pydantic error (item from exc.errors()) to JsonApiError.
+    Attempts to build a friendly pointer to /data/attributes/...
     """
     loc = err.get("loc", [])
     msg = err.get("msg", "")
@@ -41,8 +41,8 @@ def _pydantic_error_to_jsonapi(err: dict) -> JsonApiError:
 
 async def handle_request_validation_error(request: Request, exc: RequestValidationError):
     """
-    Handler para RequestValidationError (erros de validação Pydantic / FastAPI).
-    Retorna JSON:API errors[] com status 422.
+    Handler for RequestValidationError (Pydantic / FastAPI validation errors).
+    Returns JSON:API errors[] with status 422.
     """
     try:
         errors: List[JsonApiError] = [_pydantic_error_to_jsonapi(e) for e in exc.errors()]
@@ -62,9 +62,9 @@ async def handle_request_validation_error(request: Request, exc: RequestValidati
 
 async def handle_http_exception(request: Request, exc: HTTPException):
     """
-    Handler para HTTPException.
-    - Se exc.detail já contém estrutura JSON:API (errors), devolve direto.
-    - Caso contrário, encapsula a mensagem em errors[].
+    Handler for HTTPException.
+    - If exc.detail already contains JSON:API structure (errors), returns it directly.
+    - Otherwise, wraps the message in errors[].
     """
     detail = exc.detail
     if isinstance(detail, dict) and "errors" in detail:
@@ -82,7 +82,7 @@ async def handle_http_exception(request: Request, exc: HTTPException):
 
 async def handle_generic_exception(request: Request, exc: Exception):
     """
-    Handler para exceções não tratadas — log e resposta 500 JSON:API.
+    Handler for unhandled exceptions — log and return 500 JSON:API response.
     """
     logger.exception("Unhandled exception: %s", exc)
     error = JsonApiError(

@@ -24,15 +24,15 @@ class ResourceObject(BaseModel):
         exclude: Optional[List[str]] = None,
     ) -> "ResourceObject":
         """
-        Constrói um ResourceObject a partir de uma entidade/model.
-        - model: pydantic model ou objeto com __dict__.
-        - type_name: valor fixo para o campo 'type' (ex: "users").
-        - attributes_field: se fornecido, instancia este BaseModel com os dados de atributos.
-        - exclude: lista de campos a excluir dos attributes (ex: ['hashed_password']).
+        Builds a ResourceObject from an entity/model.
+        - model: pydantic model or object with __dict__.
+        - type_name: fixed value for 'type' field (e.g., "users").
+        - attributes_field: if provided, instantiates this BaseModel with attribute data.
+        - exclude: list of fields to exclude from attributes (e.g., ['hashed_password']).
         """
         exclude = exclude or []
 
-        # Extrair dados da entidade (suporte pydantic e objetos normais)
+        # Extract data from entity (support pydantic and regular objects)
         if hasattr(model, "model_dump"):
             attrs = model.model_dump(exclude_unset=True)
         else:
@@ -44,7 +44,7 @@ class ResourceObject(BaseModel):
 
         entity_id = attrs.get("id", None)
 
-        # Preparar os dados de attributes (removendo id e campos excluídos)
+        # Prepare attributes data (removing id and excluded fields)
         attributes_data = {k: v for k, v in attrs.items() if k not in exclude and k != "id"}
 
         if attributes_field:
@@ -60,7 +60,7 @@ class ResourceObject(BaseModel):
 
 
 class ResourceObjectForCreation(BaseModel):
-    """ResourceObject para requests de criação (POST) - sem campo id"""
+    """ResourceObject for creation requests (POST) - without id field"""
     type: str = Field(..., example="users")
     attributes: Any = None
     relationships: Optional[Dict[str, Any]] = None

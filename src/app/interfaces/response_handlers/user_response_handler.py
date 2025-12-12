@@ -7,14 +7,14 @@ from src.app.entities.user import User as UserEntity
 
 class UserResponseHandler:
     """
-    Centraliza respostas JSON:API para users.
-    Responsável por transformar entidades em respostas padronizadas.
+    Centralizes JSON:API responses for users.
+    Responsible for transforming entities into standardized responses.
     """
 
     @staticmethod
     def handle_validation_errors(validation_errors: list) -> JSONResponse:
         """
-        Retorna erros de validação em formato JSON:API.
+        Returns validation errors in JSON:API format.
         """
         first_error = validation_errors[0]
         status_code = int(first_error.status)
@@ -27,7 +27,7 @@ class UserResponseHandler:
     @staticmethod
     def handle_not_found(identifier: str, pointer: str) -> JSONResponse:
         """
-        Retorna 404 em formato JSON:API.
+        Returns 404 in JSON:API format.
         """
         errors = [
             JsonApiError(
@@ -47,6 +47,6 @@ class UserResponseHandler:
     @staticmethod
     def handle_success(entity: UserEntity) -> UserReadResponse:
         """
-        Retorna usuário em formato JSON:API (sucesso).
+        Returns user in JSON:API format (success).
         """
         return UserReadResponse(data=UserResource.from_entity(entity))

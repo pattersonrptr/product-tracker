@@ -3,16 +3,16 @@ from typing import Optional, List, Dict, Any
 
 
 class JsonApiError(BaseModel):
-    """Representa um erro individual no padrão JSON:API"""
+    """Represents an individual error in JSON:API format"""
     id: Optional[str] = None
-    status: str  # HTTP status code como string (ex: "400", "422")
-    code: Optional[str] = None  # Código de erro específico da aplicação
-    title: Optional[str] = None  # Título resumido do erro
-    detail: Optional[str] = None  # Descrição detalhada
-    source: Optional[Dict[str, Any]] = None  # Campo problemático (ex: {"pointer": "/data/attributes/email"})
+    status: str  # HTTP status code as string (e.g., "400", "422")
+    code: Optional[str] = None  # Application-specific error code
+    title: Optional[str] = None  # Brief error title
+    detail: Optional[str] = None  # Detailed description
+    source: Optional[Dict[str, Any]] = None  # Problematic field (e.g., {"pointer": "/data/attributes/email"})
     meta: Optional[Dict[str, Any]] = None
 
 
 class JsonApiErrorResponse(BaseModel):
-    """Response padrão JSON:API para erros"""
+    """Standard JSON:API response for errors"""
     errors: List[JsonApiError]

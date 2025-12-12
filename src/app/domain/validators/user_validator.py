@@ -11,12 +11,12 @@ class UserValidator:
 
     def validate_create_request(self, user_in: UserCreateRequest) -> List[JsonApiError]:
         """
-        Valida um request de criação de usuário.
-        Retorna lista de erros (vazia se válido).
+        Validates a user creation request.
+        Returns list of errors (empty if valid).
         """
         errors = []
 
-        # Validação 1: type deve ser "users"
+        # Validation 1: type must be "users"
         if user_in.data.type != "users":
             errors.append(
                 JsonApiError(
@@ -30,7 +30,7 @@ class UserValidator:
 
         attrs = user_in.data.attributes
 
-        # Validação 2: username obrigatório
+        # Validation 2: username required
         if not attrs.username or not attrs.username.strip():
             errors.append(
                 JsonApiError(
@@ -42,7 +42,7 @@ class UserValidator:
                 )
             )
 
-        # Validação 3: email obrigatório
+        # Validation 3: email required
         if not attrs.email or not attrs.email.strip():
             errors.append(
                 JsonApiError(
@@ -54,7 +54,7 @@ class UserValidator:
                 )
             )
 
-        # Validação 4: password obrigatória
+        # Validation 4: password required
         if not attrs.password or not attrs.password.strip():
             errors.append(
                 JsonApiError(
@@ -66,11 +66,11 @@ class UserValidator:
                 )
             )
 
-        # Se houver erros de campos obrigatórios, retorna cedo (não valida duplicatas)
+        # If there are required field errors, return early (don't validate duplicates)
         if errors:
             return errors
 
-        # Validação 5: username já existe
+        # Validation 5: username already exists
         existing_user_username = self.user_repo.get_by_username(attrs.username)
         if existing_user_username:
             errors.append(
@@ -83,7 +83,7 @@ class UserValidator:
                 )
             )
 
-        # Validação 6: email já existe
+        # Validation 6: email already exists
         existing_user_email = self.user_repo.get_by_email(attrs.email)
         if existing_user_email:
             errors.append(
@@ -100,12 +100,12 @@ class UserValidator:
 
     def validate_update_request(self, user_in: UserUpdateRequest, user_id: int) -> List[JsonApiError]:
         """
-        Valida um request de atualização de usuário.
-        Retorna lista de erros (vazia se válido).
+        Validates a user update request.
+        Returns list of errors (empty if valid).
         """
         errors = []
 
-        # Validação 1: type deve ser "users"
+        # Validation 1: type must be "users"
         if user_in.data.type != "users":
             errors.append(
                 JsonApiError(
@@ -119,7 +119,7 @@ class UserValidator:
 
         attrs = user_in.data.attributes
 
-        # Validação 2: pelo menos um campo deve ser fornecido
+        # Validation 2: at least one field must be provided
         if not any([attrs.username, attrs.email, attrs.is_active is not None]):
             errors.append(
                 JsonApiError(
@@ -132,7 +132,7 @@ class UserValidator:
             )
             return errors
 
-        # Validação 3: username já existe (se fornecido e diferente do atual)
+        # Validation 3: username already exists (if provided and different from current)
         if attrs.username:
             existing_user = self.user_repo.get_by_username(attrs.username)
             if existing_user and existing_user.id != user_id:
@@ -146,7 +146,7 @@ class UserValidator:
                     )
                 )
 
-        # Validação 4: email já existe (se fornecido e diferente do atual)
+        # Validation 4: email already exists (if provided and different from current)
         if attrs.email:
             existing_user = self.user_repo.get_by_email(attrs.email)
             if existing_user and existing_user.id != user_id:
@@ -164,12 +164,12 @@ class UserValidator:
 
     def validate_delete_request(self, user_id: int) -> List[JsonApiError]:
         """
-        Valida um request de deletação de usuário.
-        Retorna lista de erros (vazia se válido).
+        Validates a user deletion request.
+        Returns list of errors (empty if valid).
         """
         errors = []
 
-        # Validação: usuário existe
+        # Validation: user exists
         existing_user = self.user_repo.get_by_id(user_id)
         if not existing_user:
             errors.append(
@@ -186,12 +186,12 @@ class UserValidator:
 
     def validate_get_by_username_request(self, username: str) -> List[JsonApiError]:
         """
-        Valida um request de busca por username.
-        Retorna lista de erros (vazia se válido).
+        Validates a search request by username.
+        Returns list of errors (empty if valid).
         """
         errors = []
 
-        # Validação: username fornecido
+        # Validation: username provided
         if not username or not username.strip():
             errors.append(
                 JsonApiError(
@@ -207,12 +207,12 @@ class UserValidator:
 
     def validate_get_by_email_request(self, email: str) -> List[JsonApiError]:
         """
-        Valida um request de busca por email.
-        Retorna lista de erros (vazia se válido).
+        Validates a search request by email.
+        Returns list of errors (empty if valid).
         """
         errors = []
 
-        # Validação: email fornecido
+        # Validation: email provided
         if not email or not email.strip():
             errors.append(
                 JsonApiError(

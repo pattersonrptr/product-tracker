@@ -19,7 +19,7 @@ class UserAttributes(BaseModel):
 
 
 class UserAttributesForCreation(BaseModel):
-    """Attributes para criação - com password, sem timestamps"""
+    """Attributes for creation - with password, without timestamps"""
     username: str
     email: EmailStr
     password: str
@@ -27,7 +27,7 @@ class UserAttributesForCreation(BaseModel):
 
 
 class UserAttributesForUpdate(BaseModel):
-    """Attributes para atualização - campos opcionais"""
+    """Attributes for update - optional fields"""
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     is_active: Optional[bool] = None
@@ -39,9 +39,9 @@ class UserResource(ResourceObject):
     @classmethod
     def from_entity(cls, entity) -> "UserResource":
         """
-        Factory method: converte uma entidade (pydantic User) em UserResource JSON:API.
-        Delega a construção para a fábrica genérica em jsonapi.py.
-        Exclui campos sensíveis como hashed_password.
+        Factory method: converts an entity (pydantic User) to UserResource JSON:API.
+        Delegates construction to the generic factory in jsonapi.py.
+        Excludes sensitive fields like hashed_password.
         """
         return cls.from_model(
             entity,
@@ -52,12 +52,12 @@ class UserResource(ResourceObject):
 
 
 class UserResourceForCreation(ResourceObjectForCreation):
-    """ResourceObject para criação de users (sem id)"""
+    """ResourceObject for user creation (without id)"""
     attributes: UserAttributesForCreation
 
 
 class UserResourceForUpdate(ResourceObjectForCreation):
-    """ResourceObject para atualização de users (sem id)"""
+    """ResourceObject for user update (without id)"""
     attributes: UserAttributesForUpdate
 
 

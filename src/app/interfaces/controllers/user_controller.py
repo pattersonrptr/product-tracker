@@ -14,7 +14,7 @@ from src.app.interfaces.schemas.user_schema import (
     UserReadResponse,
     UserUpdateRequest,
 )
-from src.app.interfaces.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
+from src.app.interfaces.schemas.jsonapi_errors import JsonApiErrorResponse
 
 from src.app.use_cases.user_use_cases import (
     CreateUserUseCase,
@@ -29,8 +29,6 @@ from src.app.use_cases.user_use_cases import (
 from fastapi.responses import JSONResponse
 
 router = APIRouter(tags=["users"], prefix="/users")
-auth_router = APIRouter(tags=["auth"], prefix="/auth")
-register_router = APIRouter(tags=["register"])
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

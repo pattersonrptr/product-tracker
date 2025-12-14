@@ -1,7 +1,7 @@
 from typing import List
 
-from src.app.interfaces.schemas.jsonapi_errors import JsonApiError
-from src.app.interfaces.schemas.user_schema import UserCreateRequest, UserUpdateRequest
+from src.app.interfaces.http.schemas.jsonapi_errors import JsonApiError
+from src.app.interfaces.http.schemas.user_schema import UserCreateRequest, UserUpdateRequest
 from src.app.interfaces.repositories.user_repository import UserRepositoryInterface
 
 

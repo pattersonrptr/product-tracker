@@ -1,0 +1,8 @@
+"""
+HTTP Controllers (Adapters for HTTP requests/responses).
+"""
+
+from src.app.interfaces.http.controllers.user_controller import router as user_controller
+from src.app.interfaces.http.controllers.auth_controller import auth_router as auth_controller
+
+__all__ = ["user_controller", "auth_controller"]

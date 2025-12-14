@@ -7,16 +7,16 @@ from src.config.logging_config import get_logger
 from src.app.infrastructure.database_config import get_db
 from src.app.infrastructure.repositories.user_repository import UserRepository
 from src.app.domain.validators.user_validator import UserValidator
-from src.app.interfaces.response_handlers.user_response_handler import UserResponseHandler
+from src.app.interfaces.http.presenters.user_presenter import UserPresenter
 
-from src.app.interfaces.schemas.user_schema import (
+from src.app.interfaces.http.schemas.user_schema import (
     UsersCollectionResponse,
     UserResource,
     UserCreateRequest,
     UserReadResponse,
     UserUpdateRequest,
 )
-from src.app.interfaces.schemas.jsonapi_errors import JsonApiErrorResponse
+from src.app.interfaces.http.schemas.jsonapi_errors import JsonApiErrorResponse
 from src.app.entities.user import User as UserEntity
 
 from src.app.security.auth import get_current_staff_user, get_current_superuser
@@ -72,7 +72,7 @@ def create_user(
             f"User creation validation failed for {user_in.data.attributes.username}",
             extra={'errors': len(validation_errors)}
         )
-        return UserResponseHandler.handle_validation_errors(validation_errors)
+        return UserPresenter.handle_validation_errors(validation_errors)
 
     attrs = user_in.data.attributes
     hashed_password = hash_password(attrs.password)
@@ -89,7 +89,7 @@ def create_user(
         }
     )
     
-    return UserResponseHandler.handle_success(created_user)
+    return UserPresenter.handle_success(created_user)
 
 
 @router.get("/", response_model=UsersCollectionResponse)
@@ -124,15 +124,15 @@ def read_user_by_username(
     validation_errors = validator.validate_get_by_username_request(username)
     
     if validation_errors:
-        return UserResponseHandler.handle_validation_errors(validation_errors)
+        return UserPresenter.handle_validation_errors(validation_errors)
 
     get_user_uc = GetUserByUsernameUseCase(user_repo)
     user_entity = get_user_uc.execute(username)
     
     if not user_entity:
-        return UserResponseHandler.handle_not_found(f"username '{username}'", "/username")
+        return UserPresenter.handle_not_found(f"username '{username}'", "/username")
     
-    return UserResponseHandler.handle_success(user_entity)
+    return UserPresenter.handle_success(user_entity)
 
 
 @router.get("/email/{email}", response_model=UserReadResponse)
@@ -153,15 +153,15 @@ def read_user_by_email(
     validation_errors = validator.validate_get_by_email_request(email)
     
     if validation_errors:
-        return UserResponseHandler.handle_validation_errors(validation_errors)
+        return UserPresenter.handle_validation_errors(validation_errors)
 
     get_user_uc = GetUserByEmailUseCase(user_repo)
     user_entity = get_user_uc.execute(email)
     
     if not user_entity:
-        return UserResponseHandler.handle_not_found(f"email '{email}'", "/email")
+        return UserPresenter.handle_not_found(f"email '{email}'", "/email")
     
-    return UserResponseHandler.handle_success(user_entity)
+    return UserPresenter.handle_success(user_entity)
 
 
 @router.get("/{user_id}", response_model=UserReadResponse)
@@ -181,9 +181,9 @@ def read_user(
     user_entity = get_user_uc.execute(user_id)
     
     if not user_entity:
-        return UserResponseHandler.handle_not_found(f"id {user_id}", "/data/id")
+        return UserPresenter.handle_not_found(f"id {user_id}", "/data/id")
     
-    return UserResponseHandler.handle_success(user_entity)
+    return UserPresenter.handle_success(user_entity)
 
 
 @router.put("/{user_id}", response_model=UserReadResponse)
@@ -215,14 +215,14 @@ def update_user(
             f"User update validation failed for ID: {user_id}",
             extra={'errors': len(validation_errors)}
         )
-        return UserResponseHandler.handle_validation_errors(validation_errors)
+        return UserPresenter.handle_validation_errors(validation_errors)
 
     get_user_uc = GetUserByIdUseCase(user_repo)
     user_entity = get_user_uc.execute(user_id)
     
     if not user_entity:
         logger.warning(f"User not found for update: ID {user_id}")
-        return UserResponseHandler.handle_not_found(f"id {user_id}", "/data/id")
+        return UserPresenter.handle_not_found(f"id {user_id}", "/data/id")
 
     update_uc = UpdateUserUseCase(user_repo)
     updated_user = update_uc.execute(user_id, user_in)
@@ -237,7 +237,7 @@ def update_user(
         }
     )
     
-    return UserResponseHandler.handle_success(updated_user)
+    return UserPresenter.handle_success(updated_user)
 
 
 @router.delete("/{user_id}", status_code=204)
@@ -273,14 +273,14 @@ def delete_user(
     
     if not user_entity:
         logger.warning(f"User not found for deletion: ID {user_id}")
-        return UserResponseHandler.handle_not_found(f"id {user_id}", "/data/id")
+        return UserPresenter.handle_not_found(f"id {user_id}", "/data/id")
 
     delete_uc = DeleteUserUseCase(user_repo)
     deleted = delete_uc.execute(user_id)
     
     if not deleted:
         logger.error(f"Failed to delete user ID: {user_id}")
-        return UserResponseHandler.handle_not_found(f"id {user_id}", "/data/id")
+        return UserPresenter.handle_not_found(f"id {user_id}", "/data/id")
     
     logger.warning(
         f"User deleted successfully: {user_entity.username} (ID: {user_id})",

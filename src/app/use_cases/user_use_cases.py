@@ -2,7 +2,7 @@ from typing import Optional, List
 from passlib.context import CryptContext
 from src.app.entities.user import User as UserEntity
 from src.app.interfaces.repositories.user_repository import UserRepositoryInterface
-from src.app.interfaces.schemas.user_schema import UserCreateRequest    # , UserUpdate
+from src.app.interfaces.http.schemas.user_schema import UserCreateRequest    # , UserUpdate
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

@@ -7,7 +7,7 @@ from src.config import settings
 from src.config.logging_config import get_logger
 from src.app.infrastructure.repositories.user_repository import UserRepository
 from sqlalchemy.orm import Session
-from src.app.interfaces.schemas.auth_schema import TokenPayload
+from src.app.interfaces.http.schemas.auth_schema import TokenPayload
 from src.app.entities.user import User as UserEntity
 from src.app.security.auth import get_current_active_user
 

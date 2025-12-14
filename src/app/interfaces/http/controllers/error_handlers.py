@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 
-from src.app.interfaces.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
+from src.app.interfaces.http.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

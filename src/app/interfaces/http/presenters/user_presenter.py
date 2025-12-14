@@ -1,14 +1,14 @@
 from fastapi.responses import JSONResponse
 
-from src.app.interfaces.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
-from src.app.interfaces.schemas.user_schema import UserReadResponse, UserResource
+from src.app.interfaces.http.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
+from src.app.interfaces.http.schemas.user_schema import UserReadResponse, UserResource
 from src.app.entities.user import User as UserEntity
 
 
-class UserResponseHandler:
+class UserPresenter:
     """
-    Centralizes JSON:API responses for users.
-    Responsible for transforming entities into standardized responses.
+    Presenter for User entities following Clean Architecture.
+    Transforms domain entities into HTTP presentation formats (JSON:API).
     """
 
     @staticmethod

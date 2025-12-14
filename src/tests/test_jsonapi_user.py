@@ -1,4 +1,4 @@
-from src.app.interfaces.schemas.user_schema import UserCreateRequest, UserAttributes, UserResource
+from src.app.interfaces.http.schemas.user_schema import UserCreateRequest, UserAttributes, UserResource
 
 def test_user_create_request_ok():
     attrs = {

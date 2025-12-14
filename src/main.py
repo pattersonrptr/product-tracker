@@ -15,10 +15,10 @@ setup_logging(
 
 logger = get_logger(__name__)
 
-# from src.app.interfaces.controllers import (
+# from src.app.interfaces.http.controllers import (
 #     product_controller,
 # )
-from src.app.interfaces.controllers import (
+from src.app.interfaces.http.controllers import (
     user_controller,
     auth_controller,
     # source_website_controller,
@@ -89,13 +89,13 @@ async def log_requests(request: Request, call_next):
         raise
 
 # Register routers
-app.include_router(auth_controller.auth_router)
-app.include_router(user_controller.router)
+app.include_router(auth_controller)
+app.include_router(user_controller)
 
 # Register global exception handlers (JSON:API)
 from fastapi.exceptions import RequestValidationError
 from fastapi import HTTPException
-from src.app.interfaces.controllers.error_handlers import (
+from src.app.interfaces.http.controllers.error_handlers import (
     handle_request_validation_error,
     handle_http_exception,
     handle_generic_exception,

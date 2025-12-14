@@ -2,7 +2,7 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
 
-from src.app.interfaces.schemas.jsonapi import (
+from src.app.interfaces.http.schemas.jsonapi import (
     ResourceObject,
     ResourceObjectForCreation,
     SingleResourceRequest,

@@ -26,6 +26,8 @@ class CreateUserUseCase:
             email=attrs.email,
             hashed_password=hashed_password,
             is_active=attrs.is_active if attrs.is_active is not None else True,
+            is_staff=attrs.is_staff if attrs.is_staff is not None else False,
+            is_superuser=attrs.is_superuser if attrs.is_superuser is not None else False,
         )
         created_user = self.user_repo.create(new_user_entity)
         return created_user
@@ -85,6 +87,10 @@ class UpdateUserUseCase:
             existing_user.email = attrs.email
         if attrs.is_active is not None:
             existing_user.is_active = attrs.is_active
+        if attrs.is_staff is not None:
+            existing_user.is_staff = attrs.is_staff
+        if attrs.is_superuser is not None:
+            existing_user.is_superuser = attrs.is_superuser
 
         updated_user = self.user_repo.update(user_id, existing_user)
         return updated_user

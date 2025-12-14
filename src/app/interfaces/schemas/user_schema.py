@@ -14,6 +14,8 @@ class UserAttributes(BaseModel):
     username: str
     email: EmailStr
     is_active: Optional[bool] = True
+    is_staff: Optional[bool] = False
+    is_superuser: Optional[bool] = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -24,6 +26,8 @@ class UserAttributesForCreation(BaseModel):
     email: EmailStr
     password: str
     is_active: Optional[bool] = True
+    is_staff: Optional[bool] = False
+    is_superuser: Optional[bool] = False
 
 
 class UserAttributesForUpdate(BaseModel):
@@ -31,6 +35,8 @@ class UserAttributesForUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     is_active: Optional[bool] = None
+    is_staff: Optional[bool] = None
+    is_superuser: Optional[bool] = None
 
 
 class UserResource(ResourceObject):

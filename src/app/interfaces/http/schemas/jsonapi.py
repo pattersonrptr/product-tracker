@@ -10,7 +10,7 @@ class ResourceIdentifier(BaseModel):
 
 
 class ResourceObject(BaseModel):
-    type: str = Field(..., example="users")
+    type: str = Field(..., description="Resource type identifier")
     id: Optional[str] = None
     attributes: Any = None
     relationships: Optional[Dict[str, Any]] = None
@@ -61,7 +61,7 @@ class ResourceObject(BaseModel):
 
 class ResourceObjectForCreation(BaseModel):
     """ResourceObject for creation requests (POST) - without id field"""
-    type: str = Field(..., example="users")
+    type: str = Field(..., description="Resource type identifier")
     attributes: Any = None
     relationships: Optional[Dict[str, Any]] = None
 

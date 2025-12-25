@@ -1,6 +1,6 @@
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from src.app.interfaces.http.schemas.jsonapi import (
     ResourceObject,
@@ -40,6 +40,7 @@ class UserAttributesForUpdate(BaseModel):
 
 
 class UserResource(ResourceObject):
+    type: str = Field(default="users", examples=["users"])
     attributes: UserAttributes
 
     @classmethod
@@ -59,11 +60,13 @@ class UserResource(ResourceObject):
 
 class UserResourceForCreation(ResourceObjectForCreation):
     """ResourceObject for user creation (without id)"""
+    type: str = Field(default="users", examples=["users"])
     attributes: UserAttributesForCreation
 
 
 class UserResourceForUpdate(ResourceObjectForCreation):
     """ResourceObject for user update (without id)"""
+    type: str = Field(default="users", examples=["users"])
     attributes: UserAttributesForUpdate
 
 

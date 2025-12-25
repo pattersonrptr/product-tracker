@@ -111,12 +111,14 @@ app.add_exception_handler(Exception, handle_generic_exception)
 async def set_default_jsonapi_content_type(request, call_next):
     """
     Adjusts the media_type to 'application/vnd.api+json' for JSON:API endpoints.
-    Currently applied to paths starting with '/users'.
+    Currently applied to paths starting with '/users' or '/auth'.
     """
     response = await call_next(request)
     try:
         path = request.url.path or ""
-        if response.media_type == "application/json" and path.startswith("/users"):
+        if response.media_type == "application/json" and (
+            path.startswith("/users") or path.startswith("/auth")
+        ):
             response.media_type = "application/vnd.api+json"
     except Exception:
         pass

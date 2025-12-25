@@ -1,5 +1,95 @@
+from typing import Optional
 from pydantic import BaseModel
+
+from src.app.interfaces.http.schemas.jsonapi import (
+    ResourceObject,
+    ResourceObjectForCreation,
+    SingleResourceRequest,
+    SingleResourceResponse,
+)
 
 
 class TokenPayload(BaseModel):
     token: str
+
+
+class TokenAttributes(BaseModel):
+    """Attributes for token response"""
+    access_token: str
+    token_type: str
+    expires_in: int  # minutes
+
+
+class TokenResource(ResourceObject):
+    """JSON:API resource for authentication tokens"""
+    attributes: TokenAttributes
+
+    @classmethod
+    def from_values(cls, access_token: str, token_type: str, expires_in: int) -> "TokenResource":
+        """
+        Factory method: creates TokenResource from token values.
+        Delegates construction to the generic factory in jsonapi.py.
+        """
+        token_model = TokenAttributes(
+            access_token=access_token,
+            token_type=token_type,
+            expires_in=expires_in,
+        )
+        return cls.from_model(
+            token_model,
+            type_name="tokens",
+            attributes_field=TokenAttributes,
+        )
+
+
+class TokenResponse(SingleResourceResponse):
+    """JSON:API response for token endpoints"""
+    data: TokenResource
+    meta: Optional[dict] = None
+
+
+class TokenValidationAttributes(BaseModel):
+    """Attributes for token validation response"""
+    is_valid: bool
+    message: Optional[str] = None
+
+
+class TokenValidationResource(ResourceObject):
+    """JSON:API resource for token validation"""
+    attributes: TokenValidationAttributes
+
+    @classmethod
+    def from_values(cls, is_valid: bool, message: Optional[str] = None) -> "TokenValidationResource":
+        """
+        Factory method: creates TokenValidationResource from validation values.
+        Delegates construction to the generic factory in jsonapi.py.
+        """
+        validation_model = TokenValidationAttributes(
+            is_valid=is_valid,
+            message=message,
+        )
+        return cls.from_model(
+            validation_model,
+            type_name="token-validations",
+            attributes_field=TokenValidationAttributes,
+        )
+
+
+class TokenValidationResponse(SingleResourceResponse):
+    """JSON:API response for token validation"""
+    data: TokenValidationResource
+
+
+class TokenValidationRequestAttributes(BaseModel):
+    """Attributes for token validation request"""
+    token: str
+
+
+class TokenValidationRequestResource(ResourceObjectForCreation):
+    """JSON:API resource for token validation request (without id)"""
+    attributes: TokenValidationRequestAttributes
+
+
+class TokenValidationRequest(SingleResourceRequest):
+    """JSON:API request for token validation endpoint"""
+    data: TokenValidationRequestResource

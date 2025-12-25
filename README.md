@@ -35,7 +35,10 @@ This project offers a solution for automated price monitoring and product data c
 
 1. Access the API at http://localhost:8000/docs for the Swagger UI or http://localhost:8000/redoc for the ReDoc documentation.
    - You will be able to see the available endpoints and test them directly from the browser.
-   - To test the endpoints you need first to create a user using the `/register` endpoint, then it's needed to authenticate using the `/auth/login` endpoint to obtain a token. Once you have the token, you can use it to access the other endpoints by including it in the `Authorization` header as a Bearer token (set the auth token in the `Authorize` button in the Swagger UI).
+   - **Default superuser credentials** (created automatically on first run):
+     - Username: `admin`
+     - Password: `admin`
+   - Authenticate using the `/auth/login` endpoint to obtain a token. Once you have the token, you can use it to access the other endpoints by including it in the `Authorization` header as a Bearer token (set the auth token in the `Authorize` button in the Swagger UI).
 2. **(Optional)**. You can run **load_fixtures.py** to populate the database with initial testing data:
    ```bash
    docker exec -it web python3 src/scripts/load_fixtures.py all
@@ -47,6 +50,8 @@ This project offers a solution for automated price monitoring and product data c
    This example runs a scraper for the search setting with ID 3. You can change the ID to run other scrapers.
 
 ## Run tests
+
+### Unit/Integration Tests (pytest)
 
 To run the tests, you can use the following commands:
 
@@ -79,3 +84,20 @@ or to generate an HTML report:
 ```bash
   pytest --cov=src --cov-report=html src/tests
 ```
+
+### API Smoke Tests (bash scripts)
+
+Quick bash scripts for testing endpoints during development:
+
+```bash
+# Test auth endpoints
+./src/scripts/api_tests/test_auth.sh
+
+# Test with custom credentials
+./src/scripts/api_tests/test_auth.sh myuser mypassword
+
+# Run all API tests
+./src/scripts/api_tests/run_all_tests.sh
+```
+
+See [src/scripts/api_tests/README.md](src/scripts/api_tests/README.md) for more details.

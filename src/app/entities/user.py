@@ -9,6 +9,8 @@ class User(BaseModel):
     email: EmailStr
     hashed_password: Optional[str] = None
     is_active: bool = True
+    is_staff: bool = False
+    is_superuser: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

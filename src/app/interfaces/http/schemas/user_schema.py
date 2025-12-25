@@ -2,7 +2,7 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
 
-from src.app.interfaces.schemas.jsonapi import (
+from src.app.interfaces.http.schemas.jsonapi import (
     ResourceObject,
     ResourceObjectForCreation,
     SingleResourceRequest,
@@ -14,16 +14,29 @@ class UserAttributes(BaseModel):
     username: str
     email: EmailStr
     is_active: Optional[bool] = True
+    is_staff: Optional[bool] = False
+    is_superuser: Optional[bool] = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
 
 class UserAttributesForCreation(BaseModel):
-    """Attributes para criação - com password, sem timestamps"""
+    """Attributes for creation - with password, without timestamps"""
     username: str
     email: EmailStr
     password: str
     is_active: Optional[bool] = True
+    is_staff: Optional[bool] = False
+    is_superuser: Optional[bool] = False
+
+
+class UserAttributesForUpdate(BaseModel):
+    """Attributes for update - optional fields"""
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
+    is_staff: Optional[bool] = None
+    is_superuser: Optional[bool] = None
 
 
 class UserResource(ResourceObject):
@@ -32,9 +45,9 @@ class UserResource(ResourceObject):
     @classmethod
     def from_entity(cls, entity) -> "UserResource":
         """
-        Factory method: converte uma entidade (pydantic User) em UserResource JSON:API.
-        Delega a construção para a fábrica genérica em jsonapi.py.
-        Exclui campos sensíveis como hashed_password.
+        Factory method: converts an entity (pydantic User) to UserResource JSON:API.
+        Delegates construction to the generic factory in jsonapi.py.
+        Excludes sensitive fields like hashed_password.
         """
         return cls.from_model(
             entity,
@@ -45,12 +58,21 @@ class UserResource(ResourceObject):
 
 
 class UserResourceForCreation(ResourceObjectForCreation):
-    """ResourceObject para criação de users (sem id)"""
+    """ResourceObject for user creation (without id)"""
     attributes: UserAttributesForCreation
+
+
+class UserResourceForUpdate(ResourceObjectForCreation):
+    """ResourceObject for user update (without id)"""
+    attributes: UserAttributesForUpdate
 
 
 class UserCreateRequest(SingleResourceRequest):
     data: UserResourceForCreation
+
+
+class UserUpdateRequest(SingleResourceRequest):
+    data: UserResourceForUpdate
 
 
 class UserReadResponse(SingleResourceResponse):

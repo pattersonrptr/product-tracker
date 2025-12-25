@@ -2,7 +2,7 @@ from typing import Optional, List
 from passlib.context import CryptContext
 from src.app.entities.user import User as UserEntity
 from src.app.interfaces.repositories.user_repository import UserRepositoryInterface
-from src.app.interfaces.schemas.user_schema import UserCreateRequest    # , UserUpdate
+from src.app.interfaces.http.schemas.user_schema import UserCreateRequest    # , UserUpdate
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -26,33 +26,35 @@ class CreateUserUseCase:
             email=attrs.email,
             hashed_password=hashed_password,
             is_active=attrs.is_active if attrs.is_active is not None else True,
+            is_staff=attrs.is_staff if attrs.is_staff is not None else False,
+            is_superuser=attrs.is_superuser if attrs.is_superuser is not None else False,
         )
         created_user = self.user_repo.create(new_user_entity)
         return created_user
 
 
-# class GetUserByIdUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
+class GetUserByIdUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
 
-#     def execute(self, user_id: int) -> Optional[UserEntity.User]:
-#         return self.user_repo.get_by_id(user_id)
-
-
-# class GetUserByUsernameUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
-
-#     def execute(self, username: str) -> Optional[UserEntity.User]:
-#         return self.user_repo.get_by_username(username)
+    def execute(self, user_id: int) -> Optional[UserEntity]:
+        return self.user_repo.get_by_id(user_id)
 
 
-# class GetUserByEmailUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
+class GetUserByUsernameUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
 
-#     def execute(self, email: str) -> Optional[UserEntity.User]:
-#         return self.user_repo.get_by_email(email)
+    def execute(self, username: str) -> Optional[UserEntity]:
+        return self.user_repo.get_by_username(username)
+
+
+class GetUserByEmailUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
+
+    def execute(self, email: str) -> Optional[UserEntity]:
+        return self.user_repo.get_by_email(email)
 
 
 class GetAllUsersUseCase:
@@ -63,50 +65,44 @@ class GetAllUsersUseCase:
         return self.user_repo.get_all()
 
 
-# class UpdateUserUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
+class UpdateUserUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
 
-#     def execute(self, user_id: int, user_in: UserUpdate) -> Optional[UserEntity.User]:
-#         existing_user = self.user_repo.get_by_id(user_id)
-#         if not existing_user:
-#             return None
+    def execute(self, user_id: int, user_data) -> Optional[UserEntity]:
+        """
+        Updates a user with the provided data.
+        Only non-None fields are updated.
+        """
+        existing_user = self.user_repo.get_by_id(user_id)
+        if not existing_user:
+            return None
 
-#         update_data = user_in.model_dump(
-#             exclude_unset=True, exclude={"current_password", "new_password"}
-#         )
+        attrs = user_data.data.attributes
 
-#         if user_in.new_password:
-#             if not user_in.current_password:
-#                 raise ValueError("Current password is required to set a new password.")
+        # Update only provided fields (non-None)
+        if attrs.username is not None:
+            existing_user.username = attrs.username
+        if attrs.email is not None:
+            existing_user.email = attrs.email
+        if attrs.is_active is not None:
+            existing_user.is_active = attrs.is_active
+        if attrs.is_staff is not None:
+            existing_user.is_staff = attrs.is_staff
+        if attrs.is_superuser is not None:
+            existing_user.is_superuser = attrs.is_superuser
 
-#             if not pwd_context.verify(
-#                 user_in.current_password, existing_user.hashed_password
-#             ):
-#                 raise ValueError("Incorrect current password.")
-
-#             existing_user.hashed_password = pwd_context.hash(user_in.new_password)
-
-#         if (
-#             "username" in update_data
-#             and update_data["username"] != existing_user.username
-#         ):
-#             if self.user_repo.get_by_username(update_data["username"]):
-#                 raise ValueError("New username already registered")
-
-#         if "email" in update_data and update_data["email"] != existing_user.email:
-#             if self.user_repo.get_by_email(update_data["email"]):
-#                 raise ValueError("New email already registered by another user")
-
-#         for key, value in update_data.items():
-#             setattr(existing_user, key, value)
-
-#         return self.user_repo.update(user_id, existing_user)
+        updated_user = self.user_repo.update(user_id, existing_user)
+        return updated_user
 
 
-# class DeleteUserUseCase:
-#     def __init__(self, user_repo: UserRepositoryInterface):
-#         self.user_repo = user_repo
+class DeleteUserUseCase:
+    def __init__(self, user_repo: UserRepositoryInterface):
+        self.user_repo = user_repo
 
-#     def execute(self, user_id: int) -> bool:
-#         return self.user_repo.delete(user_id)
+    def execute(self, user_id: int) -> bool:
+        """
+        Deletes a user.
+        Returns True if successfully deleted, False if not found.
+        """
+        return self.user_repo.delete(user_id)

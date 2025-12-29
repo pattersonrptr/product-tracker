@@ -7,7 +7,7 @@ from src.app.interfaces.http.schemas.auth_schema import (
     TokenValidationResponse,
     TokenValidationResource,
 )
-from src.app.interfaces.http.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
+from src.common.jsonapi import JsonApiError, JsonApiErrorResponse
 
 
 class AuthPresenter:

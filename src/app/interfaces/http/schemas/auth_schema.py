@@ -1,7 +1,7 @@
 from typing import Optional
 from pydantic import BaseModel, Field
 
-from src.app.interfaces.http.schemas.jsonapi import (
+from src.common.jsonapi import (
     ResourceObject,
     ResourceObjectForCreation,
     SingleResourceRequest,

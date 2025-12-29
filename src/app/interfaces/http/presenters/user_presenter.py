@@ -1,6 +1,6 @@
 from fastapi.responses import JSONResponse
 
-from src.app.interfaces.http.schemas.jsonapi_errors import JsonApiError, JsonApiErrorResponse
+from src.common.jsonapi import JsonApiError, JsonApiErrorResponse
 from src.app.interfaces.http.schemas.user_schema import UserReadResponse, UserResource
 from src.app.entities.user import User as UserEntity
 

@@ -16,7 +16,7 @@ from src.app.interfaces.http.schemas.user_schema import (
     UserReadResponse,
     UserUpdateRequest,
 )
-from src.app.interfaces.http.schemas.jsonapi_errors import JsonApiErrorResponse
+from src.common.jsonapi import JsonApiErrorResponse
 from src.app.entities.user import User as UserEntity
 
 from src.app.security.auth import get_current_staff_user, get_current_superuser

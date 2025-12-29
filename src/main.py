@@ -95,7 +95,7 @@ app.include_router(user_controller)
 # Register global exception handlers (JSON:API)
 from fastapi.exceptions import RequestValidationError
 from fastapi import HTTPException
-from src.app.interfaces.http.controllers.error_handlers import (
+from src.app.interfaces.http.middleware.error_handlers import (
     handle_request_validation_error,
     handle_http_exception,
     handle_generic_exception,

@@ -1,7 +1,7 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from src.app.interfaces.http.schemas.jsonapi import (
+from src.common.jsonapi import (
     ResourceObject,
     ResourceObjectForCreation,
     SingleResourceRequest,
@@ -22,6 +22,7 @@ class TokenAttributes(BaseModel):
 
 class TokenResource(ResourceObject):
     """JSON:API resource for authentication tokens"""
+    type: str = Field(default="auth", examples=["auth"])
     attributes: TokenAttributes
 
     @classmethod
@@ -37,7 +38,7 @@ class TokenResource(ResourceObject):
         )
         return cls.from_model(
             token_model,
-            type_name="tokens",
+            type_name="auth",
             attributes_field=TokenAttributes,
         )
 
@@ -56,6 +57,7 @@ class TokenValidationAttributes(BaseModel):
 
 class TokenValidationResource(ResourceObject):
     """JSON:API resource for token validation"""
+    type: str = Field(default="token-validations", examples=["token-validations"])
     attributes: TokenValidationAttributes
 
     @classmethod
@@ -87,6 +89,7 @@ class TokenValidationRequestAttributes(BaseModel):
 
 class TokenValidationRequestResource(ResourceObjectForCreation):
     """JSON:API resource for token validation request (without id)"""
+    type: str = Field(default="token-validations", examples=["token-validations"])
     attributes: TokenValidationRequestAttributes
 
 

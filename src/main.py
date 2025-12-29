@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 # Initialize logging FIRST (before any other imports that might log)
 from src.config.logging_config import setup_logging, get_logger
@@ -9,7 +10,7 @@ setup_logging(
     app_name="product-tracker",
     log_level=settings.LOG_LEVEL,
     enable_console=True,
-    enable_file=True,
+    enable_file=os.getenv("ENABLE_FILE_LOGGING", "true").lower() != "false",
     json_logs=settings.ENABLE_JSON_LOGS,
 )
 

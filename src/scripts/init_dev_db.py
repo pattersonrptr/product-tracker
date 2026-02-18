@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, '/src')
 
 # Import the create_superuser function
-from create_superuser import create_superuser_user
+from create_superuser import create_superuser_user  # type: ignore[import-not-found]
 
 
 def create_default_superuser():

@@ -327,11 +327,14 @@ bandit -r src/ -f json -o bandit-report.json
 
 ### Poetry - Dependency Management
 
-[Poetry](https://python-poetry.org/) provides modern dependency management and packaging.
+[Poetry](https://python-poetry.org/) provides modern dependency management with better dependency resolution and reproducible builds via `poetry.lock`.
 
 ```bash
-# Install dependencies
+# Install dependencies (production + dev)
 poetry install
+
+# Install only production dependencies
+poetry install --only main
 
 # Add new dependency
 poetry add package-name
@@ -342,11 +345,15 @@ poetry add --group dev package-name
 # Update dependencies
 poetry update
 
-# Run command in virtual environment
+# Run commands in virtual environment
 poetry run pytest
+poetry run python -m src.main
+
+# Export to requirements.txt (for Docker)
+poetry export -f requirements.txt --output requirements.txt --without-hashes
 ```
 
-📖 **For detailed Poetry usage, see [POETRY.md](POETRY.md)**
+**Note:** Poetry is the source of truth for dependencies. The `requirements.txt` is maintained for backward compatibility.
 
 ### Running Quality Checks
 

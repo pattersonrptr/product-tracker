@@ -231,6 +231,28 @@ src/tests/
 - **Integration Tests**: Critical paths covered
 - **E2E Tests**: Happy paths + error scenarios
 
+### Bash API Tests (Manual Testing)
+
+For manual testing with real HTTP requests while the API is running:
+
+```bash
+# Run all bash tests in order (auth → users)
+./src/scripts/api_tests/run_all_tests.sh
+
+# Or with custom API URL
+./src/scripts/api_tests/run_all_tests.sh http://localhost:8000
+
+# Run individual test
+./src/scripts/api_tests/auth/login.sh
+./src/scripts/api_tests/users/list_users.sh
+```
+
+**Features:**
+- ✅ Validates API is reachable before running
+- ✅ Runs tests in correct dependency order
+- ✅ Colorful output with pass/fail summary
+- ✅ Exit code for CI/CD integration (0 = success)
+
 ---
 
 ## 📁 Project Structure

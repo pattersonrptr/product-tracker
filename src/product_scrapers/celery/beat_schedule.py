@@ -1,8 +1,8 @@
 import time
 
-from celery.schedules import crontab
 # from src.app.infrastructure.database.models.search_config_model import SearchConfig
-from celery.beat import Scheduler, ScheduleEntry
+from celery.beat import ScheduleEntry, Scheduler
+from celery.schedules import crontab
 
 
 def get_dynamic_schedule():
@@ -13,7 +13,7 @@ def get_dynamic_schedule():
         schedules = {}
         searches = db.query(SearchConfig).filter(SearchConfig.is_active).all()
 
-        for idx, search in enumerate(searches):
+        for _idx, search in enumerate(searches):
             schedules[f"run_search_{search.id}"] = {
                 "task": "src.product_scrapers.celery.tasks.run_scraper_search",
                 "schedule": crontab(

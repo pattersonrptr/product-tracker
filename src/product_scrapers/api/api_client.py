@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Any
+from typing import Any
 
 import requests
 
@@ -28,7 +28,7 @@ class ApiClient:
             print(f"🔴 Request error at {url}: {e}")
             return requests.Response()
 
-    def get_search_configs_by_id(self, search_config_id: int) -> Dict[str, Any]:
+    def get_search_configs_by_id(self, search_config_id: int) -> dict[str, Any]:
         print(f"🔎 Getting search config by ID: {search_config_id}")
         response = self._make_request("GET", f"/search_configs/{search_config_id}/")
         if response.status_code == 200 and response.json():
@@ -50,12 +50,12 @@ class ApiClient:
             response.json() if response.status_code == 200 and response.json() else []
         )
 
-    def get_active_searches(self) -> List[Dict[str, Any]]:
+    def get_active_searches(self) -> list[dict[str, Any]]:
         print("🔎 Getting search configs")
         response = self._make_request("GET", "/search_configs/")
         return [item for item in response.json() if item.get("is_active")]
 
-    def get_source_website_by_name(self, website_name: str) -> Dict[str, Any]:
+    def get_source_website_by_name(self, website_name: str) -> dict[str, Any]:
         print(f"🔎 Checking if source website {website_name} exists")
         response = self._make_request("GET", f"/source_websites/name/{website_name}")
         return (
@@ -86,9 +86,8 @@ class ApiClient:
         print(f"💾 Saving {len(products)} products")
         created = 0
         for product in products:
-            if not self.product_exists(product):
-                if self.create_product(product):
-                    created += 1
+            if not self.product_exists(product) and self.create_product(product):
+                created += 1
         print(f"✅ {created} new products created")
         return created
 

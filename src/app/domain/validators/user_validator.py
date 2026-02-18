@@ -1,15 +1,16 @@
-from typing import List
-
-from src.common.jsonapi import JsonApiError
-from src.app.interfaces.http.schemas.user_schema import UserCreateRequest, UserUpdateRequest
+from src.app.interfaces.http.schemas.user_schema import (
+    UserCreateRequest,
+    UserUpdateRequest,
+)
 from src.app.interfaces.repositories.user_repository import UserRepositoryInterface
+from src.common.jsonapi import JsonApiError
 
 
 class UserValidator:
     def __init__(self, user_repo: UserRepositoryInterface):
         self.user_repo = user_repo
 
-    def validate_create_request(self, user_in: UserCreateRequest) -> List[JsonApiError]:
+    def validate_create_request(self, user_in: UserCreateRequest) -> list[JsonApiError]:
         """
         Validates a user creation request.
         Returns list of errors (empty if valid).
@@ -98,7 +99,9 @@ class UserValidator:
 
         return errors
 
-    def validate_update_request(self, user_in: UserUpdateRequest, user_id: int) -> List[JsonApiError]:
+    def validate_update_request(
+        self, user_in: UserUpdateRequest, user_id: int
+    ) -> list[JsonApiError]:
         """
         Validates a user update request.
         Returns list of errors (empty if valid).
@@ -162,7 +165,7 @@ class UserValidator:
 
         return errors
 
-    def validate_delete_request(self, user_id: int) -> List[JsonApiError]:
+    def validate_delete_request(self, user_id: int) -> list[JsonApiError]:
         """
         Validates a user deletion request.
         Returns list of errors (empty if valid).
@@ -184,7 +187,7 @@ class UserValidator:
 
         return errors
 
-    def validate_get_by_username_request(self, username: str) -> List[JsonApiError]:
+    def validate_get_by_username_request(self, username: str) -> list[JsonApiError]:
         """
         Validates a search request by username.
         Returns list of errors (empty if valid).
@@ -205,7 +208,7 @@ class UserValidator:
 
         return errors
 
-    def validate_get_by_email_request(self, email: str) -> List[JsonApiError]:
+    def validate_get_by_email_request(self, email: str) -> list[JsonApiError]:
         """
         Validates a search request by email.
         Returns list of errors (empty if valid).

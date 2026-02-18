@@ -7,17 +7,17 @@ Uses SQLite in-memory for fast, isolated tests.
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import sessionmaker
 
+from src.app.entities.user import User as UserEntity
 from src.app.infrastructure.database_config import Base
 from src.app.infrastructure.repositories.user_repository import UserRepository
-from src.app.entities.user import User as UserEntity
-
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope="function")
 def test_db():
@@ -27,16 +27,16 @@ def test_db():
     """
     # Create in-memory SQLite engine
     engine = create_engine("sqlite:///:memory:", echo=False)
-    
+
     # Create all tables
     Base.metadata.create_all(engine)
-    
+
     # Create session
     TestingSessionLocal = sessionmaker(bind=engine)
     session = TestingSessionLocal()
-    
+
     yield session
-    
+
     # Cleanup
     session.close()
     engine.dispose()
@@ -64,6 +64,7 @@ def sample_user_entity():
 # ============================================================================
 # Create Tests
 # ============================================================================
+
 
 class TestUserRepositoryCreate:
     """Tests for UserRepository.create()."""
@@ -160,12 +161,11 @@ class TestUserRepositoryCreate:
 # Read Tests
 # ============================================================================
 
+
 class TestUserRepositoryRead:
     """Tests for UserRepository read operations."""
 
-    def test_get_by_id_should_return_user(
-        self, user_repository, sample_user_entity
-    ):
+    def test_get_by_id_should_return_user(self, user_repository, sample_user_entity):
         """
         Given: User exists in database
         When: repository.get_by_id() is called
@@ -226,9 +226,7 @@ class TestUserRepositoryRead:
         # Then
         assert found_user is None
 
-    def test_get_by_email_should_return_user(
-        self, user_repository, sample_user_entity
-    ):
+    def test_get_by_email_should_return_user(self, user_repository, sample_user_entity):
         """
         Given: User exists in database
         When: repository.get_by_email() is called
@@ -298,6 +296,7 @@ class TestUserRepositoryRead:
 # Update Tests
 # ============================================================================
 
+
 class TestUserRepositoryUpdate:
     """Tests for UserRepository.update()."""
 
@@ -317,7 +316,7 @@ class TestUserRepositoryUpdate:
         created_user.username = "updated_username"
         created_user.email = "updated@example.com"
         created_user.is_staff = True
-        
+
         updated_user = user_repository.update(created_user.id, created_user)
 
         # Then
@@ -352,9 +351,7 @@ class TestUserRepositoryUpdate:
         # Then
         assert result is None
 
-    def test_update_with_duplicate_username_should_raise_error(
-        self, user_repository
-    ):
+    def test_update_with_duplicate_username_should_raise_error(self, user_repository):
         """
         Given: Two users in database
         When: repository.update() tries to change username to existing one
@@ -371,7 +368,7 @@ class TestUserRepositoryUpdate:
             email="user2@example.com",
             hashed_password="$2b$12$hash2",
         )
-        created_user1 = user_repository.create(user1)
+        user_repository.create(user1)
         created_user2 = user_repository.create(user2)
 
         # When/Then: Try to update user2's username to user1's username
@@ -384,6 +381,7 @@ class TestUserRepositoryUpdate:
 # ============================================================================
 # Delete Tests
 # ============================================================================
+
 
 class TestUserRepositoryDelete:
     """Tests for UserRepository.delete()."""

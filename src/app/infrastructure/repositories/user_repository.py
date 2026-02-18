@@ -1,11 +1,10 @@
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from src.app.interfaces.repositories.user_repository import UserRepositoryInterface
 from src.app.entities.user import User as UserEntity
 from src.app.infrastructure.database.models.user_model import User as UserModel
+from src.app.interfaces.repositories.user_repository import UserRepositoryInterface
 
 
 class UserRepository(UserRepositoryInterface):
@@ -37,18 +36,18 @@ class UserRepository(UserRepositoryInterface):
             return UserEntity(**user.__dict__)
         return None
 
-    def get_all(self) -> List[UserEntity]:
+    def get_all(self) -> list[UserEntity]:
         users = self.db.query(UserModel).all()
         return [UserEntity(**user.__dict__) for user in users]
 
-    def update(self, user_id: int, user: UserEntity) -> Optional[UserEntity]:
+    def update(self, user_id: int, user: UserEntity) -> UserEntity | None:
         db_user = self.db.query(UserModel).filter(UserModel.id == user_id).first()
         if not db_user:
             return None
         try:
             for key, value in user.model_dump(exclude_unset=True).items():
                 setattr(db_user, key, value)
-            db_user.updated_at = datetime.now(timezone.utc)
+            db_user.updated_at = datetime.now(UTC)
             self.db.commit()
             self.db.refresh(db_user)
             return UserEntity(**db_user.__dict__)

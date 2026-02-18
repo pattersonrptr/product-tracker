@@ -2,7 +2,7 @@ import os
 from configparser import ConfigParser
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 
 def get_db_url_from_alembic_ini():

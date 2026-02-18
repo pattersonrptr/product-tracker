@@ -1,17 +1,20 @@
 """Unit tests for UserValidator"""
+
+from unittest.mock import Mock
+
 import pytest
 from pydantic import ValidationError
-from unittest.mock import Mock
+
 from src.app.domain.validators.user_validator import UserValidator
+from src.app.entities.user import User as UserEntity
 from src.app.interfaces.http.schemas.user_schema import (
+    UserAttributesForCreation,
+    UserAttributesForUpdate,
     UserCreateRequest,
     UserResourceForCreation,
-    UserAttributesForCreation,
-    UserUpdateRequest,
     UserResourceForUpdate,
-    UserAttributesForUpdate,
+    UserUpdateRequest,
 )
-from src.app.entities.user import User as UserEntity
 
 
 class TestUserValidatorCreate:
@@ -26,7 +29,7 @@ class TestUserValidatorCreate:
         # Arrange
         mock_repository = Mock()
         mock_repository.get_by_username.return_value = None  # Username available
-        mock_repository.get_by_email.return_value = None     # Email available
+        mock_repository.get_by_email.return_value = None  # Email available
 
         validator = UserValidator(mock_repository)
 
@@ -40,7 +43,7 @@ class TestUserValidatorCreate:
                     is_active=True,
                     is_staff=False,
                     is_superuser=False,
-                )
+                ),
             )
         )
 
@@ -51,7 +54,6 @@ class TestUserValidatorCreate:
         assert len(errors) == 0
         mock_repository.get_by_username.assert_called_once_with("newuser")
         mock_repository.get_by_email.assert_called_once_with("newuser@example.com")
-    
 
     @pytest.mark.parametrize(
         "field_name,field_value,other_fields",
@@ -59,7 +61,7 @@ class TestUserValidatorCreate:
             ("username", "", {"email": "test@example.com", "password": "password123"}),
             ("password", "", {"username": "testuser", "email": "test@example.com"}),
         ],
-        ids=["missing_username", "missing_password"]
+        ids=["missing_username", "missing_password"],
     )
     def test_create_request_missing_required_field_should_return_error(
         self, field_name, field_value, other_fields
@@ -76,7 +78,7 @@ class TestUserValidatorCreate:
         # Build attributes dynamically
         attrs_data = {
             field_name: field_value,  # Field being tested (empty)
-            **other_fields,           # Other valid fields
+            **other_fields,  # Other valid fields
             "is_active": True,
             "is_staff": False,
             "is_superuser": False,
@@ -84,8 +86,7 @@ class TestUserValidatorCreate:
 
         request = UserCreateRequest(
             data=UserResourceForCreation(
-                type="users",
-                attributes=UserAttributesForCreation(**attrs_data)
+                type="users", attributes=UserAttributesForCreation(**attrs_data)
             )
         )
 
@@ -99,7 +100,6 @@ class TestUserValidatorCreate:
         assert errors[0].status == "422"
         mock_repository.get_by_username.assert_not_called()
         mock_repository.get_by_email.assert_not_called()
-
 
     def test_create_request_invalid_type_should_return_error(self):
         """
@@ -121,7 +121,7 @@ class TestUserValidatorCreate:
                     is_active=True,
                     is_staff=False,
                     is_superuser=False,
-                )
+                ),
             )
         )
 
@@ -136,7 +136,6 @@ class TestUserValidatorCreate:
         assert "invalid_type" in errors[0].detail
         mock_repository.get_by_username.assert_not_called()
         mock_repository.get_by_email.assert_not_called()
-
 
     def test_create_request_with_empty_email_should_fail_at_pydantic_level(self):
         """
@@ -156,15 +155,16 @@ class TestUserValidatorCreate:
                         is_active=True,
                         is_staff=False,
                         is_superuser=False,
-                    )
+                    ),
                 )
             )
-        
+
         # Verify it's an email validation error
         assert "email" in str(exc_info.value)
 
-
-    def test_create_request_with_invalid_email_format_should_fail_at_pydantic_level(self):
+    def test_create_request_with_invalid_email_format_should_fail_at_pydantic_level(
+        self,
+    ):
         """
         Given: A user creation request with invalid email format
         When: UserCreateRequest is instantiated
@@ -182,13 +182,12 @@ class TestUserValidatorCreate:
                         is_active=True,
                         is_staff=False,
                         is_superuser=False,
-                    )
+                    ),
                 )
             )
-        
+
         # Verify it's an email validation error
         assert "email" in str(exc_info.value)
-
 
     @pytest.mark.parametrize(
         "field_name,duplicate_value",
@@ -196,7 +195,7 @@ class TestUserValidatorCreate:
             ("username", "existinguser"),
             ("email", "existing@example.com"),
         ],
-        ids=["duplicate_username", "duplicate_email"]
+        ids=["duplicate_username", "duplicate_email"],
     )
     def test_create_request_with_duplicate_field_should_return_error(
         self, field_name, duplicate_value
@@ -217,7 +216,7 @@ class TestUserValidatorCreate:
             is_staff=False,
             is_superuser=False,
         )
-        
+
         # Mock repository returns existing user for the duplicate field
         if field_name == "username":
             mock_repository.get_by_username.return_value = existing_user
@@ -239,8 +238,7 @@ class TestUserValidatorCreate:
 
         request = UserCreateRequest(
             data=UserResourceForCreation(
-                type="users",
-                attributes=UserAttributesForCreation(**attrs_data)
+                type="users", attributes=UserAttributesForCreation(**attrs_data)
             )
         )
 
@@ -280,7 +278,7 @@ class TestUserValidatorUpdate:
                 attributes=UserAttributesForUpdate(
                     username="updateduser",
                     email="updated@example.com",
-                )
+                ),
             )
         )
 
@@ -289,7 +287,6 @@ class TestUserValidatorUpdate:
 
         # Assert
         assert len(errors) == 0
-
 
     def test_update_request_invalid_type_should_return_error(self):
         """
@@ -300,13 +297,13 @@ class TestUserValidatorUpdate:
         # Arrange
         mock_repository = Mock()
         mock_repository.get_by_username.return_value = None  # No duplicate
-        mock_repository.get_by_email.return_value = None     # No duplicate
+        mock_repository.get_by_email.return_value = None  # No duplicate
         validator = UserValidator(mock_repository)
 
         request = UserUpdateRequest(
             data=UserResourceForUpdate(
                 type="invalid_type",
-                attributes=UserAttributesForUpdate(username="newname")
+                attributes=UserAttributesForUpdate(username="newname"),
             )
         )
 
@@ -317,7 +314,6 @@ class TestUserValidatorUpdate:
         assert len(errors) == 1
         assert errors[0].code == "INVALID_TYPE"
         assert errors[0].status == "400"
-
 
     def test_update_request_with_no_fields_should_return_error(self):
         """
@@ -332,7 +328,7 @@ class TestUserValidatorUpdate:
         request = UserUpdateRequest(
             data=UserResourceForUpdate(
                 type="users",
-                attributes=UserAttributesForUpdate()  # No fields
+                attributes=UserAttributesForUpdate(),  # No fields
             )
         )
 
@@ -345,14 +341,13 @@ class TestUserValidatorUpdate:
         assert errors[0].status == "422"
         assert errors[0].source["pointer"] == "/data/attributes"
 
-
     @pytest.mark.parametrize(
         "field_name,duplicate_value",
         [
             ("username", "otheruser"),
             ("email", "other@example.com"),
         ],
-        ids=["duplicate_username", "duplicate_email"]
+        ids=["duplicate_username", "duplicate_email"],
     )
     def test_update_request_with_duplicate_field_from_another_user_should_return_error(
         self, field_name, duplicate_value
@@ -391,8 +386,7 @@ class TestUserValidatorUpdate:
 
         request = UserUpdateRequest(
             data=UserResourceForUpdate(
-                type="users",
-                attributes=UserAttributesForUpdate(**attrs_data)
+                type="users", attributes=UserAttributesForUpdate(**attrs_data)
             )
         )
 
@@ -406,7 +400,6 @@ class TestUserValidatorUpdate:
         else:
             assert errors[0].code == "DUPLICATE_EMAIL"
         assert errors[0].status == "409"
-
 
     def test_update_request_with_own_username_should_return_no_errors(self):
         """
@@ -432,8 +425,7 @@ class TestUserValidatorUpdate:
 
         request = UserUpdateRequest(
             data=UserResourceForUpdate(
-                type="users",
-                attributes=UserAttributesForUpdate(username="sameuser")
+                type="users", attributes=UserAttributesForUpdate(username="sameuser")
             )
         )
 
@@ -474,7 +466,6 @@ class TestUserValidatorDelete:
         # Assert
         assert len(errors) == 0
         mock_repository.get_by_id.assert_called_once_with(1)
-
 
     def test_delete_request_for_nonexistent_user_should_return_error(self):
         """
@@ -518,11 +509,8 @@ class TestUserValidatorGetByUsername:
         # Assert
         assert len(errors) == 0
 
-
     @pytest.mark.parametrize(
-        "username",
-        ["", "   "],
-        ids=["empty_string", "whitespace_only"]
+        "username", ["", "   "], ids=["empty_string", "whitespace_only"]
     )
     def test_get_by_username_with_empty_username_should_return_error(self, username):
         """
@@ -563,11 +551,8 @@ class TestUserValidatorGetByEmail:
         # Assert
         assert len(errors) == 0
 
-
     @pytest.mark.parametrize(
-        "email",
-        ["", "   "],
-        ids=["empty_string", "whitespace_only"]
+        "email", ["", "   "], ids=["empty_string", "whitespace_only"]
     )
     def test_get_by_email_with_empty_email_should_return_error(self, email):
         """

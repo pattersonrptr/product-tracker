@@ -44,7 +44,7 @@ class ScraperManager:
 
     @staticmethod
     def _get_search_urls(search_results: dict):
-        return [url for url in search_results["urls"]]
+        return list(search_results["urls"])
 
     @staticmethod
     def _chunk_urls(urls: list, chunk_size: int):

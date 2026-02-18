@@ -1,27 +1,29 @@
+import builtins
+from typing import Any, TypeVar
+
 from pydantic import BaseModel, Field
-from typing import Any, Dict, Optional, List, Type, TypeVar
 
 T = TypeVar("T", bound=BaseModel)
 
 
 class ResourceIdentifier(BaseModel):
     type: str
-    id: Optional[str] = None
+    id: str | None = None
 
 
 class ResourceObject(BaseModel):
     type: str = Field(..., description="Resource type identifier")
-    id: Optional[str] = None
+    id: str | None = None
     attributes: Any = None
-    relationships: Optional[Dict[str, Any]] = None
+    relationships: dict[str, Any] | None = None
 
     @classmethod
     def from_model(
         cls,
         model: Any,
         type_name: str,
-        attributes_field: Optional[Type[T]] = None,
-        exclude: Optional[List[str]] = None,
+        attributes_field: builtins.type[T] | None = None,
+        exclude: list[str] | None = None,
     ) -> "ResourceObject":
         """
         Builds a ResourceObject from an entity/model.
@@ -45,7 +47,9 @@ class ResourceObject(BaseModel):
         entity_id = attrs.get("id", None)
 
         # Prepare attributes data (removing id and excluded fields)
-        attributes_data = {k: v for k, v in attrs.items() if k not in exclude and k != "id"}
+        attributes_data = {
+            k: v for k, v in attrs.items() if k not in exclude and k != "id"
+        }
 
         if attributes_field:
             attributes = attributes_field(**attributes_data)
@@ -61,9 +65,10 @@ class ResourceObject(BaseModel):
 
 class ResourceObjectForCreation(BaseModel):
     """ResourceObject for creation requests (POST) - without id field"""
+
     type: str = Field(..., description="Resource type identifier")
     attributes: Any = None
-    relationships: Optional[Dict[str, Any]] = None
+    relationships: dict[str, Any] | None = None
 
 
 class SingleResourceRequest(BaseModel):
@@ -75,6 +80,6 @@ class SingleResourceResponse(BaseModel):
 
 
 class CollectionResponse(BaseModel):
-    data: List[ResourceObject]
-    meta: Optional[Dict[str, Any]] = None
-    links: Optional[Dict[str, str]] = None
+    data: list[ResourceObject]
+    meta: dict[str, Any] | None = None
+    links: dict[str, str] | None = None

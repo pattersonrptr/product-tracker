@@ -1,8 +1,8 @@
 import datetime
 import json
+from urllib.parse import quote_plus
 
 from bs4 import BeautifulSoup
-from urllib.parse import quote_plus
 
 from src.product_scrapers.scrapers.base.requests_scraper import RequestScraper
 from src.product_scrapers.scrapers.interfaces.scraper_interface import ScraperInterface

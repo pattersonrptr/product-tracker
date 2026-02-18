@@ -44,10 +44,10 @@ print_test() {
 run_test() {
     local test_name="$1"
     local test_script="$2"
-    
+
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     print_test "$test_name"
-    
+
     if bash "$test_script"; then
         echo -e "${GREEN}✓ PASSED${NC}\n"
         PASSED_TESTS=$((PASSED_TESTS + 1))
@@ -70,7 +70,7 @@ print_summary() {
     echo -e "Passed:       ${GREEN}${PASSED_TESTS}${NC}"
     echo -e "Failed:       ${RED}${FAILED_TESTS}${NC}"
     echo ""
-    
+
     if [ $FAILED_TESTS -eq 0 ]; then
         echo -e "${GREEN}🎉 All tests passed!${NC}"
         return 0
@@ -89,7 +89,7 @@ main() {
     echo -e "API Base URL: ${BLUE}$API_BASE_URL${NC}"
     echo -e "Test Directory: ${BLUE}$SCRIPT_DIR${NC}"
     echo ""
-    
+
     # Check if API is reachable
     echo -e "${YELLOW}Checking API availability...${NC}"
     if ! curl -s -o /dev/null -w "%{http_code}" "$API_BASE_URL/docs" | grep -q "200"; then
@@ -98,21 +98,21 @@ main() {
         exit 1
     fi
     echo -e "${GREEN}✓ API is reachable${NC}"
-    
+
     # ========================================
     # Authentication Tests
     # ========================================
     print_section "1. Authentication Tests"
-    
+
     run_test "Login" "$SCRIPT_DIR/auth/login.sh"
     run_test "Verify Token" "$SCRIPT_DIR/auth/verify_token.sh"
     run_test "Refresh Token" "$SCRIPT_DIR/auth/refresh_token.sh"
-    
+
     # ========================================
     # User Management Tests
     # ========================================
     print_section "2. User Management Tests"
-    
+
     run_test "List Users" "$SCRIPT_DIR/users/list_users.sh"
     run_test "Get User by ID" "$SCRIPT_DIR/users/get_user_by_id.sh"
     run_test "Get User by Username" "$SCRIPT_DIR/users/get_user_by_username.sh"
@@ -120,7 +120,7 @@ main() {
     run_test "Create User" "$SCRIPT_DIR/users/create_user.sh"
     run_test "Update User" "$SCRIPT_DIR/users/update_user.sh"
     run_test "Delete User" "$SCRIPT_DIR/users/delete_user.sh"
-    
+
     # ========================================
     # Summary
     # ========================================

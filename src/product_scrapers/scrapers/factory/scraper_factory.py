@@ -1,6 +1,6 @@
-from src.product_scrapers.scrapers.interfaces.scraper_interface import ScraperInterface
 from src.product_scrapers.scrapers.enjoei import EnjoeiScraper
 from src.product_scrapers.scrapers.estante_virtual import EstanteVirtualScraper
+from src.product_scrapers.scrapers.interfaces.scraper_interface import ScraperInterface
 from src.product_scrapers.scrapers.mercado_livre import MercadoLivreScraper
 from src.product_scrapers.scrapers.olx import OLXScraper
 

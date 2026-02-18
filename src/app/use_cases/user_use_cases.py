@@ -1,8 +1,10 @@
-from typing import Optional, List
 from passlib.context import CryptContext
+
 from src.app.entities.user import User as UserEntity
+from src.app.interfaces.http.schemas.user_schema import (
+    UserCreateRequest,  # , UserUpdate
+)
 from src.app.interfaces.repositories.user_repository import UserRepositoryInterface
-from src.app.interfaces.http.schemas.user_schema import UserCreateRequest    # , UserUpdate
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -27,7 +29,9 @@ class CreateUserUseCase:
             hashed_password=hashed_password,
             is_active=attrs.is_active if attrs.is_active is not None else True,
             is_staff=attrs.is_staff if attrs.is_staff is not None else False,
-            is_superuser=attrs.is_superuser if attrs.is_superuser is not None else False,
+            is_superuser=attrs.is_superuser
+            if attrs.is_superuser is not None
+            else False,
         )
         created_user = self.user_repo.create(new_user_entity)
         return created_user
@@ -37,7 +41,7 @@ class GetUserByIdUseCase:
     def __init__(self, user_repo: UserRepositoryInterface):
         self.user_repo = user_repo
 
-    def execute(self, user_id: int) -> Optional[UserEntity]:
+    def execute(self, user_id: int) -> UserEntity | None:
         return self.user_repo.get_by_id(user_id)
 
 
@@ -45,7 +49,7 @@ class GetUserByUsernameUseCase:
     def __init__(self, user_repo: UserRepositoryInterface):
         self.user_repo = user_repo
 
-    def execute(self, username: str) -> Optional[UserEntity]:
+    def execute(self, username: str) -> UserEntity | None:
         return self.user_repo.get_by_username(username)
 
 
@@ -53,7 +57,7 @@ class GetUserByEmailUseCase:
     def __init__(self, user_repo: UserRepositoryInterface):
         self.user_repo = user_repo
 
-    def execute(self, email: str) -> Optional[UserEntity]:
+    def execute(self, email: str) -> UserEntity | None:
         return self.user_repo.get_by_email(email)
 
 
@@ -61,7 +65,7 @@ class GetAllUsersUseCase:
     def __init__(self, user_repo: UserRepositoryInterface):
         self.user_repo = user_repo
 
-    def execute(self) -> List[UserEntity]:
+    def execute(self) -> list[UserEntity]:
         return self.user_repo.get_all()
 
 
@@ -69,7 +73,7 @@ class UpdateUserUseCase:
     def __init__(self, user_repo: UserRepositoryInterface):
         self.user_repo = user_repo
 
-    def execute(self, user_id: int, user_data) -> Optional[UserEntity]:
+    def execute(self, user_id: int, user_data) -> UserEntity | None:
         """
         Updates a user with the provided data.
         Only non-None fields are updated.

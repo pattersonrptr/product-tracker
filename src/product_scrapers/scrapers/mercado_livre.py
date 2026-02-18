@@ -1,7 +1,7 @@
 import datetime
+from urllib.parse import parse_qs, urlparse
 
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse, parse_qs
 
 from src.product_scrapers.scrapers.base.requests_scraper import RequestScraper
 from src.product_scrapers.scrapers.interfaces.scraper_interface import ScraperInterface

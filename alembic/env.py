@@ -4,11 +4,9 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-
-
+from src.app import User  # noqa: F401
 from src.app.infrastructure.database_config import Base
 
-from src.app import User  # noqa: F401
 # from src.app.infrastructure.database.models.search_config_model import SearchConfig  # noqa: F401
 # from src.app.infrastructure.database.models.product_model import Product  # noqa: F401
 # from src.app.infrastructure.database.models.source_website_model import SourceWebsite  # noqa: F401

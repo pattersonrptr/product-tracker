@@ -1,4 +1,3 @@
-from typing import Optional
 from pydantic import BaseModel, Field
 
 from src.common.jsonapi import (
@@ -15,6 +14,7 @@ class TokenPayload(BaseModel):
 
 class TokenAttributes(BaseModel):
     """Attributes for token response"""
+
     access_token: str
     token_type: str
     expires_in: int  # minutes
@@ -22,11 +22,14 @@ class TokenAttributes(BaseModel):
 
 class TokenResource(ResourceObject):
     """JSON:API resource for authentication tokens"""
+
     type: str = Field(default="auth", examples=["auth"])
     attributes: TokenAttributes
 
     @classmethod
-    def from_values(cls, access_token: str, token_type: str, expires_in: int) -> "TokenResource":
+    def from_values(
+        cls, access_token: str, token_type: str, expires_in: int
+    ) -> "TokenResource":
         """
         Factory method: creates TokenResource from token values.
         Delegates construction to the generic factory in jsonapi.py.
@@ -45,23 +48,28 @@ class TokenResource(ResourceObject):
 
 class TokenResponse(SingleResourceResponse):
     """JSON:API response for token endpoints"""
+
     data: TokenResource
-    meta: Optional[dict] = None
+    meta: dict | None = None
 
 
 class TokenValidationAttributes(BaseModel):
     """Attributes for token validation response"""
+
     is_valid: bool
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class TokenValidationResource(ResourceObject):
     """JSON:API resource for token validation"""
+
     type: str = Field(default="token-validations", examples=["token-validations"])
     attributes: TokenValidationAttributes
 
     @classmethod
-    def from_values(cls, is_valid: bool, message: Optional[str] = None) -> "TokenValidationResource":
+    def from_values(
+        cls, is_valid: bool, message: str | None = None
+    ) -> "TokenValidationResource":
         """
         Factory method: creates TokenValidationResource from validation values.
         Delegates construction to the generic factory in jsonapi.py.
@@ -79,20 +87,24 @@ class TokenValidationResource(ResourceObject):
 
 class TokenValidationResponse(SingleResourceResponse):
     """JSON:API response for token validation"""
+
     data: TokenValidationResource
 
 
 class TokenValidationRequestAttributes(BaseModel):
     """Attributes for token validation request"""
+
     token: str
 
 
 class TokenValidationRequestResource(ResourceObjectForCreation):
     """JSON:API resource for token validation request (without id)"""
+
     type: str = Field(default="token-validations", examples=["token-validations"])
     attributes: TokenValidationRequestAttributes
 
 
 class TokenValidationRequest(SingleResourceRequest):
     """JSON:API request for token validation endpoint"""
+
     data: TokenValidationRequestResource

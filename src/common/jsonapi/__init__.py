@@ -3,17 +3,17 @@ JSON:API implementation for FastAPI.
 Follows https://jsonapi.org/format/ specification.
 """
 
+from .errors import (
+    JsonApiError,
+    JsonApiErrorResponse,
+)
 from .resources import (
+    CollectionResponse,
     ResourceIdentifier,
     ResourceObject,
     ResourceObjectForCreation,
     SingleResourceRequest,
     SingleResourceResponse,
-    CollectionResponse,
-)
-from .errors import (
-    JsonApiError,
-    JsonApiErrorResponse,
 )
 
 __all__ = [

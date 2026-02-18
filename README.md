@@ -251,7 +251,8 @@ product-tracker/
 │   │   │   │   ├── controllers/       # Request handlers
 │   │   │   │   ├── schemas/           # Pydantic models
 │   │   │   │   ├── presenters/        # Response formatters
-│   │   │   │   └── middleware/        # HTTP middleware
+│   │   │   │   ├── middleware/        # HTTP middleware (CORS, logging, JSON:API)
+│   │   │   │   └── setup/             # Application setup (middleware, routers, handlers)
 │   │   │   └── repositories/          # Repository interfaces
 │   │   └── security/                  # Authentication & authorization
 │   ├── product_scrapers/              # Scraping module

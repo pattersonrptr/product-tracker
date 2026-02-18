@@ -20,6 +20,7 @@ A robust price monitoring system that automatically tracks product prices across
   - [First Run](#first-run)
 - [API Documentation](#-api-documentation)
 - [Running Tests](#-running-tests)
+- [Code Quality Tools](#-code-quality-tools)
 - [Project Structure](#-project-structure)
 - [Development](#-development)
 - [Environment Variables](#-environment-variables)
@@ -83,7 +84,8 @@ A robust price monitoring system that automatically tracks product prices across
 | **Scraping** | BeautifulSoup4, requests, cloudscraper |
 | **Testing** | pytest, pytest-cov, pytest-asyncio |
 | **DevOps** | Docker, Docker Compose |
-| **Code Quality** | Black, Flake8 (recommended) |
+| **Code Quality** | Ruff, MyPy, Pre-commit, Bandit |
+| **Dependency Management** | Poetry |
 
 ---
 
@@ -255,7 +257,112 @@ For manual testing with real HTTP requests while the API is running:
 
 ---
 
-## 📁 Project Structure
+## � Code Quality Tools
+
+This project uses modern Python tools to maintain high code quality standards:
+
+### Ruff - Fast Linter & Formatter
+
+[Ruff](https://docs.astral.sh/ruff/) is an extremely fast Python linter and formatter, written in Rust. It replaces Black, isort, flake8, and more.
+
+```bash
+# Check code (linting)
+ruff check .
+
+# Auto-fix issues
+ruff check --fix .
+
+# Format code
+ruff format .
+```
+
+**Configured rules:** pycodestyle, pyflakes, isort, pep8-naming, pyupgrade, flake8-bugbear, flake8-comprehensions, flake8-simplify
+
+### MyPy - Static Type Checker
+
+[MyPy](http://mypy-lang.org/) performs static type checking to catch type-related bugs before runtime.
+
+```bash
+# Check types
+mypy src/
+
+# Check specific module
+mypy src/app/use_cases/
+```
+
+**Current strategy:** Gradual adoption with permissive settings. Core modules (use_cases, domain, entities) have stricter checking enabled.
+
+### Pre-commit - Git Hooks
+
+[Pre-commit](https://pre-commit.com/) automatically runs code quality checks before each commit.
+
+```bash
+# Install hooks (one-time setup)
+pre-commit install
+
+# Run manually on all files
+pre-commit run --all-files
+
+# Run specific hook
+pre-commit run ruff --all-files
+```
+
+**Configured hooks:**
+- ✅ **Ruff** (linter + formatter) - Blocks commits if issues found
+- ⚠️ **MyPy** (type checker) - Manual stage (run with `--hook-stage manual`)
+- ⚠️ **Bandit** (security scanner) - Manual stage
+- ✅ Standard checks (trailing whitespace, EOF, YAML/JSON/TOML validation)
+
+### Bandit - Security Scanner
+
+[Bandit](https://bandit.readthedocs.io/) finds common security issues in Python code.
+
+```bash
+# Scan for security issues
+bandit -r src/
+
+# Generate detailed report
+bandit -r src/ -f json -o bandit-report.json
+```
+
+### Poetry - Dependency Management
+
+[Poetry](https://python-poetry.org/) provides modern dependency management and packaging.
+
+```bash
+# Install dependencies
+poetry install
+
+# Add new dependency
+poetry add package-name
+
+# Add dev dependency
+poetry add --group dev package-name
+
+# Update dependencies
+poetry update
+
+# Run command in virtual environment
+poetry run pytest
+```
+
+📖 **For detailed Poetry usage, see [POETRY.md](POETRY.md)**
+
+### Running Quality Checks
+
+```bash
+# Complete quality check pipeline
+ruff check . && ruff format --check . && mypy src/ && bandit -r src/
+
+# Or use pre-commit for everything
+pre-commit run --all-files --hook-stage manual
+```
+
+**Note:** These tools are integrated into the development workflow via pre-commit hooks, ensuring code quality is maintained automatically.
+
+---
+
+## �📁 Project Structure
 
 ```
 product-tracker/
@@ -446,10 +553,16 @@ Contributions are welcome! Please:
 
 ### Code Style
 
-- Follow **PEP 8** guidelines
+This project uses automated tools to enforce code quality:
+
+- **Ruff** for linting and formatting (auto-runs on commit)
+- **MyPy** for static type checking
+- **Pre-commit hooks** ensure code quality before commits
 - Use **type hints** for function signatures
 - Write **docstrings** for classes and methods
 - Maintain **test coverage** above 80%
+
+All code quality checks run automatically via pre-commit hooks. See the [Code Quality Tools](#-code-quality-tools) section for details.
 
 ---
 

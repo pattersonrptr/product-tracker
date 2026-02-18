@@ -1,4 +1,3 @@
-
 from src.app.interfaces.http.schemas.user_schema import (
     UserCreateRequest,
     UserUpdateRequest,
@@ -100,7 +99,9 @@ class UserValidator:
 
         return errors
 
-    def validate_update_request(self, user_in: UserUpdateRequest, user_id: int) -> list[JsonApiError]:
+    def validate_update_request(
+        self, user_in: UserUpdateRequest, user_id: int
+    ) -> list[JsonApiError]:
         """
         Validates a user update request.
         Returns list of errors (empty if valid).

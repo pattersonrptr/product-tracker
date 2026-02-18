@@ -25,8 +25,10 @@ from src.config.logging_config import get_logger
 auth_router = APIRouter(tags=["auth"], prefix="/auth")
 logger = get_logger(__name__)
 
+
 def get_user_repository(db: Session = Depends(get_db)) -> UserRepository:
     return UserRepository(db)
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -66,14 +68,18 @@ async def login(
     if not user:
         logger.warning(
             f"Login failed: User not found - {form_data.username}",
-            extra={'username': form_data.username, 'reason': 'user_not_found'}
+            extra={"username": form_data.username, "reason": "user_not_found"},
         )
         return AuthPresenter.handle_invalid_credentials()
 
     if not verify_password(form_data.password, user.hashed_password):
         logger.warning(
             f"Login failed: Invalid password for user - {form_data.username}",
-            extra={'username': form_data.username, 'user_id': user.id, 'reason': 'invalid_password'}
+            extra={
+                "username": form_data.username,
+                "user_id": user.id,
+                "reason": "invalid_password",
+            },
         )
         return AuthPresenter.handle_invalid_credentials()
 
@@ -86,12 +92,12 @@ async def login(
     logger.info(
         f"Login successful for user: {user.username} (ID: {user.id})",
         extra={
-            'action': 'login_success',
-            'user_id': user.id,
-            'username': user.username,
-            'is_staff': user.is_staff,
-            'is_superuser': user.is_superuser
-        }
+            "action": "login_success",
+            "user_id": user.id,
+            "username": user.username,
+            "is_staff": user.is_staff,
+            "is_superuser": user.is_superuser,
+        },
     )
 
     return AuthPresenter.present_token(
@@ -103,7 +109,7 @@ async def login(
             "username": user.username,
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser,
-        }
+        },
     )
 
 
@@ -131,14 +137,12 @@ async def verify_token(request: TokenValidationRequest):
         jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         logger.debug("Token verification successful")
         return AuthPresenter.present_token_validation(
-            is_valid=True,
-            message="Token is valid"
+            is_valid=True, message="Token is valid"
         )
     except JWTError as e:
         logger.warning(f"Token verification failed: {str(e)}")
         return AuthPresenter.present_token_validation(
-            is_valid=False,
-            message=f"Token verification failed: {str(e)}"
+            is_valid=False, message=f"Token verification failed: {str(e)}"
         )
 
 
@@ -152,7 +156,7 @@ async def refresh_token(current_user: UserEntity = Depends(get_current_active_us
     """
     logger.info(
         f"Token refresh for user: {current_user.username} (ID: {current_user.id})",
-        extra={'action': 'refresh_token', 'user_id': current_user.id}
+        extra={"action": "refresh_token", "user_id": current_user.id},
     )
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -172,5 +176,5 @@ async def refresh_token(current_user: UserEntity = Depends(get_current_active_us
         meta={
             "user_id": current_user.id,
             "username": current_user.username,
-        }
+        },
     )

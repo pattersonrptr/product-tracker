@@ -47,7 +47,9 @@ class ResourceObject(BaseModel):
         entity_id = attrs.get("id", None)
 
         # Prepare attributes data (removing id and excluded fields)
-        attributes_data = {k: v for k, v in attrs.items() if k not in exclude and k != "id"}
+        attributes_data = {
+            k: v for k, v in attrs.items() if k not in exclude and k != "id"
+        }
 
         if attributes_field:
             attributes = attributes_field(**attributes_data)
@@ -63,6 +65,7 @@ class ResourceObject(BaseModel):
 
 class ResourceObjectForCreation(BaseModel):
     """ResourceObject for creation requests (POST) - without id field"""
+
     type: str = Field(..., description="Resource type identifier")
     attributes: Any = None
     relationships: dict[str, Any] | None = None

@@ -1,4 +1,3 @@
-
 from fastapi.responses import JSONResponse
 
 from src.app.interfaces.http.schemas.auth_schema import (
@@ -44,7 +43,9 @@ class AuthPresenter:
         )
 
     @staticmethod
-    def present_token_validation(is_valid: bool, message: str | None = None) -> TokenValidationResponse:
+    def present_token_validation(
+        is_valid: bool, message: str | None = None
+    ) -> TokenValidationResponse:
         """
         Returns token validation result in JSON:API format.
 

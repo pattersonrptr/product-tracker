@@ -28,20 +28,22 @@ class ColoredFormatter(logging.Formatter):
 
     # ANSI color codes
     COLORS = {
-        'DEBUG': '\033[36m',      # Cyan
-        'INFO': '\033[32m',       # Green
-        'WARNING': '\033[33m',    # Yellow
-        'ERROR': '\033[31m',      # Red
-        'CRITICAL': '\033[35m',   # Magenta
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
+        "CRITICAL": "\033[35m",  # Magenta
     }
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
 
     def format(self, record):
         # Add color to level name
         levelname = record.levelname
         if levelname in self.COLORS:
-            record.levelname = f"{self.COLORS[levelname]}{self.BOLD}{levelname}{self.RESET}"
+            record.levelname = (
+                f"{self.COLORS[levelname]}{self.BOLD}{levelname}{self.RESET}"
+            )
 
         # Format the message
         formatted = super().format(record)
@@ -56,26 +58,26 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record):
         log_data = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'level': record.levelname,
-            'logger': record.name,
-            'message': record.getMessage(),
-            'module': record.module,
-            'function': record.funcName,
-            'line': record.lineno,
+            "timestamp": datetime.utcnow().isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
         }
 
         # Add exception info if present
         if record.exc_info:
-            log_data['exception'] = self.formatException(record.exc_info)
+            log_data["exception"] = self.formatException(record.exc_info)
 
         # Add extra fields if present
-        if hasattr(record, 'user_id'):
-            log_data['user_id'] = record.user_id
-        if hasattr(record, 'request_id'):
-            log_data['request_id'] = record.request_id
-        if hasattr(record, 'endpoint'):
-            log_data['endpoint'] = record.endpoint
+        if hasattr(record, "user_id"):
+            log_data["user_id"] = record.user_id
+        if hasattr(record, "request_id"):
+            log_data["request_id"] = record.request_id
+        if hasattr(record, "endpoint"):
+            log_data["endpoint"] = record.endpoint
 
         return json.dumps(log_data)
 
@@ -102,7 +104,7 @@ def setup_logging(
 
     # Determine log level
     if log_level is None:
-        log_level = getattr(settings, 'LOG_LEVEL', 'INFO')
+        log_level = getattr(settings, "LOG_LEVEL", "INFO")
 
     # Determine log directory
     if log_dir is None:
@@ -125,8 +127,8 @@ def setup_logging(
             console_formatter = JsonFormatter()
         else:
             console_formatter = ColoredFormatter(
-                fmt='%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
+                fmt="%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
             )
 
         console_handler.setFormatter(console_formatter)
@@ -140,7 +142,7 @@ def setup_logging(
             filename=main_log_file,
             maxBytes=10 * 1024 * 1024,  # 10 MB
             backupCount=5,
-            encoding='utf-8'
+            encoding="utf-8",
         )
         file_handler.setLevel(logging.DEBUG)  # Capture everything in file
 
@@ -148,8 +150,8 @@ def setup_logging(
             file_formatter = JsonFormatter()
         else:
             file_formatter = logging.Formatter(
-                fmt='%(asctime)s | %(levelname)-8s | %(name)-30s | %(funcName)-20s | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
+                fmt="%(asctime)s | %(levelname)-8s | %(name)-30s | %(funcName)-20s | %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
             )
 
         file_handler.setFormatter(file_formatter)
@@ -161,7 +163,7 @@ def setup_logging(
             filename=error_log_file,
             maxBytes=10 * 1024 * 1024,  # 10 MB
             backupCount=5,
-            encoding='utf-8'
+            encoding="utf-8",
         )
         error_handler.setLevel(logging.ERROR)
         error_handler.setFormatter(file_formatter)
@@ -209,47 +211,51 @@ class LoggerAdapter(logging.LoggerAdapter):
 
     def process(self, msg, kwargs):
         # Add extra context to the log record
-        extra = kwargs.get('extra', {})
+        extra = kwargs.get("extra", {})
         extra.update(self.extra)
-        kwargs['extra'] = extra
+        kwargs["extra"] = extra
         return msg, kwargs
 
 
 # Example usage functions for common patterns
-def log_api_request(logger: logging.Logger, method: str, path: str, user_id: int | None = None):
+def log_api_request(
+    logger: logging.Logger, method: str, path: str, user_id: int | None = None
+):
     """Helper to log API requests consistently."""
-    extra = {'endpoint': f"{method} {path}"}
+    extra = {"endpoint": f"{method} {path}"}
     if user_id:
-        extra['user_id'] = user_id
+        extra["user_id"] = user_id
     logger.info(f"API Request: {method} {path}", extra=extra)
 
 
-def log_api_response(logger: logging.Logger, method: str, path: str, status_code: int, duration_ms: float):
+def log_api_response(
+    logger: logging.Logger, method: str, path: str, status_code: int, duration_ms: float
+):
     """Helper to log API responses consistently."""
     extra = {
-        'endpoint': f"{method} {path}",
-        'status_code': status_code,
-        'duration_ms': duration_ms
+        "endpoint": f"{method} {path}",
+        "status_code": status_code,
+        "duration_ms": duration_ms,
     }
     level = logging.INFO if 200 <= status_code < 400 else logging.ERROR
-    logger.log(level, f"API Response: {method} {path} - {status_code} ({duration_ms:.2f}ms)", extra=extra)
+    logger.log(
+        level,
+        f"API Response: {method} {path} - {status_code} ({duration_ms:.2f}ms)",
+        extra=extra,
+    )
 
 
-def log_database_query(logger: logging.Logger, query_type: str, table: str, duration_ms: float):
+def log_database_query(
+    logger: logging.Logger, query_type: str, table: str, duration_ms: float
+):
     """Helper to log database queries consistently."""
-    extra = {
-        'query_type': query_type,
-        'table': table,
-        'duration_ms': duration_ms
-    }
-    logger.debug(f"DB Query: {query_type} on {table} ({duration_ms:.2f}ms)", extra=extra)
+    extra = {"query_type": query_type, "table": table, "duration_ms": duration_ms}
+    logger.debug(
+        f"DB Query: {query_type} on {table} ({duration_ms:.2f}ms)", extra=extra
+    )
 
 
 def log_user_action(logger: logging.Logger, user_id: int, action: str, resource: str):
     """Helper to log user actions consistently."""
-    extra = {
-        'user_id': user_id,
-        'action': action,
-        'resource': resource
-    }
+    extra = {"user_id": user_id, "action": action, "resource": resource}
     logger.info(f"User {user_id} {action} {resource}", extra=extra)

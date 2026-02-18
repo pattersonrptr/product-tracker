@@ -33,6 +33,7 @@ from src.app.use_cases.user_use_cases import (
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_user_repo():
     """Mock repository for testing use cases in isolation."""
@@ -68,7 +69,7 @@ def sample_create_request():
                 is_active=True,
                 is_staff=False,
                 is_superuser=False,
-            )
+            ),
         )
     )
 
@@ -82,7 +83,7 @@ def sample_update_request():
             attributes=UserAttributesForUpdate(
                 username="updateduser",
                 email="updated@example.com",
-            )
+            ),
         )
     )
 
@@ -90,6 +91,7 @@ def sample_update_request():
 # ============================================================================
 # CreateUserUseCase Tests
 # ============================================================================
+
 
 class TestCreateUserUseCase:
     """Tests for CreateUserUseCase."""
@@ -137,7 +139,7 @@ class TestCreateUserUseCase:
                     username="newuser",
                     email="newuser@example.com",
                     password="password123",
-                )
+                ),
             )
         )
         mock_user_repo.create.return_value = UserEntity(
@@ -165,10 +167,13 @@ class TestCreateUserUseCase:
 # GetUserByIdUseCase Tests
 # ============================================================================
 
+
 class TestGetUserByIdUseCase:
     """Tests for GetUserByIdUseCase."""
 
-    def test_execute_should_return_user_when_exists(self, mock_user_repo, sample_user_entity):
+    def test_execute_should_return_user_when_exists(
+        self, mock_user_repo, sample_user_entity
+    ):
         """
         Given: A user ID that exists in the repository
         When: GetUserByIdUseCase.execute() is called
@@ -207,10 +212,13 @@ class TestGetUserByIdUseCase:
 # GetUserByUsernameUseCase Tests
 # ============================================================================
 
+
 class TestGetUserByUsernameUseCase:
     """Tests for GetUserByUsernameUseCase."""
 
-    def test_execute_should_return_user_when_exists(self, mock_user_repo, sample_user_entity):
+    def test_execute_should_return_user_when_exists(
+        self, mock_user_repo, sample_user_entity
+    ):
         """
         Given: A username that exists in the repository
         When: GetUserByUsernameUseCase.execute() is called
@@ -249,10 +257,13 @@ class TestGetUserByUsernameUseCase:
 # GetUserByEmailUseCase Tests
 # ============================================================================
 
+
 class TestGetUserByEmailUseCase:
     """Tests for GetUserByEmailUseCase."""
 
-    def test_execute_should_return_user_when_exists(self, mock_user_repo, sample_user_entity):
+    def test_execute_should_return_user_when_exists(
+        self, mock_user_repo, sample_user_entity
+    ):
         """
         Given: An email that exists in the repository
         When: GetUserByEmailUseCase.execute() is called
@@ -291,6 +302,7 @@ class TestGetUserByEmailUseCase:
 # GetAllUsersUseCase Tests
 # ============================================================================
 
+
 class TestGetAllUsersUseCase:
     """Tests for GetAllUsersUseCase."""
 
@@ -302,9 +314,24 @@ class TestGetAllUsersUseCase:
         """
         # Given
         users = [
-            UserEntity(id=1, username="user1", email="user1@example.com", hashed_password="hash1"),
-            UserEntity(id=2, username="user2", email="user2@example.com", hashed_password="hash2"),
-            UserEntity(id=3, username="user3", email="user3@example.com", hashed_password="hash3"),
+            UserEntity(
+                id=1,
+                username="user1",
+                email="user1@example.com",
+                hashed_password="hash1",
+            ),
+            UserEntity(
+                id=2,
+                username="user2",
+                email="user2@example.com",
+                hashed_password="hash2",
+            ),
+            UserEntity(
+                id=3,
+                username="user3",
+                email="user3@example.com",
+                hashed_password="hash3",
+            ),
         ]
         mock_user_repo.get_all.return_value = users
         use_case = GetAllUsersUseCase(mock_user_repo)
@@ -338,6 +365,7 @@ class TestGetAllUsersUseCase:
 # ============================================================================
 # UpdateUserUseCase Tests
 # ============================================================================
+
 
 class TestUpdateUserUseCase:
     """Tests for UpdateUserUseCase."""
@@ -376,7 +404,9 @@ class TestUpdateUserUseCase:
         assert sample_user_entity.username == "updateduser"
         assert sample_user_entity.email == "updated@example.com"
 
-    def test_execute_should_only_update_provided_fields(self, mock_user_repo, sample_user_entity):
+    def test_execute_should_only_update_provided_fields(
+        self, mock_user_repo, sample_user_entity
+    ):
         """
         Given: Update request with only some fields
         When: UpdateUserUseCase.execute() is called
@@ -392,7 +422,7 @@ class TestUpdateUserUseCase:
                 attributes=UserAttributesForUpdate(
                     username="onlynewusername",
                     # email not provided
-                )
+                ),
             )
         )
         use_case = UpdateUserUseCase(mock_user_repo)
@@ -404,7 +434,9 @@ class TestUpdateUserUseCase:
         assert sample_user_entity.username == "onlynewusername"
         assert sample_user_entity.email == "test@example.com"  # Unchanged
 
-    def test_execute_should_return_none_when_user_not_found(self, mock_user_repo, sample_update_request):
+    def test_execute_should_return_none_when_user_not_found(
+        self, mock_user_repo, sample_update_request
+    ):
         """
         Given: A user ID that does not exist
         When: UpdateUserUseCase.execute() is called
@@ -422,7 +454,9 @@ class TestUpdateUserUseCase:
         mock_user_repo.get_by_id.assert_called_once_with(999)
         mock_user_repo.update.assert_not_called()
 
-    def test_execute_should_update_boolean_fields(self, mock_user_repo, sample_user_entity):
+    def test_execute_should_update_boolean_fields(
+        self, mock_user_repo, sample_user_entity
+    ):
         """
         Given: Update request with boolean fields (is_active, is_staff, is_superuser)
         When: UpdateUserUseCase.execute() is called
@@ -439,7 +473,7 @@ class TestUpdateUserUseCase:
                     is_active=False,
                     is_staff=True,
                     is_superuser=True,
-                )
+                ),
             )
         )
         use_case = UpdateUserUseCase(mock_user_repo)
@@ -456,6 +490,7 @@ class TestUpdateUserUseCase:
 # ============================================================================
 # DeleteUserUseCase Tests
 # ============================================================================
+
 
 class TestDeleteUserUseCase:
     """Tests for DeleteUserUseCase."""

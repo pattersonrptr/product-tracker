@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
@@ -33,7 +32,7 @@ router = APIRouter(tags=["users"], prefix="/users")
 logger = get_logger(__name__)
 
 
-def get_user_repository(db = Depends(get_db)) -> UserRepository:
+def get_user_repository(db=Depends(get_db)) -> UserRepository:
     """
     TODO: Move to shared module (e.g., src/app/infrastructure/dependencies.py)
     for reuse across multiple routers (auth, register, etc.).
@@ -57,7 +56,7 @@ def create_user(
     """
     logger.info(
         f"Creating new user: {user_in.data.attributes.username}",
-        extra={'action': 'create_user', 'admin_user_id': current_user.id}
+        extra={"action": "create_user", "admin_user_id": current_user.id},
     )
 
     validator = UserValidator(user_repo)
@@ -66,7 +65,7 @@ def create_user(
     if validation_errors:
         logger.warning(
             f"User creation validation failed for {user_in.data.attributes.username}",
-            extra={'errors': len(validation_errors)}
+            extra={"errors": len(validation_errors)},
         )
         return UserPresenter.handle_validation_errors(validation_errors)
 
@@ -78,11 +77,11 @@ def create_user(
     logger.info(
         f"User created successfully: {created_user.username} (ID: {created_user.id})",
         extra={
-            'action': 'user_created',
-            'user_id': created_user.id,
-            'username': created_user.username,
-            'admin_user_id': current_user.id
-        }
+            "action": "user_created",
+            "user_id": created_user.id,
+            "username": created_user.username,
+            "admin_user_id": current_user.id,
+        },
     )
 
     return UserPresenter.handle_success(created_user)
@@ -200,7 +199,11 @@ def update_user(
     """
     logger.info(
         f"Updating user ID: {user_id}",
-        extra={'action': 'update_user', 'target_user_id': user_id, 'admin_user_id': current_user.id}
+        extra={
+            "action": "update_user",
+            "target_user_id": user_id,
+            "admin_user_id": current_user.id,
+        },
     )
 
     validator = UserValidator(user_repo)
@@ -209,7 +212,7 @@ def update_user(
     if validation_errors:
         logger.warning(
             f"User update validation failed for ID: {user_id}",
-            extra={'errors': len(validation_errors)}
+            extra={"errors": len(validation_errors)},
         )
         return UserPresenter.handle_validation_errors(validation_errors)
 
@@ -226,11 +229,11 @@ def update_user(
     logger.info(
         f"User updated successfully: {updated_user.username} (ID: {user_id})",
         extra={
-            'action': 'user_updated',
-            'user_id': user_id,
-            'username': updated_user.username,
-            'admin_user_id': current_user.id
-        }
+            "action": "user_updated",
+            "user_id": user_id,
+            "username": updated_user.username,
+            "admin_user_id": current_user.id,
+        },
     )
 
     return UserPresenter.handle_success(updated_user)
@@ -251,7 +254,11 @@ def delete_user(
     """
     logger.warning(
         f"Deleting user ID: {user_id}",
-        extra={'action': 'delete_user', 'target_user_id': user_id, 'admin_user_id': current_user.id}
+        extra={
+            "action": "delete_user",
+            "target_user_id": user_id,
+            "admin_user_id": current_user.id,
+        },
     )
 
     validator = UserValidator(user_repo)
@@ -281,11 +288,11 @@ def delete_user(
     logger.warning(
         f"User deleted successfully: {user_entity.username} (ID: {user_id})",
         extra={
-            'action': 'user_deleted',
-            'user_id': user_id,
-            'username': user_entity.username,
-            'admin_user_id': current_user.id
-        }
+            "action": "user_deleted",
+            "user_id": user_id,
+            "username": user_entity.username,
+            "admin_user_id": current_user.id,
+        },
     )
 
     return None

@@ -1,4 +1,3 @@
-
 from passlib.context import CryptContext
 
 from src.app.entities.user import User as UserEntity
@@ -30,7 +29,9 @@ class CreateUserUseCase:
             hashed_password=hashed_password,
             is_active=attrs.is_active if attrs.is_active is not None else True,
             is_staff=attrs.is_staff if attrs.is_staff is not None else False,
-            is_superuser=attrs.is_superuser if attrs.is_superuser is not None else False,
+            is_superuser=attrs.is_superuser
+            if attrs.is_superuser is not None
+            else False,
         )
         created_user = self.user_repo.create(new_user_entity)
         return created_user

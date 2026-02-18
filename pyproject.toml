@@ -128,3 +128,16 @@ module = [
 ]
 warn_return_any = true
 disallow_untyped_defs = false  # Will enable later incrementally
+
+[tool.bandit]
+# Security scanner configuration
+exclude_dirs = [
+    "tests",
+    "alembic",
+    ".venv",
+    "venv",
+]
+skips = [
+    "B101",  # assert_used - we use asserts in tests
+    "B601",  # paramiko_calls - not applicable
+]

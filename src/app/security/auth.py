@@ -50,7 +50,7 @@ async def get_current_staff_user(current_user=Depends(get_current_active_user)):
     if not current_user.is_staff and not current_user.is_superuser:
         raise HTTPException(
             status_code=403,
-            detail="You don't have permission to access this resource. Staff access required."
+            detail="You don't have permission to access this resource. Staff access required.",
         )
     return current_user
 
@@ -63,6 +63,6 @@ async def get_current_superuser(current_user=Depends(get_current_active_user)):
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=403,
-            detail="You don't have permission to access this resource. Superuser access required."
+            detail="You don't have permission to access this resource. Superuser access required.",
         )
     return current_user

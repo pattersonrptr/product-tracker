@@ -18,6 +18,7 @@ from src.common.jsonapi import JsonApiError
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def sample_user_entity():
     """Sample user entity for testing."""
@@ -58,6 +59,7 @@ def sample_validation_errors():
 # ============================================================================
 # UserPresenter.handle_success Tests
 # ============================================================================
+
 
 class TestUserPresenterHandleSuccess:
     """Tests for UserPresenter.handle_success()."""
@@ -110,6 +112,7 @@ class TestUserPresenterHandleSuccess:
 # ============================================================================
 # UserPresenter.handle_validation_errors Tests
 # ============================================================================
+
 
 class TestUserPresenterHandleValidationErrors:
     """Tests for UserPresenter.handle_validation_errors()."""
@@ -175,6 +178,7 @@ class TestUserPresenterHandleValidationErrors:
 # UserPresenter.handle_not_found Tests
 # ============================================================================
 
+
 class TestUserPresenterHandleNotFound:
     """Tests for UserPresenter.handle_not_found()."""
 
@@ -186,8 +190,7 @@ class TestUserPresenterHandleNotFound:
         """
         # When
         response = UserPresenter.handle_not_found(
-            identifier="id=999",
-            pointer="/data/attributes/id"
+            identifier="id=999", pointer="/data/attributes/id"
         )
 
         # Then
@@ -203,8 +206,7 @@ class TestUserPresenterHandleNotFound:
         """
         # When
         response = UserPresenter.handle_not_found(
-            identifier="username='nonexistent'",
-            pointer="/data/attributes/username"
+            identifier="username='nonexistent'", pointer="/data/attributes/username"
         )
         content = response.body.decode("utf-8")
 
@@ -221,12 +223,14 @@ class TestUserPresenterHandleNotFound:
         """
         # When
         response = UserPresenter.handle_not_found(
-            identifier="id=123",
-            pointer="/data/id"
+            identifier="id=123", pointer="/data/id"
         )
         content = response.body.decode("utf-8")
 
         # Then
         assert '"status":"404"' in content or '"status": "404"' in content
         assert '"code":"NOT_FOUND"' in content or '"code": "NOT_FOUND"' in content
-        assert '"title":"User not found"' in content or '"title": "User not found"' in content
+        assert (
+            '"title":"User not found"' in content
+            or '"title": "User not found"' in content
+        )

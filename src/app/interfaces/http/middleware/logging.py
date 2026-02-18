@@ -31,10 +31,10 @@ async def log_requests_middleware(request: Request, call_next):
     logger.info(
         f"→ Request: {request.method} {request.url.path}",
         extra={
-            'method': request.method,
-            'path': request.url.path,
-            'client_host': request.client.host if request.client else None
-        }
+            "method": request.method,
+            "path": request.url.path,
+            "client_host": request.client.host if request.client else None,
+        },
     )
 
     # Process request
@@ -47,11 +47,11 @@ async def log_requests_middleware(request: Request, call_next):
         log_level(
             f"← Response: {request.method} {request.url.path} - {response.status_code} ({duration_ms:.2f}ms)",
             extra={
-                'method': request.method,
-                'path': request.url.path,
-                'status_code': response.status_code,
-                'duration_ms': duration_ms
-            }
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+            },
         )
         return response
     except Exception as e:
@@ -59,9 +59,9 @@ async def log_requests_middleware(request: Request, call_next):
         logger.exception(
             f"✗ Error: {request.method} {request.url.path} ({duration_ms:.2f}ms): {str(e)}",
             extra={
-                'method': request.method,
-                'path': request.url.path,
-                'duration_ms': duration_ms
-            }
+                "method": request.method,
+                "path": request.url.path,
+                "duration_ms": duration_ms,
+            },
         )
         raise

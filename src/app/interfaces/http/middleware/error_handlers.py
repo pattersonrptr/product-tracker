@@ -38,13 +38,17 @@ def _pydantic_error_to_jsonapi(err: dict) -> JsonApiError:
     )
 
 
-async def handle_request_validation_error(request: Request, exc: RequestValidationError):
+async def handle_request_validation_error(
+    request: Request, exc: RequestValidationError
+):
     """
     Handler for RequestValidationError (Pydantic / FastAPI validation errors).
     Returns JSON:API errors[] with status 422.
     """
     try:
-        errors: list[JsonApiError] = [_pydantic_error_to_jsonapi(e) for e in exc.errors()]
+        errors: list[JsonApiError] = [
+            _pydantic_error_to_jsonapi(e) for e in exc.errors()
+        ]
     except Exception as e:
         logger.exception("Error mapping validation errors: %s", e)
         errors = [
@@ -56,7 +60,9 @@ async def handle_request_validation_error(request: Request, exc: RequestValidati
             )
         ]
     payload = JsonApiErrorResponse(errors=errors).model_dump()
-    return JSONResponse(status_code=422, content=payload, media_type="application/vnd.api+json")
+    return JSONResponse(
+        status_code=422, content=payload, media_type="application/vnd.api+json"
+    )
 
 
 async def handle_http_exception(request: Request, exc: HTTPException):
@@ -67,7 +73,11 @@ async def handle_http_exception(request: Request, exc: HTTPException):
     """
     detail = exc.detail
     if isinstance(detail, dict) and "errors" in detail:
-        return JSONResponse(status_code=exc.status_code, content=detail, media_type="application/vnd.api+json")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=detail,
+            media_type="application/vnd.api+json",
+        )
 
     error = JsonApiError(
         status=str(exc.status_code),
@@ -76,7 +86,11 @@ async def handle_http_exception(request: Request, exc: HTTPException):
         detail=str(detail),
     )
     payload = JsonApiErrorResponse(errors=[error]).model_dump()
-    return JSONResponse(status_code=exc.status_code, content=payload, media_type="application/vnd.api+json")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=payload,
+        media_type="application/vnd.api+json",
+    )
 
 
 async def handle_generic_exception(request: Request, exc: Exception):
@@ -91,4 +105,6 @@ async def handle_generic_exception(request: Request, exc: Exception):
         detail="An unexpected error occurred.",
     )
     payload = JsonApiErrorResponse(errors=[error]).model_dump()
-    return JSONResponse(status_code=500, content=payload, media_type="application/vnd.api+json")
+    return JSONResponse(
+        status_code=500, content=payload, media_type="application/vnd.api+json"
+    )

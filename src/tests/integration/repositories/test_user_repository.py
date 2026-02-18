@@ -18,6 +18,7 @@ from src.app.infrastructure.repositories.user_repository import UserRepository
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture(scope="function")
 def test_db():
     """
@@ -63,6 +64,7 @@ def sample_user_entity():
 # ============================================================================
 # Create Tests
 # ============================================================================
+
 
 class TestUserRepositoryCreate:
     """Tests for UserRepository.create()."""
@@ -159,12 +161,11 @@ class TestUserRepositoryCreate:
 # Read Tests
 # ============================================================================
 
+
 class TestUserRepositoryRead:
     """Tests for UserRepository read operations."""
 
-    def test_get_by_id_should_return_user(
-        self, user_repository, sample_user_entity
-    ):
+    def test_get_by_id_should_return_user(self, user_repository, sample_user_entity):
         """
         Given: User exists in database
         When: repository.get_by_id() is called
@@ -225,9 +226,7 @@ class TestUserRepositoryRead:
         # Then
         assert found_user is None
 
-    def test_get_by_email_should_return_user(
-        self, user_repository, sample_user_entity
-    ):
+    def test_get_by_email_should_return_user(self, user_repository, sample_user_entity):
         """
         Given: User exists in database
         When: repository.get_by_email() is called
@@ -297,6 +296,7 @@ class TestUserRepositoryRead:
 # Update Tests
 # ============================================================================
 
+
 class TestUserRepositoryUpdate:
     """Tests for UserRepository.update()."""
 
@@ -351,9 +351,7 @@ class TestUserRepositoryUpdate:
         # Then
         assert result is None
 
-    def test_update_with_duplicate_username_should_raise_error(
-        self, user_repository
-    ):
+    def test_update_with_duplicate_username_should_raise_error(self, user_repository):
         """
         Given: Two users in database
         When: repository.update() tries to change username to existing one
@@ -383,6 +381,7 @@ class TestUserRepositoryUpdate:
 # ============================================================================
 # Delete Tests
 # ============================================================================
+
 
 class TestUserRepositoryDelete:
     """Tests for UserRepository.delete()."""

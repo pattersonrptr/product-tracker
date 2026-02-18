@@ -35,6 +35,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # DATABASE FIXTURES
 # ============================================================================
 
+
 @pytest.fixture(scope="function")
 def test_db():
     """
@@ -52,8 +53,10 @@ def test_db():
 
     engine = create_engine(
         "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},  # Allow SQLite to work with FastAPI's async
-        poolclass=StaticPool  # CRITICAL: Use StaticPool to maintain single connection for in-memory DB
+        connect_args={
+            "check_same_thread": False
+        },  # Allow SQLite to work with FastAPI's async
+        poolclass=StaticPool,  # CRITICAL: Use StaticPool to maintain single connection for in-memory DB
     )
 
     Base.metadata.create_all(engine)
@@ -61,7 +64,7 @@ def test_db():
         autocommit=False,
         autoflush=False,
         bind=engine,
-        expire_on_commit=False  # Don't expire objects after commit, avoiding extra queries
+        expire_on_commit=False,  # Don't expire objects after commit, avoiding extra queries
     )
     session = TestingSessionLocal()
 
@@ -80,6 +83,7 @@ def client(test_db):
     When: Test is executed
     Then: Provides TestClient with isolated test database
     """
+
     def override_get_db():
         try:
             yield test_db
@@ -98,6 +102,7 @@ def client(test_db):
 # TEST DATA FIXTURES
 # ============================================================================
 
+
 @pytest.fixture(scope="function")
 def sample_user(test_db):
     """
@@ -114,7 +119,7 @@ def sample_user(test_db):
         email="test@example.com",
         hashed_password=pwd_context.hash("Test@1234"),
         is_superuser=False,
-        is_active=True
+        is_active=True,
     )
     test_db.add(user)
     test_db.commit()
@@ -138,7 +143,7 @@ def sample_superuser(test_db):
         email="admin@example.com",
         hashed_password=pwd_context.hash("Admin@1234"),
         is_superuser=True,
-        is_active=True
+        is_active=True,
     )
     test_db.add(user)
     test_db.commit()
@@ -150,6 +155,7 @@ def sample_superuser(test_db):
 # AUTHENTICATION FIXTURES
 # ============================================================================
 
+
 @pytest.fixture(scope="function")
 def user_token(client, sample_user):
     """
@@ -159,8 +165,7 @@ def user_token(client, sample_user):
         str: Bearer token for testuser
     """
     response = client.post(
-        "/auth/login",
-        data={"username": "testuser", "password": "Test@1234"}
+        "/auth/login", data={"username": "testuser", "password": "Test@1234"}
     )
     assert response.status_code == 200
     token = response.json()["data"]["attributes"]["access_token"]
@@ -176,8 +181,7 @@ def superuser_token(client, sample_superuser):
         str: Bearer token for admin
     """
     response = client.post(
-        "/auth/login",
-        data={"username": "admin", "password": "Admin@1234"}
+        "/auth/login", data={"username": "admin", "password": "Admin@1234"}
     )
     assert response.status_code == 200
     token = response.json()["data"]["attributes"]["access_token"]

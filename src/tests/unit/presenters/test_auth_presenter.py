@@ -13,6 +13,7 @@ from src.app.interfaces.http.presenters.auth_presenter import AuthPresenter
 # AuthPresenter.present_token Tests
 # ============================================================================
 
+
 class TestAuthPresenterPresentToken:
     """Tests for AuthPresenter.present_token()."""
 
@@ -97,6 +98,7 @@ class TestAuthPresenterPresentToken:
 # AuthPresenter.present_token_validation Tests
 # ============================================================================
 
+
 class TestAuthPresenterPresentTokenValidation:
     """Tests for AuthPresenter.present_token_validation()."""
 
@@ -108,8 +110,7 @@ class TestAuthPresenterPresentTokenValidation:
         """
         # When
         response = AuthPresenter.present_token_validation(
-            is_valid=True,
-            message="Token is valid"
+            is_valid=True, message="Token is valid"
         )
 
         # Then
@@ -125,8 +126,7 @@ class TestAuthPresenterPresentTokenValidation:
         """
         # When
         response = AuthPresenter.present_token_validation(
-            is_valid=False,
-            message="Token expired"
+            is_valid=False, message="Token expired"
         )
 
         # Then
@@ -150,6 +150,7 @@ class TestAuthPresenterPresentTokenValidation:
 # ============================================================================
 # AuthPresenter.handle_authentication_error Tests
 # ============================================================================
+
 
 class TestAuthPresenterHandleAuthenticationError:
     """Tests for AuthPresenter.handle_authentication_error()."""
@@ -201,14 +202,21 @@ class TestAuthPresenterHandleAuthenticationError:
 
         # Then
         assert '"status":"401"' in content or '"status": "401"' in content
-        assert '"code":"AUTHENTICATION_FAILED"' in content or '"code": "AUTHENTICATION_FAILED"' in content
-        assert '"title":"Authentication Failed"' in content or '"title": "Authentication Failed"' in content
+        assert (
+            '"code":"AUTHENTICATION_FAILED"' in content
+            or '"code": "AUTHENTICATION_FAILED"' in content
+        )
+        assert (
+            '"title":"Authentication Failed"' in content
+            or '"title": "Authentication Failed"' in content
+        )
         assert '"/data/attributes/credentials"' in content
 
 
 # ============================================================================
 # AuthPresenter.handle_invalid_credentials Tests
 # ============================================================================
+
 
 class TestAuthPresenterHandleInvalidCredentials:
     """Tests for AuthPresenter.handle_invalid_credentials()."""
@@ -253,6 +261,12 @@ class TestAuthPresenterHandleInvalidCredentials:
 
         # Then
         assert '"status":"400"' in content or '"status": "400"' in content
-        assert '"code":"INVALID_CREDENTIALS"' in content or '"code": "INVALID_CREDENTIALS"' in content
-        assert '"title":"Invalid Credentials"' in content or '"title": "Invalid Credentials"' in content
+        assert (
+            '"code":"INVALID_CREDENTIALS"' in content
+            or '"code": "INVALID_CREDENTIALS"' in content
+        )
+        assert (
+            '"title":"Invalid Credentials"' in content
+            or '"title": "Invalid Credentials"' in content
+        )
         assert '"/data/attributes/credentials"' in content

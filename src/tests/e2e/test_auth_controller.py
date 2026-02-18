@@ -6,7 +6,6 @@ Tests the complete authentication flow:
 """
 
 
-
 class TestAuthLogin:
     """Test POST /auth/login - User authentication"""
 
@@ -19,7 +18,10 @@ class TestAuthLogin:
         # When
         response = client.post(
             "/auth/login",
-            data={"username": "testuser", "password": "Test@1234"}  # Form data, not JSON
+            data={
+                "username": "testuser",
+                "password": "Test@1234",
+            },  # Form data, not JSON
         )
 
         # Then
@@ -39,8 +41,7 @@ class TestAuthLogin:
         """
         # When
         response = client.post(
-            "/auth/login",
-            data={"username": "wronguser", "password": "Test@1234"}
+            "/auth/login", data={"username": "wronguser", "password": "Test@1234"}
         )
 
         # Then
@@ -62,8 +63,7 @@ class TestAuthLogin:
         """
         # When
         response = client.post(
-            "/auth/login",
-            data={"username": "testuser", "password": "WrongPassword123"}
+            "/auth/login", data={"username": "testuser", "password": "WrongPassword123"}
         )
 
         # Then
@@ -82,7 +82,7 @@ class TestAuthLogin:
         # When
         response = client.post(
             "/auth/login",
-            data={"username": "testuser"}  # Missing password
+            data={"username": "testuser"},  # Missing password
         )
 
         # Then
@@ -105,7 +105,7 @@ class TestAuthLogin:
             username="inactive",
             email="inactive@example.com",
             hashed_password=pwd_context.hash("Test@1234"),
-            is_active=False
+            is_active=False,
         )
         test_db.add(inactive_user)
         test_db.commit()
@@ -113,8 +113,7 @@ class TestAuthLogin:
 
         # When
         response = client.post(
-            "/auth/login",
-            data={"username": "inactive", "password": "Test@1234"}
+            "/auth/login", data={"username": "inactive", "password": "Test@1234"}
         )
 
         # Then - API allows inactive users to login
@@ -138,11 +137,9 @@ class TestAuthVerifyToken:
             json={
                 "data": {
                     "type": "token-validations",
-                    "attributes": {
-                        "token": user_token
-                    }
+                    "attributes": {"token": user_token},
                 }
-            }
+            },
         )
 
         # Then
@@ -164,11 +161,9 @@ class TestAuthVerifyToken:
             json={
                 "data": {
                     "type": "token-validations",
-                    "attributes": {
-                        "token": "invalid.token.here"
-                    }
+                    "attributes": {"token": "invalid.token.here"},
                 }
-            }
+            },
         )
 
         # Then
@@ -194,9 +189,9 @@ class TestAuthVerifyToken:
                     "type": "token-validations",
                     "attributes": {
                         "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.expired"
-                    }
+                    },
                 }
-            }
+            },
         )
 
         # Then
@@ -217,8 +212,7 @@ class TestAuthRefreshToken:
         """
         # When
         response = client.post(
-            "/auth/refresh-token",
-            headers={"Authorization": f"Bearer {user_token}"}
+            "/auth/refresh-token", headers={"Authorization": f"Bearer {user_token}"}
         )
 
         # Then
@@ -238,8 +232,11 @@ class TestAuthRefreshToken:
         # When
         response = client.post(
             "/auth/refresh-token",
-            headers={"Authorization": "Bearer invalid.token.here"}
+            headers={"Authorization": "Bearer invalid.token.here"},
         )
 
         # Then
-        assert response.status_code in [401, 403]  # Either is acceptable for invalid token
+        assert response.status_code in [
+            401,
+            403,
+        ]  # Either is acceptable for invalid token

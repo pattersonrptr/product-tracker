@@ -67,7 +67,9 @@ def create_superuser_user(
         if existing_user:
             if skip_if_exists:
                 if not quiet:
-                    print(f"✓ Superuser '{username}' already exists. Skipping creation.")
+                    print(
+                        f"✓ Superuser '{username}' already exists. Skipping creation."
+                    )
                 return None
             else:
                 raise ValueError(f"Username '{username}' already exists!")
@@ -99,7 +101,9 @@ def create_superuser_user(
         created_user = user_repo.create(superuser)
 
         if not quiet:
-            print(f"✓ Superuser created: {created_user.username} (ID: {created_user.id})")
+            print(
+                f"✓ Superuser created: {created_user.username} (ID: {created_user.id})"
+            )
             print(f"  Username: {created_user.username}")
             print(f"  Email: {created_user.email}")
 
@@ -165,6 +169,7 @@ def create_superuser_interactive():
     except Exception as e:
         print(f"\n❌ Error creating superuser: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -184,16 +189,18 @@ Examples:
 
   # Skip if exists (for init scripts)
   python src/scripts/create_superuser.py --username admin --email admin@example.com --password admin --skip-if-exists
-        """
+        """,
     )
 
     parser.add_argument("--username", help="Username for the superuser")
     parser.add_argument("--email", help="Email address")
     parser.add_argument("--password", help="Password (plain text, will be hashed)")
-    parser.add_argument("--skip-if-exists", action="store_true",
-                       help="Skip creation if user already exists (no error)")
-    parser.add_argument("--quiet", action="store_true",
-                       help="Suppress output messages")
+    parser.add_argument(
+        "--skip-if-exists",
+        action="store_true",
+        help="Skip creation if user already exists (no error)",
+    )
+    parser.add_argument("--quiet", action="store_true", help="Suppress output messages")
 
     args = parser.parse_args()
 
@@ -201,7 +208,9 @@ Examples:
     if args.username or args.email or args.password:
         # Validate all required arguments are provided
         if not all([args.username, args.email, args.password]):
-            parser.error("--username, --email, and --password are all required for non-interactive mode")
+            parser.error(
+                "--username, --email, and --password are all required for non-interactive mode"
+            )
 
         try:
             created_user = create_superuser_user(
@@ -225,6 +234,7 @@ Examples:
             if not args.quiet:
                 print(f"❌ Error creating superuser: {e}")
                 import traceback
+
                 traceback.print_exc()
             sys.exit(1)
     else:

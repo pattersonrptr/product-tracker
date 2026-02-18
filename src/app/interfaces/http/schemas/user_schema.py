@@ -23,6 +23,7 @@ class UserAttributes(BaseModel):
 
 class UserAttributesForCreation(BaseModel):
     """Attributes for creation - with password, without timestamps"""
+
     username: str
     email: EmailStr
     password: str
@@ -33,6 +34,7 @@ class UserAttributesForCreation(BaseModel):
 
 class UserAttributesForUpdate(BaseModel):
     """Attributes for update - optional fields"""
+
     username: str | None = None
     email: EmailStr | None = None
     is_active: bool | None = None
@@ -61,12 +63,14 @@ class UserResource(ResourceObject):
 
 class UserResourceForCreation(ResourceObjectForCreation):
     """ResourceObject for user creation (without id)"""
+
     type: str = Field(default="users", examples=["users"])
     attributes: UserAttributesForCreation
 
 
 class UserResourceForUpdate(ResourceObjectForCreation):
     """ResourceObject for user update (without id)"""
+
     type: str = Field(default="users", examples=["users"])
     attributes: UserAttributesForUpdate
 

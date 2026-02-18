@@ -2,10 +2,11 @@
 
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
+
 from src.app.interfaces.http.middleware.error_handlers import (
-    handle_request_validation_error,
-    handle_http_exception,
     handle_generic_exception,
+    handle_http_exception,
+    handle_request_validation_error,
 )
 
 

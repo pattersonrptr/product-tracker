@@ -10,13 +10,12 @@ Features:
 - Separate logs per module
 """
 
+import json
 import logging
 import logging.handlers
 import sys
-from pathlib import Path
-from typing import Optional
-import json
 from datetime import datetime
+from pathlib import Path
 
 from src.config import settings
 
@@ -26,7 +25,7 @@ class ColoredFormatter(logging.Formatter):
     Colored log formatter for console output (development).
     Makes logs easier to read during development.
     """
-    
+
     # ANSI color codes
     COLORS = {
         'DEBUG': '\033[36m',      # Cyan
@@ -43,7 +42,7 @@ class ColoredFormatter(logging.Formatter):
         levelname = record.levelname
         if levelname in self.COLORS:
             record.levelname = f"{self.COLORS[levelname]}{self.BOLD}{levelname}{self.RESET}"
-        
+
         # Format the message
         formatted = super().format(record)
         return formatted
@@ -54,7 +53,7 @@ class JsonFormatter(logging.Formatter):
     JSON formatter for production logs.
     Makes logs easy to parse and analyze with log aggregation tools.
     """
-    
+
     def format(self, record):
         log_data = {
             'timestamp': datetime.utcnow().isoformat(),
@@ -65,11 +64,11 @@ class JsonFormatter(logging.Formatter):
             'function': record.funcName,
             'line': record.lineno,
         }
-        
+
         # Add exception info if present
         if record.exc_info:
             log_data['exception'] = self.formatException(record.exc_info)
-        
+
         # Add extra fields if present
         if hasattr(record, 'user_id'):
             log_data['user_id'] = record.user_id
@@ -77,14 +76,14 @@ class JsonFormatter(logging.Formatter):
             log_data['request_id'] = record.request_id
         if hasattr(record, 'endpoint'):
             log_data['endpoint'] = record.endpoint
-            
+
         return json.dumps(log_data)
 
 
 def setup_logging(
     app_name: str = "product-tracker",
-    log_level: Optional[str] = None,
-    log_dir: Optional[Path] = None,
+    log_level: str | None = None,
+    log_dir: Path | None = None,
     enable_console: bool = True,
     enable_file: bool = True,
     json_logs: bool = False,
@@ -100,28 +99,28 @@ def setup_logging(
         enable_file: Enable file logging
         json_logs: Use JSON format for logs (recommended for production)
     """
-    
+
     # Determine log level
     if log_level is None:
         log_level = getattr(settings, 'LOG_LEVEL', 'INFO')
-    
+
     # Determine log directory
     if log_dir is None:
         log_dir = Path("logs")
     log_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Get root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
-    
+
     # Remove existing handlers
     root_logger.handlers.clear()
-    
+
     # Console Handler (for development)
     if enable_console:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(log_level)
-        
+
         if json_logs:
             console_formatter = JsonFormatter()
         else:
@@ -129,10 +128,10 @@ def setup_logging(
                 fmt='%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             )
-        
+
         console_handler.setFormatter(console_formatter)
         root_logger.addHandler(console_handler)
-    
+
     # File Handler (rotating logs)
     if enable_file:
         # Main application log (all levels)
@@ -144,7 +143,7 @@ def setup_logging(
             encoding='utf-8'
         )
         file_handler.setLevel(logging.DEBUG)  # Capture everything in file
-        
+
         if json_logs:
             file_formatter = JsonFormatter()
         else:
@@ -152,10 +151,10 @@ def setup_logging(
                 fmt='%(asctime)s | %(levelname)-8s | %(name)-30s | %(funcName)-20s | %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             )
-        
+
         file_handler.setFormatter(file_formatter)
         root_logger.addHandler(file_handler)
-        
+
         # Error log (only errors and critical)
         error_log_file = log_dir / f"{app_name}-error.log"
         error_handler = logging.handlers.RotatingFileHandler(
@@ -167,13 +166,13 @@ def setup_logging(
         error_handler.setLevel(logging.ERROR)
         error_handler.setFormatter(file_formatter)
         root_logger.addHandler(error_handler)
-    
+
     # Reduce noise from third-party libraries
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
     logging.getLogger("alembic").setLevel(logging.INFO)
-    
+
     # Log the configuration
     root_logger.info(
         f"Logging configured: level={log_level}, console={enable_console}, "
@@ -207,7 +206,7 @@ class LoggerAdapter(logging.LoggerAdapter):
         logger = LoggerAdapter(get_logger(__name__), {'user_id': 123, 'request_id': 'abc'})
         logger.info("User logged in")  # Will include user_id and request_id
     """
-    
+
     def process(self, msg, kwargs):
         # Add extra context to the log record
         extra = kwargs.get('extra', {})
@@ -217,7 +216,7 @@ class LoggerAdapter(logging.LoggerAdapter):
 
 
 # Example usage functions for common patterns
-def log_api_request(logger: logging.Logger, method: str, path: str, user_id: Optional[int] = None):
+def log_api_request(logger: logging.Logger, method: str, path: str, user_id: int | None = None):
     """Helper to log API requests consistently."""
     extra = {'endpoint': f"{method} {path}"}
     if user_id:

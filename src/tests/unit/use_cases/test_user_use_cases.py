@@ -5,29 +5,29 @@ Tests business logic layer with mocked repositories.
 Following Given/When/Then pattern for clarity.
 """
 
-import pytest
-from unittest.mock import Mock
 from datetime import datetime
+from unittest.mock import Mock
 
-from src.app.use_cases.user_use_cases import (
-    CreateUserUseCase,
-    GetUserByIdUseCase,
-    GetUserByUsernameUseCase,
-    GetUserByEmailUseCase,
-    GetAllUsersUseCase,
-    UpdateUserUseCase,
-    DeleteUserUseCase,
-)
+import pytest
+
 from src.app.entities.user import User as UserEntity
 from src.app.interfaces.http.schemas.user_schema import (
+    UserAttributesForCreation,
+    UserAttributesForUpdate,
     UserCreateRequest,
     UserResourceForCreation,
-    UserAttributesForCreation,
-    UserUpdateRequest,
     UserResourceForUpdate,
-    UserAttributesForUpdate,
+    UserUpdateRequest,
 )
-
+from src.app.use_cases.user_use_cases import (
+    CreateUserUseCase,
+    DeleteUserUseCase,
+    GetAllUsersUseCase,
+    GetUserByEmailUseCase,
+    GetUserByIdUseCase,
+    GetUserByUsernameUseCase,
+    UpdateUserUseCase,
+)
 
 # ============================================================================
 # Fixtures
@@ -113,7 +113,7 @@ class TestCreateUserUseCase:
         # Then
         assert result == sample_user_entity
         mock_user_repo.create.assert_called_once()
-        
+
         # Verify the entity passed to repository has correct attributes
         call_args = mock_user_repo.create.call_args[0][0]
         assert call_args.username == "newuser"
@@ -371,7 +371,7 @@ class TestUpdateUserUseCase:
         assert result == updated_user
         mock_user_repo.get_by_id.assert_called_once_with(1)
         mock_user_repo.update.assert_called_once_with(1, sample_user_entity)
-        
+
         # Verify entity was modified
         assert sample_user_entity.username == "updateduser"
         assert sample_user_entity.email == "updated@example.com"
@@ -385,7 +385,7 @@ class TestUpdateUserUseCase:
         # Given
         mock_user_repo.get_by_id.return_value = sample_user_entity
         mock_user_repo.update.return_value = sample_user_entity
-        
+
         update_request = UserUpdateRequest(
             data=UserResourceForUpdate(
                 type="users",
@@ -431,7 +431,7 @@ class TestUpdateUserUseCase:
         # Given
         mock_user_repo.get_by_id.return_value = sample_user_entity
         mock_user_repo.update.return_value = sample_user_entity
-        
+
         update_request = UserUpdateRequest(
             data=UserResourceForUpdate(
                 type="users",

@@ -6,7 +6,6 @@ This script is idempotent - safe to run multiple times.
 Uses create_superuser.py internally for consistent user creation.
 """
 import sys
-import os
 
 # Add src to path
 sys.path.insert(0, '/src')
@@ -18,7 +17,7 @@ from create_superuser import create_superuser_user
 def create_default_superuser():
     """Create default admin user if it doesn't exist."""
     print("Initializing development database...")
-    
+
     try:
         create_superuser_user(
             username="admin",

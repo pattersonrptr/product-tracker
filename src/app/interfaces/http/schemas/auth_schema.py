@@ -1,4 +1,4 @@
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 from src.common.jsonapi import (
@@ -46,13 +46,13 @@ class TokenResource(ResourceObject):
 class TokenResponse(SingleResourceResponse):
     """JSON:API response for token endpoints"""
     data: TokenResource
-    meta: Optional[dict] = None
+    meta: dict | None = None
 
 
 class TokenValidationAttributes(BaseModel):
     """Attributes for token validation response"""
     is_valid: bool
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class TokenValidationResource(ResourceObject):
@@ -61,7 +61,7 @@ class TokenValidationResource(ResourceObject):
     attributes: TokenValidationAttributes
 
     @classmethod
-    def from_values(cls, is_valid: bool, message: Optional[str] = None) -> "TokenValidationResource":
+    def from_values(cls, is_valid: bool, message: str | None = None) -> "TokenValidationResource":
         """
         Factory method: creates TokenValidationResource from validation values.
         Delegates construction to the generic factory in jsonapi.py.

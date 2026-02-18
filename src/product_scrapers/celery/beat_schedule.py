@@ -1,8 +1,8 @@
 import time
 
-from celery.schedules import crontab
 # from src.app.infrastructure.database.models.search_config_model import SearchConfig
-from celery.beat import Scheduler, ScheduleEntry
+from celery.beat import ScheduleEntry, Scheduler
+from celery.schedules import crontab
 
 
 def get_dynamic_schedule():

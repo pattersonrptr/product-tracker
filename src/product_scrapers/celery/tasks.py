@@ -1,8 +1,8 @@
 import os
-import requests
-
 from datetime import datetime, timedelta
-from celery import Celery, group, chord
+
+import requests
+from celery import Celery, chord, group
 
 from src.product_scrapers.api.api_client import ApiClient
 from src.product_scrapers.scrapers.factory.scraper_factory import ScraperFactory

@@ -1,8 +1,7 @@
 import logging
-from typing import List
 
+from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 
 from src.common.jsonapi import JsonApiError, JsonApiErrorResponse
@@ -45,7 +44,7 @@ async def handle_request_validation_error(request: Request, exc: RequestValidati
     Returns JSON:API errors[] with status 422.
     """
     try:
-        errors: List[JsonApiError] = [_pydantic_error_to_jsonapi(e) for e in exc.errors()]
+        errors: list[JsonApiError] = [_pydantic_error_to_jsonapi(e) for e in exc.errors()]
     except Exception as e:
         logger.exception("Error mapping validation errors: %s", e)
         errors = [

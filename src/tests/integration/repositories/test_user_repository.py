@@ -7,13 +7,12 @@ Uses SQLite in-memory for fast, isolated tests.
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import sessionmaker
 
+from src.app.entities.user import User as UserEntity
 from src.app.infrastructure.database_config import Base
 from src.app.infrastructure.repositories.user_repository import UserRepository
-from src.app.entities.user import User as UserEntity
-
 
 # ============================================================================
 # Fixtures
@@ -27,16 +26,16 @@ def test_db():
     """
     # Create in-memory SQLite engine
     engine = create_engine("sqlite:///:memory:", echo=False)
-    
+
     # Create all tables
     Base.metadata.create_all(engine)
-    
+
     # Create session
     TestingSessionLocal = sessionmaker(bind=engine)
     session = TestingSessionLocal()
-    
+
     yield session
-    
+
     # Cleanup
     session.close()
     engine.dispose()
@@ -317,7 +316,7 @@ class TestUserRepositoryUpdate:
         created_user.username = "updated_username"
         created_user.email = "updated@example.com"
         created_user.is_staff = True
-        
+
         updated_user = user_repository.update(created_user.id, created_user)
 
         # Then

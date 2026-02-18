@@ -1,0 +1,58 @@
+[tool.ruff]
+# Mesma linha de comprimento do projeto atual
+line-length = 88
+indent-width = 4
+
+# Python 3.11+
+target-version = "py311"
+
+# Diretórios a ignorar
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "htmlcov",
+    ".pytest_cache",
+    "alembic/versions",
+    "logs",
+]
+
+[tool.ruff.lint]
+# Regras ativadas
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (imports)
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+
+# Regras ignoradas (ajuste conforme necessário)
+ignore = [
+    "E501",  # line-too-long (já controlado pelo formatter)
+    "B008",  # do-not-perform-function-calls-in-argument-defaults (comum em FastAPI)
+]
+
+# Permitir autofixing
+fixable = ["ALL"]
+unfixable = []
+
+# Permitir imports não utilizados em __init__.py
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+# Configuração do isort para organizar imports
+known-first-party = ["src", "app", "config", "common", "product_scrapers"]
+
+[tool.ruff.format]
+# Configuração do formatter
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

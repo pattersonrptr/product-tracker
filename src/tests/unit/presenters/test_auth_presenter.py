@@ -5,11 +5,9 @@ Tests authentication presentation layer (JSON:API formatting).
 Following Given/When/Then pattern for clarity.
 """
 
-import pytest
 from fastapi.responses import JSONResponse
 
 from src.app.interfaces.http.presenters.auth_presenter import AuthPresenter
-
 
 # ============================================================================
 # AuthPresenter.present_token Tests

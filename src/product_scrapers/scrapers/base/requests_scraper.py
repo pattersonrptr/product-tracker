@@ -1,9 +1,9 @@
-import cloudscraper
-import requests
 import time
 from abc import ABC, abstractmethod
+from typing import Any
 
-from typing import Optional, Dict, Any
+import cloudscraper
+import requests
 
 
 class RequestScraper(ABC):
@@ -12,7 +12,7 @@ class RequestScraper(ABC):
         self._session = cloudscraper.create_scraper()
 
     @abstractmethod
-    def headers(self) -> Dict[str, Any]:
+    def headers(self) -> dict[str, Any]:
         raise NotImplementedError
 
     def retry_request(
@@ -22,7 +22,7 @@ class RequestScraper(ABC):
         params: dict = {},
         max_retries: int = 3,
         backoff_factor: float = 2,
-    ) -> Optional[requests.Response]:
+    ) -> requests.Response | None:
         for i in range(max_retries + 1):
             try:
                 response = self._session.get(

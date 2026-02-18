@@ -1,7 +1,9 @@
 """Request/Response logging middleware."""
 
 import time
+
 from fastapi import Request
+
 from src.config.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -24,7 +26,7 @@ async def log_requests_middleware(request: Request, call_next):
         Response object from next middleware
     """
     start_time = time.time()
-    
+
     # Log incoming request
     logger.info(
         f"→ Request: {request.method} {request.url.path}",
@@ -34,12 +36,12 @@ async def log_requests_middleware(request: Request, call_next):
             'client_host': request.client.host if request.client else None
         }
     )
-    
+
     # Process request
     try:
         response = await call_next(request)
         duration_ms = (time.time() - start_time) * 1000
-        
+
         # Log response
         log_level = logger.info if response.status_code < 400 else logger.error
         log_level(

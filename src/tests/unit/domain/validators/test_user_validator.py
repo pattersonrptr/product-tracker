@@ -1,17 +1,19 @@
 """Unit tests for UserValidator"""
+from unittest.mock import Mock
+
 import pytest
 from pydantic import ValidationError
-from unittest.mock import Mock
+
 from src.app.domain.validators.user_validator import UserValidator
+from src.app.entities.user import User as UserEntity
 from src.app.interfaces.http.schemas.user_schema import (
+    UserAttributesForCreation,
+    UserAttributesForUpdate,
     UserCreateRequest,
     UserResourceForCreation,
-    UserAttributesForCreation,
-    UserUpdateRequest,
     UserResourceForUpdate,
-    UserAttributesForUpdate,
+    UserUpdateRequest,
 )
-from src.app.entities.user import User as UserEntity
 
 
 class TestUserValidatorCreate:
@@ -51,7 +53,7 @@ class TestUserValidatorCreate:
         assert len(errors) == 0
         mock_repository.get_by_username.assert_called_once_with("newuser")
         mock_repository.get_by_email.assert_called_once_with("newuser@example.com")
-    
+
 
     @pytest.mark.parametrize(
         "field_name,field_value,other_fields",
@@ -159,7 +161,7 @@ class TestUserValidatorCreate:
                     )
                 )
             )
-        
+
         # Verify it's an email validation error
         assert "email" in str(exc_info.value)
 
@@ -185,7 +187,7 @@ class TestUserValidatorCreate:
                     )
                 )
             )
-        
+
         # Verify it's an email validation error
         assert "email" in str(exc_info.value)
 
@@ -217,7 +219,7 @@ class TestUserValidatorCreate:
             is_staff=False,
             is_superuser=False,
         )
-        
+
         # Mock repository returns existing user for the duplicate field
         if field_name == "username":
             mock_repository.get_by_username.return_value = existing_user

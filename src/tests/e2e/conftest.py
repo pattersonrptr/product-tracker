@@ -9,22 +9,23 @@ Provides fixtures for end-to-end testing with:
 """
 
 import os
+
 import pytest
 from fastapi.testclient import TestClient
+from passlib.context import CryptContext
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from passlib.context import CryptContext
 
 # Disable file logging for tests
 os.environ["ENABLE_FILE_LOGGING"] = "false"
 
 # Import app first
-from src.main import app
+from src.app.infrastructure.database.models.user_model import User  # noqa: F401
 
 # Then import database config and models
 from src.app.infrastructure.database_config import Base, get_db
-from src.app.infrastructure.database.models.user_model import User  # noqa: F401
+from src.main import app
 
 # Password hashing context (same as in use_cases)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -48,24 +49,24 @@ def test_db():
     """
     # Ensure User model is imported to register with Base.metadata
     from src.app.infrastructure.database.models.user_model import User  # noqa: F401
-    
+
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},  # Allow SQLite to work with FastAPI's async
         poolclass=StaticPool  # CRITICAL: Use StaticPool to maintain single connection for in-memory DB
     )
-    
+
     Base.metadata.create_all(engine)
     TestingSessionLocal = sessionmaker(
-        autocommit=False, 
-        autoflush=False, 
+        autocommit=False,
+        autoflush=False,
         bind=engine,
         expire_on_commit=False  # Don't expire objects after commit, avoiding extra queries
     )
     session = TestingSessionLocal()
-    
+
     yield session
-    
+
     session.close()
     engine.dispose()
 
@@ -84,12 +85,12 @@ def client(test_db):
             yield test_db
         finally:
             pass
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     with TestClient(app) as test_client:
         yield test_client
-    
+
     app.dependency_overrides.clear()
 
 

@@ -5,14 +5,14 @@ Tests presentation layer (JSON:API formatting) with fixtures.
 Following Given/When/Then pattern for clarity.
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 from fastapi.responses import JSONResponse
 
-from src.app.interfaces.http.presenters.user_presenter import UserPresenter
 from src.app.entities.user import User as UserEntity
+from src.app.interfaces.http.presenters.user_presenter import UserPresenter
 from src.common.jsonapi import JsonApiError
-
 
 # ============================================================================
 # Fixtures

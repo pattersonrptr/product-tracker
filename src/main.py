@@ -21,15 +21,18 @@ import os
 # ============================================================================
 from fastapi import FastAPI
 
+from src.app.infrastructure.database import (
+    models,  # noqa: F401 - Ensure models are loaded
+)
+from src.app.interfaces.http.setup.exception_handlers import setup_exception_handlers
+from src.app.interfaces.http.setup.middleware import setup_middleware
+from src.app.interfaces.http.setup.routers import setup_routers
+from src.config import settings
+
 # ============================================================================
 # APPLICATION IMPORTS
 # ============================================================================
-from src.config.logging_config import setup_logging, get_logger
-from src.config import settings
-from src.app.infrastructure.database import models  # noqa: F401 - Ensure models are loaded
-from src.app.interfaces.http.setup.middleware import setup_middleware
-from src.app.interfaces.http.setup.routers import setup_routers
-from src.app.interfaces.http.setup.exception_handlers import setup_exception_handlers
+from src.config.logging_config import get_logger, setup_logging
 
 # ============================================================================
 # LOGGING CONFIGURATION

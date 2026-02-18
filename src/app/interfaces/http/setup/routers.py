@@ -1,6 +1,7 @@
 """Router registration and setup."""
 
 from fastapi import FastAPI
+
 from src.app.interfaces.http.controllers import (
     auth_controller,
     user_controller,

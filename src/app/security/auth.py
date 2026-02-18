@@ -1,11 +1,11 @@
 from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
-
-from src.config import settings
-from src.app.infrastructure.repositories.user_repository import UserRepository
-from src.app.infrastructure.database_config import get_db
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+
+from src.app.infrastructure.database_config import get_db
+from src.app.infrastructure.repositories.user_repository import UserRepository
+from src.config import settings
 
 reusable_oauth2 = HTTPBearer()
 

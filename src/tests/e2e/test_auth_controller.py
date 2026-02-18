@@ -5,12 +5,11 @@ Tests the complete authentication flow:
     HTTP Request → AuthController → AuthUseCase → UserRepository → Database
 """
 
-import pytest
 
 
 class TestAuthLogin:
     """Test POST /auth/login - User authentication"""
-    
+
     def test_login_with_valid_credentials(self, client, sample_user):
         """
         Given: A user with valid credentials exists
@@ -22,16 +21,16 @@ class TestAuthLogin:
             "/auth/login",
             data={"username": "testuser", "password": "Test@1234"}  # Form data, not JSON
         )
-        
+
         # Then
         assert response.status_code == 200
-        
+
         data = response.json()
         assert data["data"]["type"] == "auth"
         assert "access_token" in data["data"]["attributes"]
         assert "token_type" in data["data"]["attributes"]
         assert data["data"]["attributes"]["token_type"] == "bearer"
-    
+
     def test_login_with_invalid_username(self, client, sample_user):
         """
         Given: A user exists in database
@@ -43,10 +42,10 @@ class TestAuthLogin:
             "/auth/login",
             data={"username": "wronguser", "password": "Test@1234"}
         )
-        
+
         # Then
         assert response.status_code == 400
-        
+
         data = response.json()
         assert "errors" in data
         assert len(data["errors"]) > 0
@@ -54,7 +53,7 @@ class TestAuthLogin:
         # Check for either "credentials" or "incorrect"
         detail_lower = data["errors"][0]["detail"].lower()
         assert "incorrect" in detail_lower or "credentials" in detail_lower
-    
+
     def test_login_with_invalid_password(self, client, sample_user):
         """
         Given: A user exists in database
@@ -66,14 +65,14 @@ class TestAuthLogin:
             "/auth/login",
             data={"username": "testuser", "password": "WrongPassword123"}
         )
-        
+
         # Then
         assert response.status_code == 400
-        
+
         data = response.json()
         assert "errors" in data
         assert data["errors"][0]["status"] == "400"
-    
+
     def test_login_with_missing_fields(self, client):
         """
         Given: No specific user context
@@ -85,21 +84,22 @@ class TestAuthLogin:
             "/auth/login",
             data={"username": "testuser"}  # Missing password
         )
-        
+
         # Then
         assert response.status_code == 422
-    
+
     def test_login_with_inactive_user(self, client, test_db):
         """
         Given: An inactive user exists
         When: POST /auth/login with correct credentials
         Then: Returns 200 with token (API allows inactive users to login)
         """
-        from src.app.infrastructure.database.models.user_model import User
         from passlib.context import CryptContext
-        
+
+        from src.app.infrastructure.database.models.user_model import User
+
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        
+
         # Given - Use the same test_db session
         inactive_user = User(
             username="inactive",
@@ -110,13 +110,13 @@ class TestAuthLogin:
         test_db.add(inactive_user)
         test_db.commit()
         test_db.refresh(inactive_user)
-        
+
         # When
         response = client.post(
             "/auth/login",
             data={"username": "inactive", "password": "Test@1234"}
         )
-        
+
         # Then - API allows inactive users to login
         assert response.status_code == 200
         data = response.json()
@@ -125,7 +125,7 @@ class TestAuthLogin:
 
 class TestAuthVerifyToken:
     """Test POST /auth/verify-token - Token validation"""
-    
+
     def test_verify_valid_token(self, client, user_token):
         """
         Given: A valid authentication token
@@ -144,14 +144,14 @@ class TestAuthVerifyToken:
                 }
             }
         )
-        
+
         # Then
         assert response.status_code == 200
-        
+
         data = response.json()
         assert data["data"]["type"] == "token-validations"
         assert data["data"]["attributes"]["is_valid"] is True
-    
+
     def test_verify_invalid_token(self, client):
         """
         Given: An invalid token
@@ -170,13 +170,13 @@ class TestAuthVerifyToken:
                 }
             }
         )
-        
+
         # Then
         assert response.status_code == 200
-        
+
         data = response.json()
         assert data["data"]["attributes"]["is_valid"] is False
-    
+
     def test_verify_expired_token(self, client):
         """
         Given: An expired token
@@ -185,7 +185,7 @@ class TestAuthVerifyToken:
         """
         # Simulating expired token (you'd need to generate an expired one)
         # For now, test with malformed token
-        
+
         # When
         response = client.post(
             "/auth/verify-token",
@@ -198,17 +198,17 @@ class TestAuthVerifyToken:
                 }
             }
         )
-        
+
         # Then
         assert response.status_code == 200
-        
+
         data = response.json()
         assert data["data"]["attributes"]["is_valid"] is False
 
 
 class TestAuthRefreshToken:
     """Test POST /auth/refresh-token - Token refresh"""
-    
+
     def test_refresh_with_valid_token(self, client, user_token):
         """
         Given: A valid authentication token
@@ -220,15 +220,15 @@ class TestAuthRefreshToken:
             "/auth/refresh-token",
             headers={"Authorization": f"Bearer {user_token}"}
         )
-        
+
         # Then
         assert response.status_code == 200
-        
+
         data = response.json()
         assert data["data"]["type"] == "auth"
         assert "access_token" in data["data"]["attributes"]
         # Note: Token might be identical if generated in same second with same payload
-    
+
     def test_refresh_with_invalid_token(self, client):
         """
         Given: An invalid token
@@ -240,6 +240,6 @@ class TestAuthRefreshToken:
             "/auth/refresh-token",
             headers={"Authorization": "Bearer invalid.token.here"}
         )
-        
+
         # Then
         assert response.status_code in [401, 403]  # Either is acceptable for invalid token

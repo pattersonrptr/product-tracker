@@ -1,6 +1,6 @@
-import random
 import json
 import os
+import random
 
 
 class RotatingUserAgentMixin:
@@ -20,7 +20,7 @@ class RotatingUserAgentMixin:
         filepath = self._get_user_agents_file_path()
 
         try:
-            with open(filepath, "r") as f:
+            with open(filepath) as f:
                 user_agents = json.load(f)
             return user_agents
         except FileNotFoundError:

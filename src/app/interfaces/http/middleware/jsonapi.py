@@ -18,7 +18,7 @@ async def jsonapi_content_type_middleware(request: Request, call_next):
         Response object with adjusted Content-Type if applicable
     """
     response = await call_next(request)
-    
+
     try:
         path = request.url.path or ""
         if response.media_type == "application/json" and (
@@ -28,5 +28,5 @@ async def jsonapi_content_type_middleware(request: Request, call_next):
     except Exception:
         # Silently ignore any errors in content-type adjustment
         pass
-    
+
     return response

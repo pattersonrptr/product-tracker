@@ -1,9 +1,9 @@
 import html
 import json
-
+from typing import Any
 from urllib.parse import quote_plus
+
 from bs4 import BeautifulSoup
-from typing import Dict, List, Any
 
 from src.product_scrapers.scrapers.base.requests_scraper import RequestScraper
 from src.product_scrapers.scrapers.interfaces.scraper_interface import ScraperInterface
@@ -31,7 +31,7 @@ class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
 
-    def search(self, search_term: str) -> List[str]:
+    def search(self, search_term: str) -> list[str]:
         page_number = 1
         results = []
 
@@ -60,7 +60,7 @@ class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
 
         return results
 
-    def scrape_data(self, url: str) -> Dict[str, Any]:
+    def scrape_data(self, url: str) -> dict[str, Any]:
         resp = self.retry_request(url, self.headers())
         html_content = resp.content
         soup = BeautifulSoup(html_content, "html.parser")
@@ -96,7 +96,7 @@ class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
             "source_metadata": {},
         }
 
-    def update_data(self, product: Dict[str, Any]) -> Dict[str, Any]:
+    def update_data(self, product: dict[str, Any]) -> dict[str, Any]:
         data = self.scrape_data(product["url"])
         if "id" in product:
             data["id"] = product["id"]
@@ -106,7 +106,7 @@ class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
         encoded_search = quote_plus(search_term.encode("utf-8"))
         return f"{self.BASE_URL}?q={encoded_search}&o={page_number}"
 
-    def _extract_links(self, html_content: str) -> List[str]:
+    def _extract_links(self, html_content: str) -> list[str]:
         soup = BeautifulSoup(html_content, "html.parser")
         urls = []
 
@@ -130,7 +130,7 @@ class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
 
         return urls
 
-    def _extract_json_data(self, soup: BeautifulSoup) -> Dict[str, Any]:
+    def _extract_json_data(self, soup: BeautifulSoup) -> dict[str, Any]:
         script = soup.find("script", {"id": "initial-data"})
         if not script:
             return {}

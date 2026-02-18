@@ -17,15 +17,15 @@ Usage:
     python src/scripts/create_superuser.py --username admin --email admin@example.com --password admin --skip-if-exists
 """
 
-import sys
 import argparse
+import sys
 from getpass import getpass
-from typing import Optional
+
 from sqlalchemy.orm import Session
 
+from src.app.entities.user import User as UserEntity
 from src.app.infrastructure.database_config import SessionLocal
 from src.app.infrastructure.repositories.user_repository import UserRepository
-from src.app.entities.user import User as UserEntity
 from src.app.use_cases.user_use_cases import pwd_context
 
 
@@ -38,7 +38,7 @@ def create_superuser_user(
     is_superuser: bool = True,
     skip_if_exists: bool = False,
     quiet: bool = False,
-) -> Optional[UserEntity]:
+) -> UserEntity | None:
     """
     Create a superuser account.
     
@@ -60,7 +60,7 @@ def create_superuser_user(
     """
     db: Session = SessionLocal()
     user_repo = UserRepository(db)
-    
+
     try:
         # Check if username already exists
         existing_user = user_repo.get_by_username(username)
@@ -71,7 +71,7 @@ def create_superuser_user(
                 return None
             else:
                 raise ValueError(f"Username '{username}' already exists!")
-        
+
         # Check if email already exists
         existing_email = user_repo.get_by_email(email)
         if existing_email:
@@ -81,10 +81,10 @@ def create_superuser_user(
                 return None
             else:
                 raise ValueError(f"Email '{email}' already exists!")
-        
+
         # Hash password
         hashed_password = pwd_context.hash(password)
-        
+
         # Create superuser entity
         superuser = UserEntity(
             username=username,
@@ -94,17 +94,17 @@ def create_superuser_user(
             is_staff=is_staff,
             is_superuser=is_superuser,
         )
-        
+
         # Save to database
         created_user = user_repo.create(superuser)
-        
+
         if not quiet:
             print(f"✓ Superuser created: {created_user.username} (ID: {created_user.id})")
             print(f"  Username: {created_user.username}")
             print(f"  Email: {created_user.email}")
-        
+
         return created_user
-        
+
     except Exception as e:
         db.rollback()
         raise e
@@ -117,28 +117,28 @@ def create_superuser_interactive():
     print("=" * 60)
     print("CREATE SUPERUSER")
     print("=" * 60)
-    
+
     # Get user input
     username = input("Username: ").strip()
     if not username:
         print("❌ Username cannot be empty!")
         sys.exit(1)
-    
+
     email = input("Email: ").strip()
     if not email:
         print("❌ Email cannot be empty!")
         sys.exit(1)
-    
+
     password = getpass("Password: ")
     if not password:
         print("❌ Password cannot be empty!")
         sys.exit(1)
-    
+
     password_confirm = getpass("Password (again): ")
     if password != password_confirm:
         print("❌ Passwords don't match!")
         sys.exit(1)
-    
+
     try:
         created_user = create_superuser_user(
             username=username,
@@ -147,7 +147,7 @@ def create_superuser_interactive():
             skip_if_exists=False,
             quiet=False,
         )
-        
+
         print("\n" + "=" * 60)
         print("✅ Superuser created successfully!")
         print("=" * 60)
@@ -158,7 +158,7 @@ def create_superuser_interactive():
         print(f"Is Superuser: {created_user.is_superuser}")
         print("=" * 60)
         print("\n🎉 You can now login with these credentials!")
-        
+
     except ValueError as e:
         print(f"\n❌ Error: {e}")
         sys.exit(1)
@@ -186,7 +186,7 @@ Examples:
   python src/scripts/create_superuser.py --username admin --email admin@example.com --password admin --skip-if-exists
         """
     )
-    
+
     parser.add_argument("--username", help="Username for the superuser")
     parser.add_argument("--email", help="Email address")
     parser.add_argument("--password", help="Password (plain text, will be hashed)")
@@ -194,15 +194,15 @@ Examples:
                        help="Skip creation if user already exists (no error)")
     parser.add_argument("--quiet", action="store_true",
                        help="Suppress output messages")
-    
+
     args = parser.parse_args()
-    
+
     # If any argument is provided, use non-interactive mode
     if args.username or args.email or args.password:
         # Validate all required arguments are provided
         if not all([args.username, args.email, args.password]):
             parser.error("--username, --email, and --password are all required for non-interactive mode")
-        
+
         try:
             created_user = create_superuser_user(
                 username=args.username,
@@ -211,12 +211,12 @@ Examples:
                 skip_if_exists=args.skip_if_exists,
                 quiet=args.quiet,
             )
-            
+
             if created_user is None and args.skip_if_exists:
                 sys.exit(0)  # User exists, but we skipped - success
-            
+
             sys.exit(0)
-            
+
         except ValueError as e:
             if not args.quiet:
                 print(f"❌ Error: {e}")

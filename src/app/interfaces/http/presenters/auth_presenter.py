@@ -1,11 +1,11 @@
-from typing import Optional
+
 from fastapi.responses import JSONResponse
 
 from src.app.interfaces.http.schemas.auth_schema import (
-    TokenResponse,
     TokenResource,
-    TokenValidationResponse,
+    TokenResponse,
     TokenValidationResource,
+    TokenValidationResponse,
 )
 from src.common.jsonapi import JsonApiError, JsonApiErrorResponse
 
@@ -21,7 +21,7 @@ class AuthPresenter:
         access_token: str,
         token_type: str = "bearer",
         expires_in: int = 1440,
-        meta: Optional[dict] = None,
+        meta: dict | None = None,
     ) -> TokenResponse:
         """
         Returns authentication token in JSON:API format.
@@ -37,14 +37,14 @@ class AuthPresenter:
             token_type=token_type,
             expires_in=expires_in,
         )
-        
+
         return TokenResponse(
             data=token_resource,
             meta=meta,
         )
 
     @staticmethod
-    def present_token_validation(is_valid: bool, message: Optional[str] = None) -> TokenValidationResponse:
+    def present_token_validation(is_valid: bool, message: str | None = None) -> TokenValidationResponse:
         """
         Returns token validation result in JSON:API format.
         
@@ -56,7 +56,7 @@ class AuthPresenter:
             is_valid=is_valid,
             message=message,
         )
-        
+
         return TokenValidationResponse(data=validation_resource)
 
     @staticmethod

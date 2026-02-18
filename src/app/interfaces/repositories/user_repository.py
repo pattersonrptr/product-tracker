@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
 
 from src.app.entities.user import User as UserEntity
 
@@ -11,7 +10,7 @@ class UserRepositoryInterface(ABC):
     Defines the contract for all user data access operations,
     following the Repository pattern from Domain-Driven Design.
     """
-    
+
     @abstractmethod
     def create(self, user: UserEntity) -> UserEntity:
         """
@@ -29,7 +28,7 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_by_id(self, user_id: int) -> Optional[UserEntity]:
+    def get_by_id(self, user_id: int) -> UserEntity | None:
         """
         Retrieve a user by their unique ID.
         
@@ -42,7 +41,7 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_by_username(self, username: str) -> Optional[UserEntity]:
+    def get_by_username(self, username: str) -> UserEntity | None:
         """
         Retrieve a user by their username.
         
@@ -55,7 +54,7 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_by_email(self, email: str) -> Optional[UserEntity]:
+    def get_by_email(self, email: str) -> UserEntity | None:
         """
         Retrieve a user by their email address.
         
@@ -68,7 +67,7 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_all(self) -> List[UserEntity]:
+    def get_all(self) -> list[UserEntity]:
         """
         Retrieve all users from the repository.
         
@@ -78,7 +77,7 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def update(self, user_id: int, user: UserEntity) -> Optional[UserEntity]:
+    def update(self, user_id: int, user: UserEntity) -> UserEntity | None:
         """
         Update an existing user's information.
         

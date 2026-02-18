@@ -1,18 +1,18 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel, EmailStr
 
 
 class User(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     username: str
     email: EmailStr
-    hashed_password: Optional[str] = None
+    hashed_password: str | None = None
     is_active: bool = True
     is_staff: bool = False
     is_superuser: bool = False
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True

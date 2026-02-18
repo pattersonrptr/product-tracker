@@ -1,23 +1,24 @@
-from typing import Optional, List
 from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field
 
 from src.common.jsonapi import (
+    CollectionResponse,
     ResourceObject,
     ResourceObjectForCreation,
     SingleResourceRequest,
     SingleResourceResponse,
-    CollectionResponse,
 )
+
 
 class UserAttributes(BaseModel):
     username: str
     email: EmailStr
-    is_active: Optional[bool] = True
-    is_staff: Optional[bool] = False
-    is_superuser: Optional[bool] = False
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    is_active: bool | None = True
+    is_staff: bool | None = False
+    is_superuser: bool | None = False
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class UserAttributesForCreation(BaseModel):
@@ -25,18 +26,18 @@ class UserAttributesForCreation(BaseModel):
     username: str
     email: EmailStr
     password: str
-    is_active: Optional[bool] = True
-    is_staff: Optional[bool] = False
-    is_superuser: Optional[bool] = False
+    is_active: bool | None = True
+    is_staff: bool | None = False
+    is_superuser: bool | None = False
 
 
 class UserAttributesForUpdate(BaseModel):
     """Attributes for update - optional fields"""
-    username: Optional[str] = None
-    email: Optional[EmailStr] = None
-    is_active: Optional[bool] = None
-    is_staff: Optional[bool] = None
-    is_superuser: Optional[bool] = None
+    username: str | None = None
+    email: EmailStr | None = None
+    is_active: bool | None = None
+    is_staff: bool | None = None
+    is_superuser: bool | None = None
 
 
 class UserResource(ResourceObject):
@@ -83,4 +84,4 @@ class UserReadResponse(SingleResourceResponse):
 
 
 class UsersCollectionResponse(CollectionResponse):
-    data: List[UserResource]
+    data: list[UserResource]

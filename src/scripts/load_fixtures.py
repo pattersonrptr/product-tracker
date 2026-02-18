@@ -1,10 +1,13 @@
 import argparse
+
 from src.app.fixtures.fixtures import get_fixtures
-from src.app.infrastructure.database_config import SessionLocal
+
 # from src.app.infrastructure.database.models.source_website_model import SourceWebsite
 # from src.app.infrastructure.database.models.product_model import Product
 # from src.app.infrastructure.database.models.price_history_model import PriceHistory
 from src.app.infrastructure.database.models.user_model import User
+from src.app.infrastructure.database_config import SessionLocal
+
 # from src.app.infrastructure.database.models.search_config_model import SearchConfig
 # from src.app.infrastructure.database.models.search_config_source_website_model import (
 #     search_config_source_website,

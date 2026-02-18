@@ -1,12 +1,12 @@
 [tool.ruff]
-# Mesma linha de comprimento do projeto atual
+# Match project's current line length
 line-length = 88
 indent-width = 4
 
 # Python 3.11+
 target-version = "py311"
 
-# Diretórios a ignorar
+# Directories to ignore
 exclude = [
     ".git",
     ".venv",
@@ -19,7 +19,7 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-# Regras ativadas
+# Enabled rules
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -32,26 +32,32 @@ select = [
     "SIM", # flake8-simplify
 ]
 
-# Regras ignoradas (ajuste conforme necessário)
+# Ignored rules (adjust as needed)
 ignore = [
-    "E501",  # line-too-long (já controlado pelo formatter)
-    "B008",  # do-not-perform-function-calls-in-argument-defaults (comum em FastAPI)
+    "E501",  # line-too-long (already controlled by formatter)
+    "B008",  # do-not-perform-function-calls-in-argument-defaults (common in FastAPI)
 ]
 
-# Permitir autofixing
+# Allow autofixing
 fixable = ["ALL"]
 unfixable = []
 
-# Permitir imports não utilizados em __init__.py
+# Allow unused imports in __init__.py files
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+# Future code with models not yet implemented (legacy from old project)
+"src/product_scrapers/celery/beat_schedule.py" = ["F821"]
+"src/scripts/load_fixtures.py" = ["F821"]
+# TestingSessionLocal is SQLAlchemy convention (sessionmaker returns a class)
+"src/tests/*/conftest.py" = ["N806"]
+"src/tests/*/test_*.py" = ["N806"]
 
 [tool.ruff.lint.isort]
-# Configuração do isort para organizar imports
+# isort configuration for organizing imports
 known-first-party = ["src", "app", "config", "common", "product_scrapers"]
 
 [tool.ruff.format]
-# Configuração do formatter
+# Formatter configuration
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false

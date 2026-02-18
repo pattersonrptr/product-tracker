@@ -25,8 +25,10 @@ async def get_current_user(
             raise HTTPException(
                 status_code=401, detail="Could not validate credentials"
             )
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
+    except JWTError as err:
+        raise HTTPException(
+            status_code=401, detail="Could not validate credentials"
+        ) from err
     user_repo = UserRepository(db)
     user = user_repo.get_by_username(username=username)
     if user is None:

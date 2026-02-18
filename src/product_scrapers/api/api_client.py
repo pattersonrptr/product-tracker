@@ -86,9 +86,8 @@ class ApiClient:
         print(f"💾 Saving {len(products)} products")
         created = 0
         for product in products:
-            if not self.product_exists(product):
-                if self.create_product(product):
-                    created += 1
+            if not self.product_exists(product) and self.create_product(product):
+                created += 1
         print(f"✅ {created} new products created")
         return created
 

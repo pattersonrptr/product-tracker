@@ -331,9 +331,35 @@ docker exec -it web alembic downgrade -1
 ### Creating Additional Users
 
 ```bash
-# Interactive superuser creation
+# Interactive mode (prompts for input)
 docker exec -it web python3 src/scripts/create_superuser.py
+
+# Non-interactive mode (with parameters)
+docker exec -it web python3 src/scripts/create_superuser.py \
+    --username newuser \
+    --email newuser@example.com \
+    --password secure123
+
+# Create multiple users with bash script
+docker exec -it web bash src/scripts/create_multiple_users.sh
+
+# Programmatic usage (skip if exists)
+docker exec -it web python3 src/scripts/create_superuser.py \
+    --username developer \
+    --email dev@example.com \
+    --password dev123 \
+    --skip-if-exists \
+    --quiet
 ```
+
+**Available options:**
+- `--username` - Username for the superuser
+- `--email` - Email address
+- `--password` - Password (will be hashed)
+- `--skip-if-exists` - Don't fail if user already exists (idempotent)
+- `--quiet` - Suppress output messages
+
+**Note:** The default `admin` user is automatically created every time the container starts (via `start.sh` → `init_dev_db.py`). This is idempotent and safe to run multiple times.
 
 ### Accessing Database
 

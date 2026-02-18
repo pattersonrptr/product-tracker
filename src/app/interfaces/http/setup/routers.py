@@ -15,17 +15,17 @@ from src.app.interfaces.http.controllers import (
 def setup_routers(app: FastAPI) -> None:
     """
     Register all API routers for the application.
-    
+
     Current routes:
     - /auth: Authentication endpoints (login, token refresh)
     - /users: User management endpoints (CRUD operations)
-    
+
     Future routes (commented out):
     - /products: Product tracking endpoints
     - /source-websites: Source website management
     - /price-history: Price history queries
     - /search-configs: Search configuration management
-    
+
     Args:
         app: FastAPI application instance
     """

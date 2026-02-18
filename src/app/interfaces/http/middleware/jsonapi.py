@@ -6,14 +6,14 @@ from fastapi import Request
 async def jsonapi_content_type_middleware(request: Request, call_next):
     """
     Set default Content-Type to 'application/vnd.api+json' for JSON:API endpoints.
-    
+
     Currently applied to paths starting with '/users' or '/auth'.
     This ensures compliance with JSON:API specification for these endpoints.
-    
+
     Args:
         request: FastAPI Request object
         call_next: Next middleware in chain
-        
+
     Returns:
         Response object with adjusted Content-Type if applicable
     """

@@ -370,7 +370,7 @@ class TestUserRepositoryUpdate:
             email="user2@example.com",
             hashed_password="$2b$12$hash2",
         )
-        created_user1 = user_repository.create(user1)
+        user_repository.create(user1)
         created_user2 = user_repository.create(user2)
 
         # When/Then: Try to update user2's username to user1's username

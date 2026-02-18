@@ -39,11 +39,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def test_db():
     """
     Create a fresh SQLite in-memory database for each test.
-    
+
     Given: A test requiring database access
     When: Test is executed
     Then: Provides isolated database session with clean state
-    
+
     Note: The User model import above is critical - it registers the model
     with SQLAlchemy's Base.metadata before create_all() is called.
     """
@@ -75,7 +75,7 @@ def test_db():
 def client(test_db):
     """
     FastAPI TestClient with overridden database dependency.
-    
+
     Given: A test requiring HTTP requests
     When: Test is executed
     Then: Provides TestClient with isolated test database
@@ -102,7 +102,7 @@ def client(test_db):
 def sample_user(test_db):
     """
     Create a sample user in the database.
-    
+
     Credentials:
         username: testuser
         email: test@example.com
@@ -126,7 +126,7 @@ def sample_user(test_db):
 def sample_superuser(test_db):
     """
     Create a sample superuser in the database.
-    
+
     Credentials:
         username: admin
         email: admin@example.com
@@ -154,7 +154,7 @@ def sample_superuser(test_db):
 def user_token(client, sample_user):
     """
     Get authentication token for regular user.
-    
+
     Returns:
         str: Bearer token for testuser
     """
@@ -171,7 +171,7 @@ def user_token(client, sample_user):
 def superuser_token(client, sample_superuser):
     """
     Get authentication token for superuser.
-    
+
     Returns:
         str: Bearer token for admin
     """
@@ -188,7 +188,7 @@ def superuser_token(client, sample_superuser):
 def auth_headers(user_token):
     """
     Get authorization headers with user token.
-    
+
     Returns:
         dict: Headers with Authorization: Bearer <token>
     """
@@ -199,7 +199,7 @@ def auth_headers(user_token):
 def superuser_auth_headers(superuser_token):
     """
     Get authorization headers with superuser token.
-    
+
     Returns:
         dict: Headers with Authorization: Bearer <token>
     """

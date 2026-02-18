@@ -152,7 +152,7 @@ class TestCreateUserUseCase:
         use_case = CreateUserUseCase(mock_user_repo)
 
         # When
-        result = use_case.execute(create_request, "$2b$12$hashed")
+        use_case.execute(create_request, "$2b$12$hashed")
 
         # Then
         call_args = mock_user_repo.create.call_args[0][0]
@@ -398,7 +398,7 @@ class TestUpdateUserUseCase:
         use_case = UpdateUserUseCase(mock_user_repo)
 
         # When
-        result = use_case.execute(1, update_request)
+        use_case.execute(1, update_request)
 
         # Then
         assert sample_user_entity.username == "onlynewusername"
@@ -445,7 +445,7 @@ class TestUpdateUserUseCase:
         use_case = UpdateUserUseCase(mock_user_repo)
 
         # When
-        result = use_case.execute(1, update_request)
+        use_case.execute(1, update_request)
 
         # Then
         assert sample_user_entity.is_active is False

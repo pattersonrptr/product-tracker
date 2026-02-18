@@ -91,7 +91,7 @@ class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
             "city": city,
             "state": state,
             "seller_name": seller_name,
-            "is_available": True if price else False,
+            "is_available": bool(price),
             "image_urls": image_url,
             "source_metadata": {},
         }

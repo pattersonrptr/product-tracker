@@ -90,7 +90,7 @@ def setup_logging(
 ) -> None:
     """
     Configure logging for the entire application.
-    
+
     Args:
         app_name: Name of the application (used for log file names)
         log_level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
@@ -183,15 +183,15 @@ def setup_logging(
 def get_logger(name: str) -> logging.Logger:
     """
     Get a logger instance for a specific module.
-    
+
     Usage:
         logger = get_logger(__name__)
         logger.info("This is an info message")
         logger.error("This is an error message")
-    
+
     Args:
         name: Name of the logger (usually __name__)
-    
+
     Returns:
         Logger instance
     """
@@ -201,7 +201,7 @@ def get_logger(name: str) -> logging.Logger:
 class LoggerAdapter(logging.LoggerAdapter):
     """
     Logger adapter to add contextual information to logs.
-    
+
     Usage:
         logger = LoggerAdapter(get_logger(__name__), {'user_id': 123, 'request_id': 'abc'})
         logger.info("User logged in")  # Will include user_id and request_id

@@ -12,16 +12,16 @@ logger = get_logger(__name__)
 async def log_requests_middleware(request: Request, call_next):
     """
     Log all HTTP requests with timing information.
-    
+
     Logs:
     - Incoming request method and path
     - Response status code and duration
     - Errors with stack traces
-    
+
     Args:
         request: FastAPI Request object
         call_next: Next middleware in chain
-        
+
     Returns:
         Response object from next middleware
     """

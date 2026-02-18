@@ -9,10 +9,10 @@ Can be used both interactively and programmatically:
 Usage:
     # Interactive mode (prompts for input)
     python src/scripts/create_superuser.py
-    
+
     # Non-interactive mode (with arguments)
     python src/scripts/create_superuser.py --username admin --email admin@example.com --password admin
-    
+
     # Skip if exists (for initialization scripts)
     python src/scripts/create_superuser.py --username admin --email admin@example.com --password admin --skip-if-exists
 """
@@ -41,7 +41,7 @@ def create_superuser_user(
 ) -> UserEntity | None:
     """
     Create a superuser account.
-    
+
     Args:
         username: Username for the superuser
         email: Email address
@@ -51,10 +51,10 @@ def create_superuser_user(
         is_superuser: Whether user has superuser privileges (default: True)
         skip_if_exists: If True, return None if user exists instead of raising error
         quiet: If True, suppress output messages
-        
+
     Returns:
         Created UserEntity or None if user exists and skip_if_exists=True
-        
+
     Raises:
         ValueError: If user already exists and skip_if_exists=False
     """
@@ -178,10 +178,10 @@ def main():
 Examples:
   # Interactive mode
   python src/scripts/create_superuser.py
-  
+
   # Non-interactive mode
   python src/scripts/create_superuser.py --username admin --email admin@example.com --password admin
-  
+
   # Skip if exists (for init scripts)
   python src/scripts/create_superuser.py --username admin --email admin@example.com --password admin --skip-if-exists
         """

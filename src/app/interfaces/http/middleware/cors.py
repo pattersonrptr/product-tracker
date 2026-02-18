@@ -7,10 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 def setup_cors(app: FastAPI) -> None:
     """
     Configure CORS middleware for the application.
-    
+
     Allows requests from localhost development servers on ports 3000.
     In production, this should be configured with specific origins.
-    
+
     Args:
         app: FastAPI application instance
     """

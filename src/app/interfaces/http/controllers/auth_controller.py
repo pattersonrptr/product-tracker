@@ -54,7 +54,7 @@ async def login(
 ):
     """
     Authenticate user and return JWT token in JSON:API format.
-    
+
     Returns:
         TokenResponse: JSON:API formatted token response with user metadata
     """
@@ -111,7 +111,7 @@ async def login(
 async def verify_token(request: TokenValidationRequest):
     """
     Verify if a JWT token is valid.
-    
+
     Request body (JSON:API):
         {
             "data": {
@@ -121,7 +121,7 @@ async def verify_token(request: TokenValidationRequest):
                 }
             }
         }
-    
+
     Returns:
         TokenValidationResponse: JSON:API formatted validation result
     """
@@ -146,7 +146,7 @@ async def verify_token(request: TokenValidationRequest):
 async def refresh_token(current_user: UserEntity = Depends(get_current_active_user)):
     """
     Refresh an existing JWT token.
-    
+
     Returns:
         TokenResponse: JSON:API formatted token response
     """

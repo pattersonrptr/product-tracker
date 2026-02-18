@@ -13,14 +13,14 @@ from src.app.interfaces.http.middleware.error_handlers import (
 def setup_exception_handlers(app: FastAPI) -> None:
     """
     Register global exception handlers for JSON:API compliance.
-    
+
     Handles:
     - RequestValidationError: Invalid request data (422)
     - HTTPException: Standard HTTP exceptions (4xx, 5xx)
     - Exception: Unhandled exceptions (500)
-    
+
     All responses follow JSON:API error format with proper error objects.
-    
+
     Args:
         app: FastAPI application instance
     """

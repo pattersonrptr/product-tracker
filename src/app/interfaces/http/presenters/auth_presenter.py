@@ -25,7 +25,7 @@ class AuthPresenter:
     ) -> TokenResponse:
         """
         Returns authentication token in JSON:API format.
-        
+
         Args:
             access_token: JWT token string
             token_type: Type of token (default: "bearer")
@@ -47,7 +47,7 @@ class AuthPresenter:
     def present_token_validation(is_valid: bool, message: str | None = None) -> TokenValidationResponse:
         """
         Returns token validation result in JSON:API format.
-        
+
         Args:
             is_valid: Whether the token is valid
             message: Optional message (e.g., error reason)
@@ -63,7 +63,7 @@ class AuthPresenter:
     def handle_authentication_error(detail: str) -> JSONResponse:
         """
         Returns authentication error in JSON:API format.
-        
+
         Args:
             detail: Error message
         """

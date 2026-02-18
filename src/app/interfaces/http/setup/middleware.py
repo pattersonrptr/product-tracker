@@ -10,12 +10,12 @@ from src.app.interfaces.http.middleware.logging import log_requests_middleware
 def setup_middleware(app: FastAPI) -> None:
     """
     Register all middleware for the application.
-    
+
     Middleware execution order (LIFO - Last In, First Out):
     1. JSON:API content-type adjustment (last registered, executes first on response)
     2. Request/Response logging
     3. CORS (first registered, executes first on request)
-    
+
     Args:
         app: FastAPI application instance
     """

@@ -18,11 +18,15 @@ class RequestScraper(ABC):
     def retry_request(
         self,
         url: str,
-        headers: dict = {},
-        params: dict = {},
+        headers: dict = None,
+        params: dict = None,
         max_retries: int = 3,
         backoff_factor: float = 2,
     ) -> requests.Response | None:
+        if params is None:
+            params = {}
+        if headers is None:
+            headers = {}
         for i in range(max_retries + 1):
             try:
                 response = self._session.get(

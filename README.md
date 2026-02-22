@@ -176,15 +176,30 @@ Or use the **Authorize** button in Swagger UI.
 
 ### Main Endpoints
 
+#### Authentication
 | Endpoint | Method | Description | Auth Required |
 |----------|--------|-------------|---------------|
 | `/auth/login` | POST | Get access token | ❌ |
 | `/auth/validate` | POST | Validate token | ✅ |
+
+#### Users
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
 | `/users/` | GET | List all users | ✅ (Staff) |
 | `/users/{id}` | GET | Get user by ID | ✅ (Staff) |
 | `/users/` | POST | Create new user | ✅ (Superuser) |
 | `/users/{id}` | PATCH | Update user | ✅ (Superuser) |
 | `/users/{id}` | DELETE | Delete user | ✅ (Superuser) |
+
+#### Products
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/products/` | GET | List products (paginated) | ✅ (Staff) |
+| `/products/{id}` | GET | Get product by ID | ✅ (Staff) |
+| `/products/url` | GET | Get product by URL | ✅ (Staff) |
+| `/products/` | POST | Create new product | ✅ (Staff) |
+| `/products/{id}` | PUT | Update product | ✅ (Staff) |
+| `/products/{id}` | DELETE | Delete product | ✅ (Staff) |
 
 ---
 
@@ -238,15 +253,17 @@ src/tests/
 For manual testing with real HTTP requests while the API is running:
 
 ```bash
-# Run all bash tests in order (auth → users)
+# Run all bash tests in order (auth → users → products)
 ./src/scripts/api_tests/run_all_tests.sh
 
 # Or with custom API URL
 ./src/scripts/api_tests/run_all_tests.sh http://localhost:8000
 
-# Run individual test
+# Run individual test scripts
 ./src/scripts/api_tests/auth/login.sh
 ./src/scripts/api_tests/users/list_users.sh
+./src/scripts/api_tests/products/create_product.sh
+./src/scripts/api_tests/products/list_products.sh
 ```
 
 **Features:**

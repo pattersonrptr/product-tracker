@@ -122,6 +122,66 @@ main() {
     run_test "Delete User" "$SCRIPT_DIR/users/delete_user.sh"
 
     # ========================================
+    # Product Management Tests
+    # ========================================
+    print_section "3. Product Management Tests"
+
+    # Store the product ID from creation for later use
+    echo -e "${YELLOW}Creating a product for testing...${NC}"
+    PRODUCT_RESPONSE=$("$SCRIPT_DIR/products/create_product.sh" 2>/dev/null)
+    PRODUCT_ID=$(echo "$PRODUCT_RESPONSE" | grep '"id"' | head -1 | grep -o '[0-9]\+')
+    PRODUCT_URL=$(echo "$PRODUCT_RESPONSE" | grep '"url"' | head -1 | sed 's/.*"url": "\([^"]*\)".*/\1/')
+
+    if [ -z "$PRODUCT_ID" ]; then
+        echo -e "${RED}Failed to create test product${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ Created test product with ID: $PRODUCT_ID${NC}\n"
+
+    run_test "List Products" "$SCRIPT_DIR/products/list_products.sh"
+
+    # Use the created product ID for these tests
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    print_test "Get Product by ID ($PRODUCT_ID)"
+    if bash "$SCRIPT_DIR/products/get_product_by_id.sh" "$PRODUCT_ID"; then
+        echo -e "${GREEN}✓ PASSED${NC}\n"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "${RED}✗ FAILED${NC}\n"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+    fi
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    print_test "Get Product by URL"
+    if bash "$SCRIPT_DIR/products/get_product_by_url.sh" "$PRODUCT_URL"; then
+        echo -e "${GREEN}✓ PASSED${NC}\n"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "${RED}✗ FAILED${NC}\n"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+    fi
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    print_test "Update Product ($PRODUCT_ID)"
+    if bash "$SCRIPT_DIR/products/update_product.sh" "$PRODUCT_ID"; then
+        echo -e "${GREEN}✓ PASSED${NC}\n"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "${RED}✗ FAILED${NC}\n"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+    fi
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    print_test "Delete Product ($PRODUCT_ID)"
+    if bash "$SCRIPT_DIR/products/delete_product.sh" "$PRODUCT_ID"; then
+        echo -e "${GREEN}✓ PASSED${NC}\n"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+    else
+        echo -e "${RED}✗ FAILED${NC}\n"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+    fi
+
+    # ========================================
     # Summary
     # ========================================
     print_summary

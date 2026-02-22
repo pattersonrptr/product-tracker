@@ -1,0 +1,351 @@
+from fastapi import APIRouter, Depends, Query
+
+from src.app.domain.validators.product_validator import ProductValidator
+from src.app.entities.product import Product as ProductEntity
+from src.app.entities.user import User as UserEntity
+from src.app.infrastructure.database_config import get_db
+from src.app.infrastructure.repositories.product_repository import ProductRepository
+from src.app.interfaces.http.presenters.product_presenter import ProductPresenter
+from src.app.interfaces.http.schemas.product_schema import (
+    ProductCreateRequest,
+    ProductReadResponse,
+    ProductsCollectionResponse,
+    ProductUpdateRequest,
+)
+from src.app.security.auth import get_current_staff_user
+from src.app.use_cases.product_use_cases import (
+    CreateProductUseCase,
+    DeleteProductUseCase,
+    GetProductByIdUseCase,
+    GetProductByUrlUseCase,
+    ListProductsUseCase,
+    UpdateProductUseCase,
+)
+from src.config.logging_config import get_logger
+
+router = APIRouter(tags=["products"], prefix="/products")
+
+logger = get_logger(__name__)
+
+
+def get_product_repository(db=Depends(get_db)) -> ProductRepository:
+    """Dependency injection for ProductRepository."""
+    return ProductRepository(db)
+
+
+def get_product_validator(
+    product_repo: ProductRepository = Depends(get_product_repository),
+) -> ProductValidator:
+    """Dependency injection for ProductValidator."""
+    return ProductValidator(product_repo)
+
+
+@router.post("/", response_model=ProductReadResponse, status_code=201)
+def create_product(
+    product_in: ProductCreateRequest,
+    product_repo: ProductRepository = Depends(get_product_repository),
+    product_validator: ProductValidator = Depends(get_product_validator),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Create a new product. Requires staff or superuser access.
+
+    Returns:
+        - 201: Product created successfully
+        - 400: Validation errors
+        - 403: Permission denied
+        - 409: Product with same URL already exists
+        - 422: Invalid field values
+    """
+    logger.info(
+        f"Creating new product: {product_in.data.attributes.title}",
+        extra={"action": "create_product", "user_id": current_user.id},
+    )
+
+    # Validate the request
+    validation_errors = product_validator.validate_create_request(product_in)
+    if validation_errors:
+        logger.warning(
+            f"Product creation validation failed: {len(validation_errors)} errors",
+            extra={"action": "product_validation_failed", "user_id": current_user.id},
+        )
+        return ProductPresenter.handle_validation_errors(validation_errors)
+
+    attrs = product_in.data.attributes
+    product_entity = ProductEntity(
+        url=attrs.url,
+        title=attrs.title,
+        source_product_code=attrs.source_product_code,
+        description=attrs.description,
+        image_urls=attrs.image_urls,
+        city=attrs.city,
+        state=attrs.state,
+        condition=attrs.condition,
+        seller_name=attrs.seller_name,
+        is_available=attrs.is_available,
+        source_website_id=attrs.source_website_id,
+        source_metadata=attrs.source_metadata,
+    )
+
+    use_case = CreateProductUseCase(product_repo)
+    created_product = use_case.execute(product_entity)
+
+    logger.info(
+        f"Product created successfully: {created_product.title} (ID: {created_product.id})",
+        extra={
+            "action": "product_created",
+            "product_id": created_product.id,
+            "user_id": current_user.id,
+        },
+    )
+
+    return ProductPresenter.handle_success(created_product)
+
+
+@router.get("/", response_model=ProductsCollectionResponse)
+def list_products(
+    limit: int = Query(default=10, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    sort_by: str | None = Query(default=None),
+    sort_order: str | None = Query(default="desc", regex="^(asc|desc)$"),
+    product_repo: ProductRepository = Depends(get_product_repository),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    List all products with pagination and sorting. Requires staff or superuser access.
+
+    Query Parameters:
+        - limit: Maximum number of products to return (1-100, default: 10)
+        - offset: Number of products to skip (default: 0)
+        - sort_by: Field name to sort by (e.g., 'title', 'created_at')
+        - sort_order: Sort order 'asc' or 'desc' (default: 'desc')
+
+    Returns:
+        - 200: Collection of products with pagination meta
+        - 403: Permission denied
+    """
+    logger.debug(
+        f"Listing products: limit={limit}, offset={offset}, sort_by={sort_by}, sort_order={sort_order}",
+        extra={"action": "list_products", "user_id": current_user.id},
+    )
+
+    use_case = ListProductsUseCase(product_repo)
+    products, total = use_case.execute(
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    return ProductPresenter.handle_collection_success(products, total)
+
+
+@router.get("/url", response_model=ProductReadResponse)
+def get_product_by_url(
+    url: str = Query(..., description="Product URL to search for"),
+    product_repo: ProductRepository = Depends(get_product_repository),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Get a product by its URL. Requires staff or superuser access.
+
+    Returns:
+        - 200: Product found
+        - 403: Permission denied
+        - 404: Product not found
+    """
+    logger.debug(
+        f"Getting product by URL: {url}",
+        extra={"action": "get_product_by_url", "user_id": current_user.id},
+    )
+
+    use_case = GetProductByUrlUseCase(product_repo)
+    product = use_case.execute(url)
+
+    if not product:
+        logger.debug(f"Product not found with URL: {url}")
+        return ProductPresenter.handle_not_found(f"URL '{url}'", "/url")
+
+    return ProductPresenter.handle_success(product)
+
+
+@router.get("/{product_id}", response_model=ProductReadResponse)
+def get_product(
+    product_id: int,
+    product_repo: ProductRepository = Depends(get_product_repository),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Get a single product by ID. Requires staff or superuser access.
+
+    Returns:
+        - 200: Product found
+        - 403: Permission denied
+        - 404: Product not found
+    """
+    logger.debug(
+        f"Getting product ID: {product_id}",
+        extra={
+            "action": "get_product",
+            "product_id": product_id,
+            "user_id": current_user.id,
+        },
+    )
+
+    use_case = GetProductByIdUseCase(product_repo)
+    product = use_case.execute(product_id)
+
+    if not product:
+        logger.debug(f"Product not found: ID {product_id}")
+        return ProductPresenter.handle_not_found(f"id {product_id}", "/data/id")
+
+    return ProductPresenter.handle_success(product)
+
+
+@router.put("/{product_id}", response_model=ProductReadResponse)
+def update_product(
+    product_id: int,
+    product_in: ProductUpdateRequest,
+    product_repo: ProductRepository = Depends(get_product_repository),
+    product_validator: ProductValidator = Depends(get_product_validator),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Update an existing product. Requires staff or superuser access.
+
+    Returns:
+        - 200: Product updated successfully
+        - 400: Validation errors
+        - 403: Permission denied
+        - 404: Product not found
+        - 409: Duplicate URL conflict
+        - 422: Invalid field values
+    """
+    logger.info(
+        f"Updating product ID: {product_id}",
+        extra={
+            "action": "update_product",
+            "product_id": product_id,
+            "user_id": current_user.id,
+        },
+    )
+
+    # Check if product exists
+    get_product_uc = GetProductByIdUseCase(product_repo)
+    existing_product = get_product_uc.execute(product_id)
+
+    if not existing_product:
+        logger.warning(f"Product not found for update: ID {product_id}")
+        return ProductPresenter.handle_not_found(f"id {product_id}", "/data/id")
+
+    # Validate the request
+    validation_errors = product_validator.validate_update_request(
+        product_id, product_in
+    )
+    if validation_errors:
+        logger.warning(
+            f"Product update validation failed: {len(validation_errors)} errors",
+            extra={
+                "action": "product_update_validation_failed",
+                "product_id": product_id,
+            },
+        )
+        return ProductPresenter.handle_validation_errors(validation_errors)
+
+    # Create entity with updated data
+    attrs = product_in.data.attributes
+    product_entity = ProductEntity(
+        id=product_id,
+        url=attrs.url if attrs.url is not None else existing_product.url,
+        title=attrs.title if attrs.title is not None else existing_product.title,
+        source_product_code=attrs.source_product_code
+        if attrs.source_product_code is not None
+        else existing_product.source_product_code,
+        description=attrs.description
+        if attrs.description is not None
+        else existing_product.description,
+        image_urls=attrs.image_urls
+        if attrs.image_urls is not None
+        else existing_product.image_urls,
+        city=attrs.city if attrs.city is not None else existing_product.city,
+        state=attrs.state if attrs.state is not None else existing_product.state,
+        condition=attrs.condition
+        if attrs.condition is not None
+        else existing_product.condition,
+        seller_name=attrs.seller_name
+        if attrs.seller_name is not None
+        else existing_product.seller_name,
+        is_available=attrs.is_available
+        if attrs.is_available is not None
+        else existing_product.is_available,
+        source_website_id=attrs.source_website_id
+        if attrs.source_website_id is not None
+        else existing_product.source_website_id,
+        source_metadata=attrs.source_metadata
+        if attrs.source_metadata is not None
+        else existing_product.source_metadata,
+    )
+
+    update_uc = UpdateProductUseCase(product_repo)
+    updated_product = update_uc.execute(product_id, product_entity)
+
+    logger.info(
+        f"Product updated successfully: {updated_product.title} (ID: {product_id})",
+        extra={
+            "action": "product_updated",
+            "product_id": product_id,
+            "user_id": current_user.id,
+        },
+    )
+
+    return ProductPresenter.handle_success(updated_product)
+
+
+@router.delete("/{product_id}", status_code=204)
+def delete_product(
+    product_id: int,
+    product_repo: ProductRepository = Depends(get_product_repository),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Delete a product. Requires staff or superuser access.
+
+    Returns:
+        - 204: Product deleted successfully (no content)
+        - 403: Permission denied
+        - 404: Product not found
+    """
+    logger.warning(
+        f"Deleting product ID: {product_id}",
+        extra={
+            "action": "delete_product",
+            "product_id": product_id,
+            "user_id": current_user.id,
+        },
+    )
+
+    # Check if product exists
+    get_product_uc = GetProductByIdUseCase(product_repo)
+    product = get_product_uc.execute(product_id)
+
+    if not product:
+        logger.warning(f"Product not found for deletion: ID {product_id}")
+        return ProductPresenter.handle_not_found(f"id {product_id}", "/data/id")
+
+    delete_uc = DeleteProductUseCase(product_repo)
+    deleted = delete_uc.execute(product_id)
+
+    if not deleted:
+        logger.error(f"Failed to delete product ID: {product_id}")
+        return ProductPresenter.handle_not_found(f"id {product_id}", "/data/id")
+
+    logger.warning(
+        f"Product deleted successfully: {product.title} (ID: {product_id})",
+        extra={
+            "action": "product_deleted",
+            "product_id": product_id,
+            "user_id": current_user.id,
+        },
+    )
+
+    return None

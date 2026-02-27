@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProductCondition(str, Enum):
@@ -15,6 +15,8 @@ class ProductCondition(str, Enum):
 
 class Product(BaseModel):
     """Product domain entity representing a tracked product from e-commerce sites."""
+
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     # Identification
     id: int | None = None
@@ -45,9 +47,3 @@ class Product(BaseModel):
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    class Config:
-        """Pydantic configuration."""
-
-        from_attributes = True
-        use_enum_values = True

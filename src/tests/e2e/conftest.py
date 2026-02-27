@@ -20,10 +20,16 @@ from sqlalchemy.pool import StaticPool
 # Disable file logging for tests
 os.environ["ENABLE_FILE_LOGGING"] = "false"
 
-# Import app first
+# Import models first so they register with Base.metadata before create_all()
+from src.app.infrastructure.database.models.product_model import (
+    Product as ProductModel,  # noqa: F401
+)
+from src.app.infrastructure.database.models.source_website_model import (  # noqa: F401
+    SourceWebsite as SourceWebsiteModel,
+)
 from src.app.infrastructure.database.models.user_model import User  # noqa: F401
 
-# Then import database config and models
+# Then import database config and app
 from src.app.infrastructure.database_config import Base, get_db
 from src.main import app
 
@@ -48,7 +54,13 @@ def test_db():
     Note: The User model import above is critical - it registers the model
     with SQLAlchemy's Base.metadata before create_all() is called.
     """
-    # Ensure User model is imported to register with Base.metadata
+    # Ensure all models are imported to register with Base.metadata
+    from src.app.infrastructure.database.models.product_model import (  # noqa: F401
+        Product as ProductModel,
+    )
+    from src.app.infrastructure.database.models.source_website_model import (  # noqa: F401
+        SourceWebsite as SourceWebsiteModel,
+    )
     from src.app.infrastructure.database.models.user_model import User  # noqa: F401
 
     engine = create_engine(
@@ -208,3 +220,105 @@ def superuser_auth_headers(superuser_token):
         dict: Headers with Authorization: Bearer <token>
     """
     return {"Authorization": f"Bearer {superuser_token}"}
+
+
+# ============================================================================
+# PRODUCT-RELATED FIXTURES
+# ============================================================================
+
+
+@pytest.fixture(scope="function")
+def sample_staff_user(test_db):
+    """
+    Create a staff (non-superuser) user in the database.
+
+    Credentials:
+        username: staffuser
+        email: staff@example.com
+        password: Staff@1234
+        is_staff: True
+        is_superuser: False
+    """
+    user = User(
+        username="staffuser",
+        email="staff@example.com",
+        hashed_password=pwd_context.hash("Staff@1234"),
+        is_superuser=False,
+        is_staff=True,
+        is_active=True,
+    )
+    test_db.add(user)
+    test_db.commit()
+    test_db.refresh(user)
+    return user
+
+
+@pytest.fixture(scope="function")
+def staff_token(client, sample_staff_user):
+    """
+    Get authentication token for staff user.
+
+    Returns:
+        str: Bearer token for staffuser
+    """
+    response = client.post(
+        "/auth/login", data={"username": "staffuser", "password": "Staff@1234"}
+    )
+    assert response.status_code == 200
+    token = response.json()["data"]["attributes"]["access_token"]
+    return token
+
+
+@pytest.fixture(scope="function")
+def staff_auth_headers(staff_token):
+    """
+    Get authorization headers with staff token.
+
+    Returns:
+        dict: Headers with Authorization: Bearer <token>
+    """
+    return {"Authorization": f"Bearer {staff_token}"}
+
+
+@pytest.fixture(scope="function")
+def sample_source_website(test_db):
+    """
+    Create a sample source website in the database (required FK for products).
+
+    Returns:
+        SourceWebsiteModel: Persisted SourceWebsite instance
+    """
+    website = SourceWebsiteModel(
+        name="Test Website",
+        base_url="https://test.example.com",
+        is_active=True,
+    )
+    test_db.add(website)
+    test_db.commit()
+    test_db.refresh(website)
+    return website
+
+
+@pytest.fixture(scope="function")
+def sample_product(test_db, sample_source_website):
+    """
+    Create a sample product in the database.
+
+    Returns:
+        ProductModel: Persisted Product instance
+    """
+    from src.app.entities.product import ProductCondition
+
+    product = ProductModel(
+        url="https://test.example.com/product/123",
+        title="Test Product",
+        source_product_code="test-123",
+        description="A test product description",
+        condition=ProductCondition.NEW,
+        is_available=True,
+        source_website_id=sample_source_website.id,
+    )
+    test_db.add(product)
+    test_db.commit()
+    test_db.refresh(product)
+    return product

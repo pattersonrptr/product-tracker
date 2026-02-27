@@ -107,7 +107,7 @@ def list_products(
     limit: int = Query(default=10, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     sort_by: str | None = Query(default=None),
-    sort_order: str | None = Query(default="desc", regex="^(asc|desc)$"),
+    sort_order: str | None = Query(default="desc", pattern="^(asc|desc)$"),
     product_repo: ProductRepository = Depends(get_product_repository),
     current_user: UserEntity = Depends(get_current_staff_user),
 ):

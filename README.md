@@ -5,6 +5,7 @@ A robust price monitoring system that automatically tracks product prices across
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.120+-green.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue.svg)](https://www.postgresql.org/)
+[![CI](https://github.com/pattersonrptr/product-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/pattersonrptr/product-tracker/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -20,6 +21,7 @@ A robust price monitoring system that automatically tracks product prices across
   - [First Run](#first-run)
 - [API Documentation](#-api-documentation)
 - [Running Tests](#-running-tests)
+- [CI/CD](#-cicd)
 - [Code Quality Tools](#-code-quality-tools)
 - [Project Structure](#-project-structure)
 - [Development](#-development)
@@ -83,7 +85,7 @@ A robust price monitoring system that automatically tracks product prices across
 | **Authentication** | JWT (python-jose), bcrypt |
 | **Scraping** | BeautifulSoup4, requests, cloudscraper |
 | **Testing** | pytest, pytest-cov, pytest-asyncio |
-| **DevOps** | Docker, Docker Compose |
+| **DevOps** | Docker, Docker Compose, GitHub Actions |
 | **Code Quality** | Ruff, MyPy, Pre-commit, Bandit |
 | **Dependency Management** | Poetry |
 
@@ -205,7 +207,36 @@ Or use the **Authorize** button in Swagger UI.
 
 ## 🧪 Running Tests
 
-### Unit & Integration Tests (pytest)
+### Local (without Docker)
+
+```bash
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run all tests
+pytest src/tests/
+
+# Run with verbose output
+pytest -v src/tests/
+
+# Run specific layer
+pytest src/tests/unit/
+pytest src/tests/integration/
+pytest src/tests/e2e/
+
+# Run with coverage report
+pytest --cov=src --cov-report=term-missing src/tests/
+
+# Generate HTML coverage report
+pytest --cov=src --cov-report=html src/tests/
+# Open htmlcov/index.html in browser
+```
+
+### Via Docker
 
 ```bash
 # Run all tests
@@ -271,6 +302,34 @@ For manual testing with real HTTP requests while the API is running:
 - ✅ Runs tests in correct dependency order
 - ✅ Colorful output with pass/fail summary
 - ✅ Exit code for CI/CD integration (0 = success)
+
+---
+
+## ⚙️ CI/CD
+
+This project uses **GitHub Actions** for continuous integration. The pipeline runs automatically on every push and on pull requests to `main`.
+
+### Pipeline (`.github/workflows/ci.yml`)
+
+| Step | Tool | Blocks merge? |
+|------|------|---------------|
+| **Lint** | `ruff check src/` | ✅ Yes |
+| **Format check** | `ruff format --check src/` | ✅ Yes |
+| **Type check** | `mypy src/` | ⚠️ No (informational) |
+| **Tests + Coverage** | `pytest --cov-fail-under=60` | ✅ Yes |
+
+### Triggers
+
+- **Push** to any branch → runs full pipeline
+- **Pull Request** to `main` → runs full pipeline (must pass to merge)
+
+### Coverage Threshold
+
+The pipeline enforces a minimum of **60% test coverage**. Current coverage: **~71%**.
+
+### Artifacts
+
+The XML coverage report is uploaded as a GitHub Actions artifact (retained for 7 days) after each run.
 
 ---
 
@@ -344,7 +403,8 @@ bandit -r src/ -f json -o bandit-report.json
 
 ### Poetry - Dependency Management
 
-[Poetry](https://python-poetry.org/) provides modern dependency management with better dependency resolution and reproducible builds via `poetry.lock`.
+[Poetry](https://python-poetry.org/) provides modern dependency management with bette⚙️ Search Configurations: Define custom search parameters and schedules
+🔄 Async Task Processing: Background jobs with r dependency resolution and reproducible builds via `poetry.lock`.
 
 ```bash
 # Install dependencies (production + dev)

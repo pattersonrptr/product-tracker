@@ -203,6 +203,16 @@ Or use the **Authorize** button in Swagger UI.
 | `/products/{id}` | PUT | Update product | ✅ (Staff) |
 | `/products/{id}` | DELETE | Delete product | ✅ (Staff) |
 
+#### Source Websites
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/source-websites/` | GET | List source websites (paginated) | ✅ (Staff) |
+| `/source-websites/{id}` | GET | Get source website by ID | ✅ (Staff) |
+| `/source-websites/name/{name}` | GET | Get source website by name | ✅ (Staff) |
+| `/source-websites/` | POST | Create new source website | ✅ (Staff) |
+| `/source-websites/{id}` | PUT | Update source website | ✅ (Staff) |
+| `/source-websites/{id}` | DELETE | Delete source website | ✅ (Staff) |
+
 ---
 
 ## 🧪 Running Tests
@@ -325,7 +335,7 @@ This project uses **GitHub Actions** for continuous integration. The pipeline ru
 
 ### Coverage Threshold
 
-The pipeline enforces a minimum of **60% test coverage**. Current coverage: **~71%**.
+The pipeline enforces a minimum of **60% test coverage**. Current coverage: **~76%**.
 
 ### Artifacts
 

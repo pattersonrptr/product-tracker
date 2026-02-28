@@ -2,7 +2,7 @@
 
 A robust price monitoring system that automatically tracks product prices across multiple Brazilian e-commerce platforms (OLX, Mercado Livre, Enjoei, Estante Virtual). Built with FastAPI, Celery, and Clean Architecture principles.
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.120+-green.svg)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue.svg)](https://www.postgresql.org/)
 [![CI](https://github.com/pattersonrptr/product-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/pattersonrptr/product-tracker/actions/workflows/ci.yml)
@@ -33,9 +33,10 @@ A robust price monitoring system that automatically tracks product prices across
 
 ### Core Functionality
 - **🔍 Multi-Platform Scraping**: Automated data collection from 4 major Brazilian e-commerce sites
-- **📊 Price History Tracking**: Monitor price changes over time
-- **🔐 User Management**: Complete authentication and authorization system
-- **⚙️ Search Configurations**: Define custom search parameters and schedules
+- **📊 Price History Tracking**: Monitor price changes over time (append-only records per product)
+- **🔐 User Management**: Complete authentication and authorization system (JWT)
+- **🌐 Source Websites**: Manage and configure e-commerce platforms to scrape
+- **⚙️ Search Configurations**: Define custom search parameters, schedules, and target platforms (M2M with source websites)
 - **🔄 Async Task Processing**: Background jobs with Celery for efficient scraping
 - **📝 JSON:API Compliant**: RESTful API following JSON:API specification
 
@@ -223,6 +224,16 @@ Or use the **Authorize** button in Swagger UI.
 | `/price-histories/` | POST | Record new price for a product | ✅ (Staff) |
 | `/price-histories/{id}` | DELETE | Delete price record | ✅ (Staff) |
 
+#### Search Configurations
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/search-configs/` | GET | List all search configs (paginated) | ✅ (Staff) |
+| `/search-configs/{id}` | GET | Get search config by ID | ✅ (Staff) |
+| `/search-configs/user/{user_id}` | GET | Get all search configs for a user | ✅ (Staff) |
+| `/search-configs/` | POST | Create new search config | ✅ (Staff) |
+| `/search-configs/{id}` | PUT | Update search config | ✅ (Staff) |
+| `/search-configs/{id}` | DELETE | Delete search config | ✅ (Staff) |
+
 ---
 
 ## 🧪 Running Tests
@@ -346,6 +357,18 @@ This project uses **GitHub Actions** for continuous integration. The pipeline ru
 ### Coverage Threshold
 
 The pipeline enforces a minimum of **60% test coverage**. Current coverage: **~79%**.
+
+### Test Count
+
+| Domain | Unit (validators) | Unit (use cases) | Integration | E2E | Total |
+|--------|:-----------------:|:----------------:|:-----------:|:---:|------:|
+| User | ✅ | ✅ | ✅ | ✅ | ~75 |
+| Product | ✅ | ✅ | ✅ | ✅ | ~40 |
+| SourceWebsite | ✅ | ✅ | ✅ | ✅ | ~63 |
+| PriceHistory | ✅ | ✅ | ✅ | ✅ | ~56 |
+| SearchConfig | ✅ | ✅ | ✅ | ✅ | ~70 |
+| Auth | — | — | — | ✅ | ~12 |
+| **Total** | | | | | **360** |
 
 ### Artifacts
 
@@ -472,21 +495,22 @@ pre-commit run --all-files --hook-stage manual
 product-tracker/
 ├── src/
 │   ├── app/                           # Main application
-│   │   ├── entities/                  # Domain entities
-│   │   ├── use_cases/                 # Business logic
+│   │   ├── entities/                  # Domain entities (User, Product, SourceWebsite, PriceHistory, SearchConfig)
+│   │   ├── use_cases/                 # Business logic (one file per domain)
 │   │   ├── domain/
-│   │   │   └── validators/            # Domain validation rules
+│   │   │   └── validators/            # Domain validation rules (one file per domain)
 │   │   ├── infrastructure/
-│   │   │   ├── database/              # Database models & config
+│   │   │   ├── database/
+│   │   │   │   └── models/            # SQLAlchemy ORM models + association tables
 │   │   │   └── repositories/          # Data access implementations
 │   │   ├── interfaces/
 │   │   │   ├── http/                  # Web layer
-│   │   │   │   ├── controllers/       # Request handlers
-│   │   │   │   ├── schemas/           # Pydantic models
-│   │   │   │   ├── presenters/        # Response formatters
+│   │   │   │   ├── controllers/       # Request handlers (one router per domain)
+│   │   │   │   ├── schemas/           # Pydantic request/response models
+│   │   │   │   ├── presenters/        # Response formatters (JSON:API)
 │   │   │   │   ├── middleware/        # HTTP middleware (CORS, logging, JSON:API)
 │   │   │   │   └── setup/             # Application setup (middleware, routers, handlers)
-│   │   │   └── repositories/          # Repository interfaces
+│   │   │   └── repositories/          # Repository interfaces (ABCs)
 │   │   └── security/                  # Authentication & authorization
 │   ├── product_scrapers/              # Scraping module
 │   │   ├── scrapers/
@@ -499,12 +523,18 @@ product-tracker/
 │   ├── config/                        # Application configuration
 │   │   ├── settings.py
 │   │   └── logging_config.py
-│   ├── common/                        # Shared utilities
+│   ├── common/                        # Shared utilities (JSON:API helpers)
 │   ├── scripts/                       # Utility scripts
 │   │   ├── create_superuser.py
 │   │   ├── init_dev_db.py
 │   │   └── api_tests/                 # Bash test scripts
 │   ├── tests/                         # All tests
+│   │   ├── unit/
+│   │   │   ├── domain/validators/     # Validator unit tests
+│   │   │   └── use_cases/             # Use case unit tests
+│   │   ├── integration/
+│   │   │   └── repositories/          # Repository integration tests
+│   │   └── e2e/                       # End-to-end controller tests
 │   └── main.py                        # Application entry point
 ├── alembic/                           # Database migrations
 ├── docker-compose.yml

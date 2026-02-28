@@ -25,8 +25,8 @@ class SourceWebsite(Base):
 
     # Relationships
     products = relationship("Product", back_populates="source_website")
-    # search_configs = relationship(
-    #     "SearchConfig",
-    #     secondary="search_config_source_website",
-    #     back_populates="source_websites",
-    # )
+    search_configs = relationship(
+        "SearchConfig",
+        secondary="search_config_source_website",
+        back_populates="source_websites",
+    )

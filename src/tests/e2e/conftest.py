@@ -27,6 +27,12 @@ from src.app.infrastructure.database.models.price_history_model import (
 from src.app.infrastructure.database.models.product_model import (
     Product as ProductModel,  # noqa: F401
 )
+from src.app.infrastructure.database.models.search_config_model import (  # noqa: F401
+    SearchConfig as SearchConfigModel,
+)
+from src.app.infrastructure.database.models.search_config_source_website_model import (  # noqa: F401
+    search_config_source_website,
+)
 from src.app.infrastructure.database.models.source_website_model import (  # noqa: F401
     SourceWebsite as SourceWebsiteModel,
 )

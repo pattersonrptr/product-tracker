@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy.orm import relationship
 
 from src.app.infrastructure.database_config import Base
 
@@ -23,4 +24,4 @@ class User(Base):
         onupdate=datetime.now(UTC),
     )
     # Relationships
-    # search_configs = relationship("SearchConfig", back_populates="user")
+    search_configs = relationship("SearchConfig", back_populates="user")

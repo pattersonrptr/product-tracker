@@ -6,9 +6,9 @@ from src.app.interfaces.http.controllers import (
     auth_controller,
     price_history_controller,
     product_controller,
+    search_config_controller,
     source_website_controller,
     user_controller,
-    # search_config_controller,
 )
 
 
@@ -22,8 +22,6 @@ def setup_routers(app: FastAPI) -> None:
     - /products: Product tracking endpoints (CRUD operations)
     - /source-websites: Source website management endpoints (CRUD operations)
     - /price-histories: Price history tracking endpoints
-
-    Future routes (commented out):
     - /search-configs: Search configuration management
 
     Args:
@@ -34,3 +32,4 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(product_controller)
     app.include_router(source_website_controller)
     app.include_router(price_history_controller)
+    app.include_router(search_config_controller)

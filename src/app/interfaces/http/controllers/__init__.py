@@ -14,6 +14,9 @@ from src.app.interfaces.http.controllers.product_controller import (
 from src.app.interfaces.http.controllers.search_config_controller import (
     router as search_config_controller,
 )
+from src.app.interfaces.http.controllers.search_execution_log_controller import (
+    router as search_execution_log_controller,
+)
 from src.app.interfaces.http.controllers.source_website_controller import (
     router as source_website_controller,
 )
@@ -28,4 +31,5 @@ __all__ = [
     "source_website_controller",
     "price_history_controller",
     "search_config_controller",
+    "search_execution_log_controller",
 ]

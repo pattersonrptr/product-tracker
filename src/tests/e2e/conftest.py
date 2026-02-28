@@ -33,6 +33,9 @@ from src.app.infrastructure.database.models.search_config_model import (  # noqa
 from src.app.infrastructure.database.models.search_config_source_website_model import (  # noqa: F401
     search_config_source_website,
 )
+from src.app.infrastructure.database.models.search_execution_log_model import (  # noqa: F401
+    SearchExecutionLog as SearchExecutionLogModel,
+)
 from src.app.infrastructure.database.models.source_website_model import (  # noqa: F401
     SourceWebsite as SourceWebsiteModel,
 )
@@ -331,3 +334,44 @@ def sample_product(test_db, sample_source_website):
     test_db.commit()
     test_db.refresh(product)
     return product
+
+
+@pytest.fixture(scope="function")
+def sample_search_config(test_db, sample_user):
+    """
+    Create a sample search config in the database.
+
+    Returns:
+        SearchConfigModel: Persisted SearchConfig instance
+    """
+
+    config = SearchConfigModel(
+        search_term="laptop",
+        is_active=True,
+        frequency_days=1,
+        user_id=sample_user.id,
+    )
+    test_db.add(config)
+    test_db.commit()
+    test_db.refresh(config)
+    return config
+
+
+@pytest.fixture(scope="function")
+def sample_search_execution_log(test_db, sample_search_config):
+    """
+    Create a sample search execution log in the database.
+
+    Returns:
+        SearchExecutionLogModel: Persisted SearchExecutionLog instance
+    """
+
+    log = SearchExecutionLogModel(
+        search_config_id=sample_search_config.id,
+        status="success",
+        results_count=3,
+    )
+    test_db.add(log)
+    test_db.commit()
+    test_db.refresh(log)
+    return log

@@ -1,6 +1,9 @@
+import logging
 from itertools import islice
 
 from src.product_scrapers.scrapers.interfaces.scraper_interface import ScraperInterface
+
+logger = logging.getLogger(__name__)
 
 
 class ScraperManager:
@@ -8,15 +11,15 @@ class ScraperManager:
         self.scraper = scraper
 
     def get_products_urls(self, search):
-        print(f"🔎 Searching term: {search} with {self.scraper}")
+        logger.info("🔎 Searching term: %s with %s", search, self.scraper)
         return self.scraper.search(search)
 
     def scrape_product(self, url):
-        print(f"🛒 Get products data for {url} with {self.scraper}")
+        logger.info("🛒 Get products data for %s with %s", url, self.scraper)
         return self.scraper.scrape_data(url)
 
     def update_product(self, product: dict):
-        print(f"🔄 Updating product for URL: {product['url']}")
+        logger.info("🔄 Updating product for URL: %s", product["url"])
         product_data = self.scraper.update_data(product)
         return product_data
 
@@ -24,15 +27,17 @@ class ScraperManager:
     def get_urls_to_update(existing_urls, urls):
         new_urls = list(set(urls) - set(existing_urls))
 
-        print(f"➡ New: {len(new_urls)}")
-        print(f"➡ Existing: {len(existing_urls)}")
-        print(f"➡ Found {len(urls)} URLs, {len(new_urls)} are new")
+        logger.info("➡ New: %d", len(new_urls))
+        logger.info("➡ Existing: %d", len(existing_urls))
+        logger.info("➡ Found %d URLs, %d are new", len(urls), len(new_urls))
 
         return new_urls
 
     def split_search_urls(self, search_results: dict, chunk_size: int):
-        print(
-            f"📥 Processing {len(search_results['urls'])} URLs of {search_results['search']}"
+        logger.info(
+            "📥 Processing %d URLs of %s",
+            len(search_results["urls"]),
+            search_results["search"],
         )
 
         urls = self._get_search_urls(search_results)

@@ -1,9 +1,12 @@
+import logging
 import time
 from abc import ABC, abstractmethod
 from typing import Any
 
 import cloudscraper
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class RequestScraper(ABC):
@@ -35,16 +38,16 @@ class RequestScraper(ABC):
                 response.raise_for_status()
                 return response
             except requests.exceptions.RequestException as e:
-                print(f"Connection error during attempt {i + 1}: {str(e)}")
+                logger.warning("Connection error during attempt %d: %s", i + 1, e)
                 if i < max_retries:
                     wait_time = (backoff_factor**i) * 1  # Exponential backoff
-                    print(f"Retrying in {wait_time:.2f} seconds...")
+                    logger.debug("Retrying in %.2f seconds...", wait_time)
                     time.sleep(wait_time)
                 else:
-                    print("Maximum number of retries reached.")
+                    logger.error("Maximum number of retries reached for URL: %s", url)
                     return None
             except Exception as e:
-                print(f"unexpected error during attempt {i + 1}: {str(e)}")
+                logger.error("Unexpected error during attempt %d: %s", i + 1, e)
                 return None
 
         return None

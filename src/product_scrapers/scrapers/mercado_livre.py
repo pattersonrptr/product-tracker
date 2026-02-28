@@ -1,4 +1,5 @@
-import datetime
+import logging
+import re
 from urllib.parse import parse_qs, urlparse
 
 from bs4 import BeautifulSoup
@@ -9,21 +10,26 @@ from src.product_scrapers.scrapers.mixins.rotating_user_agent_mixin import (
     RotatingUserAgentMixin,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class MercadoLivreScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://lista.mercadolivre.com.br"
 
-    def headers(self):
-        custom_headers = {
+    @staticmethod
+    def _build_default_headers():
+        return {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
             "DNT": "1",
             "Sec-GPC": "1",
         }
-        random_user_agent = self.get_random_user_agent()
 
+    def headers(self) -> dict:
+        custom_headers = self._build_default_headers()
+        random_user_agent = self.get_random_user_agent()
         if random_user_agent:
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
@@ -43,20 +49,18 @@ class MercadoLivreScraper(ScraperInterface, RequestScraper, RotatingUserAgentMix
         if not total_links:
             return ""
         start_from = total_links + 1
-
         return f"{self.BASE_URL}/{search_term}_Desde_{start_from}_NoIndex_True"
 
-    def search(self, search_term: str) -> list:
+    def search(self, search_term: str, max_pages: int = 50) -> list:
         page_number = 1
         total_links = 0
-        has_next = True
         all_links = []
         search_url = f"{self.BASE_URL}/{search_term}"
 
-        while has_next:
+        while page_number <= max_pages:
             try:
                 resp = self.retry_request(search_url, self.headers())
-                html_content = resp.text if resp.text else ""
+                html_content = resp.text if resp and resp.text else ""
 
                 if not html_content:
                     break
@@ -67,15 +71,17 @@ class MercadoLivreScraper(ScraperInterface, RequestScraper, RotatingUserAgentMix
                     break
 
                 all_links.extend(links)
-                print(f"Page Number {page_number}")
+                logger.debug(
+                    "ML: page %d — %d links collected", page_number, len(all_links)
+                )
                 page_number += 1
-                total_links = total_links + len(links)
+                total_links += len(links)
                 search_url = self._get_next_url(total_links, search_term)
-                has_next = search_term != ""
 
             except Exception as e:
-                print(f"Error on page {page_number}: {str(e)}")
-                print(f"Search URL: {search_url}")
+                logger.error(
+                    "Error on page %d (URL: %s): %s", page_number, search_url, e
+                )
                 break
 
         return all_links
@@ -87,7 +93,7 @@ class MercadoLivreScraper(ScraperInterface, RequestScraper, RotatingUserAgentMix
         title = self._extract_title(soup)
         price = self._extract_price(soup)
         description = self._extract_description(soup)
-        source_product_code = f"ML - {int(datetime.datetime.now().timestamp())}"
+        source_product_code = self._extract_product_code(url)
         is_available = self._extract_availability(soup)
         image_url = self._extract_image_src(soup)
 
@@ -132,10 +138,22 @@ class MercadoLivreScraper(ScraperInterface, RequestScraper, RotatingUserAgentMix
             pass
         return False
 
-    def _extract_product_code(self, url):
+    @staticmethod
+    def _extract_product_code(url: str) -> str:
+        """Extract the ML product ID (e.g. MLB123456789) from the URL path."""
+        # Typical ML URL: https://www.mercadolivre.com.br/...-MLB123456789-_JM#...
+        match = re.search(r"(MLB\d+)", url)
+        if match:
+            return f"ML - {match.group(1)}"
+        # Fallback: try #wid= fragment (used in some listing URLs)
         fragment = urlparse(url).fragment
         params = parse_qs(fragment)
-        return params.get("wid", [None])[0]
+        wid = params.get("wid", [None])[0]
+        if wid:
+            return f"ML - {wid}"
+        # Last resort: use the last path segment
+        path_segment = urlparse(url).path.rstrip("/").split("/")[-1]
+        return f"ML - {path_segment}" if path_segment else "ML - unknown"
 
     def _extract_image_src(self, soup):
         try:

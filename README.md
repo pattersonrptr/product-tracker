@@ -325,18 +325,33 @@ src/tests/
 For manual testing with real HTTP requests while the API is running:
 
 ```bash
-# Run all bash tests in order (auth → users → products)
+# Run all bash tests in order (auth → users → products → source_websites → price_histories → search_configs → search_execution_logs)
 ./src/scripts/api_tests/run_all_tests.sh
 
 # Or with custom API URL
-./src/scripts/api_tests/run_all_tests.sh http://localhost:8000
+API_BASE_URL=http://localhost:8000 ./src/scripts/api_tests/run_all_tests.sh
 
 # Run individual test scripts
 ./src/scripts/api_tests/auth/login.sh
 ./src/scripts/api_tests/users/list_users.sh
 ./src/scripts/api_tests/products/create_product.sh
-./src/scripts/api_tests/products/list_products.sh
+./src/scripts/api_tests/source_websites/create_source_website.sh
+./src/scripts/api_tests/price_histories/get_latest_price_by_product_id.sh
+./src/scripts/api_tests/search_configs/list_search_configs.sh
+./src/scripts/api_tests/search_execution_logs/list_search_execution_logs.sh
 ```
+
+Scripts are organized by domain:
+
+| Domain | Scripts | Coverage |
+|--------|---------|----------|
+| `auth/` | login, verify_token, refresh_token | POST /auth/login, verify, refresh |
+| `users/` | list, get by id/username/email, create, update, delete | Full CRUD |
+| `products/` | list, get by id/url, create, update, delete | Full CRUD |
+| `source_websites/` | list, get by id, create, update, delete | Full CRUD |
+| `price_histories/` | list, get by id, get by product, latest by product, create, delete | Append-only |
+| `search_configs/` | list, get by id, get by user, create, update, delete | Full CRUD |
+| `search_execution_logs/` | list, get by id, get by search config | Read-only |
 
 **Features:**
 - ✅ Validates API is reachable before running

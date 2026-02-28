@@ -1,7 +1,10 @@
+import logging
 import os
 from typing import Any
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class ApiClient:
@@ -30,7 +33,7 @@ class ApiClient:
             response.raise_for_status()
             return response
         except Exception as e:
-            print(f"🔴 Request error at {url}: {e}")
+            logger.error("Request error at %s: %s", url, e)
             return requests.Response()
 
     @staticmethod
@@ -81,15 +84,15 @@ class ApiClient:
     # -------------------------------------------------------------------------
 
     def get_search_config_by_id(self, search_config_id: int) -> dict[str, Any]:
-        print(f"🔎 Getting search config by ID: {search_config_id}")
+        logger.debug("Getting search config by ID: %s", search_config_id)
         response = self._make_request("GET", f"/search-configs/{search_config_id}")
         if response.status_code == 200:
             return self._extract_attributes(response.json())
-        print(f"🔴 Search config with ID {search_config_id} not found.")
+        logger.warning("Search config with ID %s not found.", search_config_id)
         return {}
 
     def get_active_search_configs(self) -> list[dict[str, Any]]:
-        print("🔎 Getting active search configs")
+        logger.debug("Getting active search configs")
         response = self._make_request(
             "GET", "/search-configs/", params={"is_active": True}
         )
@@ -102,11 +105,11 @@ class ApiClient:
     # -------------------------------------------------------------------------
 
     def get_source_website_by_name(self, website_name: str) -> dict[str, Any]:
-        print(f"🔎 Getting source website by name: {website_name}")
+        logger.debug("Getting source website by name: %s", website_name)
         response = self._make_request("GET", f"/source-websites/name/{website_name}")
         if response.status_code == 200:
             return self._extract_attributes(response.json())
-        print(f"🔴 Source website '{website_name}' not found.")
+        logger.warning("Source website '%s' not found.", website_name)
         return {}
 
     # -------------------------------------------------------------------------
@@ -114,34 +117,34 @@ class ApiClient:
     # -------------------------------------------------------------------------
 
     def get_products(self, params: dict = None) -> list[dict[str, Any]]:
-        print("🔎 Getting products")
+        logger.debug("Getting products with params: %s", params)
         response = self._make_request("GET", "/products/", params=params)
         if response.status_code == 200:
             return self._extract_collection(response.json())
         return []
 
     def get_product_by_url(self, url: str) -> dict[str, Any]:
-        print(f"🔎 Getting product by URL: {url}")
+        logger.debug("Getting product by URL: %s", url)
         response = self._make_request("GET", "/products/by-url/", params={"url": url})
         if response.status_code == 200:
             return self._extract_attributes(response.json())
         return {}
 
     def product_exists(self, url: str) -> bool:
-        print(f"🔎 Checking if product exists: {url}")
+        logger.debug("Checking if product exists: %s", url)
         return bool(self.get_product_by_url(url))
 
     def create_product(self, product: dict) -> dict[str, Any]:
-        print(f"💾 Creating product: {product.get('url')}")
-        payload = self._wrap_for_creation("products", product)
+        logger.debug("Creating product: %s", product.get("url"))
+        payload = self._wrap_for_creation("product", product)
         response = self._make_request("POST", "/products/", data=payload)
         if response.status_code == 201:
             return self._extract_attributes(response.json())
         return {}
 
     def update_product(self, product_id: int | str, product: dict) -> dict[str, Any]:
-        print(f"� Updating product ID: {product_id}")
-        payload = self._wrap_for_update("products", product_id, product)
+        logger.debug("Updating product ID: %s", product_id)
+        payload = self._wrap_for_update("product", product_id, product)
         response = self._make_request("PATCH", f"/products/{product_id}", data=payload)
         if response.status_code == 200:
             return self._extract_attributes(response.json())
@@ -149,30 +152,30 @@ class ApiClient:
 
     def create_new_products(self, products: list[dict]) -> int:
         """Create products that don't already exist. Returns number created."""
-        print(f"💾 Saving {len(products)} products")
+        logger.debug("Saving %d products", len(products))
         created = 0
         for product in products:
             if not self.product_exists(product["url"]):
                 result = self.create_product(product)
                 if result:
                     created += 1
-        print(f"✅ {created} new products created")
+        logger.info("%d new products created", created)
         return created
 
     def update_product_list(self, products: list[dict]) -> int:
         """Update a list of products. Returns number successfully updated."""
-        print(f"� Updating {len(products)} products")
+        logger.debug("Updating %d products", len(products))
         updated = 0
         for product in products:
             result = self.update_product(product["id"], product)
             if result:
                 updated += 1
-        print(f"✅ {updated} products updated")
+        logger.info("%d products updated", updated)
         return updated
 
     def get_existing_product_urls(self, source_website_name: str) -> set[str]:
         """Return the set of URLs already tracked for a given source website."""
-        print(f"🔎 Getting existing product URLs for: {source_website_name}")
+        logger.debug("Getting existing product URLs for: %s", source_website_name)
         source_website = self.get_source_website_by_name(source_website_name)
         source_website_id = source_website.get("id")
         if not source_website_id:
@@ -187,14 +190,14 @@ class ApiClient:
     def create_price_history(
         self, product_id: int | str, price: float
     ) -> dict[str, Any]:
-        print(f"💾 Creating price history for product ID {product_id}: {price}")
+        logger.debug("Creating price history for product ID %s: %s", product_id, price)
         payload = self._wrap_for_creation(
-            "price_histories", {"product_id": int(product_id), "price": price}
+            "price_history", {"product_id": int(product_id), "price": price}
         )
         response = self._make_request("POST", "/price-histories/", data=payload)
         if response.status_code == 201:
             return self._extract_attributes(response.json())
-        print(f"🔴 Failed to create price history for product {product_id}")
+        logger.error("Failed to create price history for product %s", product_id)
         return {}
 
     # -------------------------------------------------------------------------
@@ -208,7 +211,7 @@ class ApiClient:
         results_count: int = 0,
         error_message: str | None = None,
     ) -> dict[str, Any]:
-        print(f"💾 Creating search execution log for config ID {search_config_id}")
+        logger.debug("Creating search execution log for config ID %s", search_config_id)
         attributes: dict[str, Any] = {
             "search_config_id": search_config_id,
             "status": status,
@@ -216,9 +219,11 @@ class ApiClient:
         }
         if error_message:
             attributes["error_message"] = error_message
-        payload = self._wrap_for_creation("search_execution_logs", attributes)
+        payload = self._wrap_for_creation("search_execution_log", attributes)
         response = self._make_request("POST", "/search-execution-logs/", data=payload)
         if response.status_code == 201:
             return self._extract_attributes(response.json())
-        print(f"🔴 Failed to create search execution log for config {search_config_id}")
+        logger.error(
+            "Failed to create search execution log for config %s", search_config_id
+        )
         return {}

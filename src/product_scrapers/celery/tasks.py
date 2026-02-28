@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta
 
@@ -7,6 +8,8 @@ from celery import Celery, chord, group
 from src.product_scrapers.api.api_client import ApiClient
 from src.product_scrapers.scrapers.factory.scraper_factory import ScraperFactory
 from src.product_scrapers.scrapers.manager.scraper_manager import ScraperManager
+
+logger = logging.getLogger(__name__)
 
 broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 app = Celery(main="product_scrapers", broker=broker_url, backend="redis://redis:6379/0")
@@ -27,9 +30,15 @@ def get_celery_worker_token():
     try:
         response = requests.post(auth_url, data=payload, headers=headers)
         response.raise_for_status()
-        return response.json().get("access_token")
+        # Response is JSON:API: {"data": {"attributes": {"access_token": "..."}}}
+        body = response.json()
+        token = (
+            body.get("data", {}).get("attributes", {}).get("access_token")
+            or body.get("access_token")  # fallback for plain JSON
+        )
+        return token
     except requests.exceptions.RequestException as e:
-        print(f"🔴 Error when trying to retrieve Celery worker token: {e}")
+        logger.error("Error when trying to retrieve Celery worker token: %s", e)
         return None
 
 
@@ -40,7 +49,7 @@ def run_scraper_search(search_config_id: int):
     search_config = client.get_search_config_by_id(search_config_id)
 
     if not search_config:
-        print(f"🔴 Search config {search_config_id} not found, skipping.")
+        logger.error("Search config %s not found, skipping.", search_config_id)
         return {
             "status": "error",
             "message": f"Search config {search_config_id} not found",
@@ -67,7 +76,9 @@ def run_scraper_search(search_config_id: int):
                 )
 
     if not searches:
-        print(f"⚠️ No active source websites for search config {search_config_id}")
+        logger.warning(
+            "No active source websites for search config %s", search_config_id
+        )
         return {"status": "skipped", "message": "No active source websites"}
 
     return group(
@@ -104,7 +115,9 @@ def run_search(search: str, scraper_name: str, search_config_id: int):
         return {"status": "success", "search": search, "new_urls_count": len(new_urls)}
 
     except Exception as e:
-        print(f"🔴 Error in run_search for '{search}' on '{scraper_name}': {e}")
+        logger.error(
+            "Error in run_search for '%s' on '%s': %s", search, scraper_name, e
+        )
         client.create_search_execution_log(
             search_config_id=search_config_id,
             status="failed",

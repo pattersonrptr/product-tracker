@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 from src.common.jsonapi import (
     CollectionResponse,
     ResourceObject,
+    ResourceObjectForCreation,
+    SingleResourceRequest,
     SingleResourceResponse,
 )
 
@@ -18,6 +20,30 @@ class SearchExecutionLogAttributes(BaseModel):
     error_message: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+
+
+class SearchExecutionLogAttributesForCreation(BaseModel):
+    """Attributes for search execution log creation."""
+
+    search_config_id: int
+    status: str = "pending"
+    results_count: int | None = None
+    error_message: str | None = None
+
+
+class SearchExecutionLogResourceForCreation(ResourceObjectForCreation):
+    """ResourceObject for search execution log creation (without id)."""
+
+    type: str = Field(
+        default="search_execution_logs", examples=["search_execution_logs"]
+    )
+    attributes: SearchExecutionLogAttributesForCreation
+
+
+class SearchExecutionLogCreateRequest(SingleResourceRequest):
+    """Request schema for creating a search execution log."""
+
+    data: SearchExecutionLogResourceForCreation
 
 
 class SearchExecutionLogResource(ResourceObject):

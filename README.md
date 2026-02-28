@@ -37,7 +37,7 @@ A robust price monitoring system that automatically tracks product prices across
 - **🔐 User Management**: Complete authentication and authorization system (JWT)
 - **🌐 Source Websites**: Manage and configure e-commerce platforms to scrape
 - **⚙️ Search Configurations**: Define custom search parameters, schedules, and target platforms (M2M with source websites)
-- **� Search Execution Logs**: Append-only audit trail of scraper runs (status, results count, error messages) — read-only via HTTP
+- **📝 Search Execution Logs**: Audit trail of scraper runs (status, results count, error messages) — created by Celery workers via the API
 - **�🔄 Async Task Processing**: Background jobs with Celery for efficient scraping
 - **📝 JSON:API Compliant**: RESTful API following JSON:API specification
 
@@ -248,11 +248,11 @@ Or use the **Authorize** button in Swagger UI.
 | `/search-configs/{id}` | DELETE | Delete search config | ✅ (Staff) |
 
 #### Search Execution Logs
-> Read-only — logs are created internally by the scraper/Celery tasks, not via HTTP.
 
 | Endpoint | Method | Description | Auth Required |
 |----------|--------|-------------|---------------|
 | `/search-execution-logs/` | GET | List all execution logs (paginated) | ✅ (Staff) |
+| `/search-execution-logs/` | POST | Create new execution log | ✅ (Staff) |
 | `/search-execution-logs/{id}` | GET | Get execution log by ID | ✅ (Staff) |
 | `/search-execution-logs/search-config/{id}` | GET | Get all logs for a search config | ✅ (Staff) |
 
@@ -363,7 +363,7 @@ Scripts are organized by domain:
 | `source_websites/` | list, get by id, create, update, delete | Full CRUD |
 | `price_histories/` | list, get by id, get by product, latest by product, create, delete | Append-only |
 | `search_configs/` | list, get by id, get by user, create, update, delete | Full CRUD |
-| `search_execution_logs/` | list, get by id, get by search config | Read-only |
+| `search_execution_logs/` | list, get by id, get by search config, create | Staff only |
 
 **Features:**
 - ✅ Validates API is reachable before running

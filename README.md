@@ -213,6 +213,16 @@ Or use the **Authorize** button in Swagger UI.
 | `/source-websites/{id}` | PUT | Update source website | ✅ (Staff) |
 | `/source-websites/{id}` | DELETE | Delete source website | ✅ (Staff) |
 
+#### Price Histories
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/price-histories/` | GET | List all price records (paginated) | ✅ (Staff) |
+| `/price-histories/{id}` | GET | Get price record by ID | ✅ (Staff) |
+| `/price-histories/product/{product_id}` | GET | Get all prices for a product | ✅ (Staff) |
+| `/price-histories/product/{product_id}/latest` | GET | Get latest price for a product | ✅ (Staff) |
+| `/price-histories/` | POST | Record new price for a product | ✅ (Staff) |
+| `/price-histories/{id}` | DELETE | Delete price record | ✅ (Staff) |
+
 ---
 
 ## 🧪 Running Tests
@@ -335,7 +345,7 @@ This project uses **GitHub Actions** for continuous integration. The pipeline ru
 
 ### Coverage Threshold
 
-The pipeline enforces a minimum of **60% test coverage**. Current coverage: **~76%**.
+The pipeline enforces a minimum of **60% test coverage**. Current coverage: **~79%**.
 
 ### Artifacts
 

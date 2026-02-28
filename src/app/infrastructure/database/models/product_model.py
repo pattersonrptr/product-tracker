@@ -77,8 +77,8 @@ class Product(Base):
 
     # Relationships
     source_website = relationship("SourceWebsite", back_populates="products")
-    # price_history = relationship(
-    #     "PriceHistory",
-    #     back_populates="product",
-    #     cascade="all, delete-orphan"
-    # )
+    price_history = relationship(
+        "PriceHistory",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )

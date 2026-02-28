@@ -21,6 +21,9 @@ from sqlalchemy.pool import StaticPool
 os.environ["ENABLE_FILE_LOGGING"] = "false"
 
 # Import models first so they register with Base.metadata before create_all()
+from src.app.infrastructure.database.models.price_history_model import (
+    PriceHistory as PriceHistoryModel,  # noqa: F401
+)
 from src.app.infrastructure.database.models.product_model import (
     Product as ProductModel,  # noqa: F401
 )

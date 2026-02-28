@@ -1,5 +1,8 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 
+from src.app.entities.search_execution_log import (
+    SearchExecutionLog as SearchExecutionLogEntity,
+)
 from src.app.entities.user import User as UserEntity
 from src.app.infrastructure.database_config import get_db
 from src.app.infrastructure.repositories.search_execution_log_repository import (
@@ -9,11 +12,13 @@ from src.app.interfaces.http.presenters.search_execution_log_presenter import (
     SearchExecutionLogPresenter,
 )
 from src.app.interfaces.http.schemas.search_execution_log_schema import (
+    SearchExecutionLogCreateRequest,
     SearchExecutionLogReadResponse,
     SearchExecutionLogsCollectionResponse,
 )
 from src.app.security.auth import get_current_staff_user
 from src.app.use_cases.search_execution_log_use_cases import (
+    CreateSearchExecutionLogUseCase,
     GetSearchExecutionLogByIdUseCase,
     GetSearchExecutionLogsBySearchConfigIdUseCase,
     ListSearchExecutionLogsUseCase,
@@ -127,3 +132,42 @@ def get_search_execution_log(
         )
 
     return SearchExecutionLogPresenter.handle_success(record)
+
+
+@router.post(
+    "/",
+    response_model=SearchExecutionLogReadResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_search_execution_log(
+    payload: SearchExecutionLogCreateRequest,
+    search_execution_log_repo: SearchExecutionLogRepository = Depends(
+        get_search_execution_log_repository
+    ),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Create a new search execution log. Requires staff or superuser access.
+
+    Returns:
+        - 201: Search execution log created successfully
+        - 403: Permission denied
+    """
+    attrs = payload.data.attributes
+    logger.debug(
+        f"Creating search execution log for search_config_id={attrs.search_config_id}",
+        extra={
+            "action": "create_search_execution_log",
+            "user_id": current_user.id,
+        },
+    )
+
+    entity = SearchExecutionLogEntity(
+        search_config_id=attrs.search_config_id,
+        status=attrs.status,
+        results_count=attrs.results_count,
+        error_message=attrs.error_message,
+    )
+    use_case = CreateSearchExecutionLogUseCase(search_execution_log_repo)
+    created = use_case.execute(entity)
+    return SearchExecutionLogPresenter.handle_success(created)

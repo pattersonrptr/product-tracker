@@ -108,7 +108,6 @@ def get_fixtures() -> dict:
                 "image_urls": "https://img1.jpg,https://img2.jpg",
                 "source_website_id": 1,
                 "source_metadata": None,
-                "current_price": 3500.00,
                 "created_at": datetime(2023, 10, 15, 10, 0, 0, tzinfo=UTC),
                 "updated_at": datetime(2023, 10, 15, 10, 0, 0, tzinfo=UTC),
             },
@@ -126,7 +125,6 @@ def get_fixtures() -> dict:
                 "image_urls": "https://img3.jpg,https://img4.jpg",
                 "source_website_id": 2,
                 "source_metadata": None,
-                "current_price": 8500.00,
                 "created_at": datetime(2023, 10, 16, 11, 30, 0, tzinfo=UTC),
                 "updated_at": datetime(2023, 10, 16, 11, 30, 0, tzinfo=UTC),
             },
@@ -173,7 +171,7 @@ def get_fixtures() -> dict:
                 "preferred_time": time(9, 0),
                 "search_metadata": {"condition": "used"},
                 "source_website_ids": [1],
-                "user_id": 2,
+                "user_id": 1,
             },
             {
                 "id": 2,
@@ -183,7 +181,7 @@ def get_fixtures() -> dict:
                 "preferred_time": time(9, 30),
                 "search_metadata": {"category": "eletrônicos", "warranty": True},
                 "source_website_ids": [2],
-                "user_id": 2,
+                "user_id": 1,
             },
             {
                 "id": 3,
@@ -193,7 +191,7 @@ def get_fixtures() -> dict:
                 "preferred_time": time(10, 0),
                 "search_metadata": {"category": "eletrônicos", "warranty": True},
                 "source_website_ids": [3],
-                "user_id": 2,
+                "user_id": 1,
             },
             {
                 "id": 4,
@@ -203,7 +201,7 @@ def get_fixtures() -> dict:
                 "preferred_time": time(10, 30),
                 "search_metadata": {"category": "livros"},
                 "source_website_ids": [4],
-                "user_id": 2,
+                "user_id": 1,
             },
         ],
     }

@@ -1,5 +1,7 @@
 import argparse
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
 from src.app.fixtures.fixtures import get_fixtures
 from src.app.infrastructure.database.models.price_history_model import PriceHistory
 from src.app.infrastructure.database.models.product_model import Product
@@ -44,21 +46,29 @@ def resolve_dependencies(selected):
     return [f for f in FIXTURE_INSERT_ORDER if f in resolved]
 
 
+def _upsert(db, model, rows):
+    """Insert rows, skipping any that already exist (ON CONFLICT DO NOTHING)."""
+    if not rows:
+        return
+    stmt = pg_insert(model.__table__).values(rows).on_conflict_do_nothing()
+    db.execute(stmt)
+
+
 def load_fixtures(selected_fixtures):
     db = SessionLocal()
     data = get_fixtures()
     try:
         if "source_websites" in selected_fixtures:
-            db.bulk_insert_mappings(SourceWebsite, data["source_websites"])
+            _upsert(db, SourceWebsite, data["source_websites"])
 
         if "users" in selected_fixtures:
-            db.bulk_insert_mappings(User, data.get("users", []))
+            _upsert(db, User, data.get("users", []))
 
         if "products" in selected_fixtures:
-            db.bulk_insert_mappings(Product, data["products"])
+            _upsert(db, Product, data["products"])
 
         if "price_history" in selected_fixtures:
-            db.bulk_insert_mappings(PriceHistory, data["price_history"])
+            _upsert(db, PriceHistory, data["price_history"])
 
         if "search_configs" in selected_fixtures:
             search_configs_data = []
@@ -66,7 +76,8 @@ def load_fixtures(selected_fixtures):
                 sc_copy = sc.copy()
                 sc_copy.pop("source_website_ids", None)
                 search_configs_data.append(sc_copy)
-            db.bulk_insert_mappings(SearchConfig, search_configs_data)
+            _upsert(db, SearchConfig, search_configs_data)
+
             search_config_source_website_data = []
             for sc in data["search_configs"]:
                 search_config_id = sc["id"]
@@ -78,9 +89,14 @@ def load_fixtures(selected_fixtures):
                             "source_website_id": sw_id,
                         }
                     )
-            for data_point in search_config_source_website_data:
-                stmt = search_config_source_website.insert().values(data_point)
+            if search_config_source_website_data:
+                stmt = (
+                    pg_insert(search_config_source_website)
+                    .values(search_config_source_website_data)
+                    .on_conflict_do_nothing()
+                )
                 db.execute(stmt)
+
         db.commit()
     except Exception as e:
         db.rollback()

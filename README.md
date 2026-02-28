@@ -128,9 +128,13 @@ docker compose up --build
 This will:
 - ✅ Build all Docker images
 - ✅ Start PostgreSQL database
+- ✅ Start Redis (message broker)
 - ✅ Run database migrations
 - ✅ Create default admin user
-- ✅ Start the FastAPI server
+- ✅ Start the FastAPI server (`web`)
+- ✅ Start Celery workers (`scraper`)
+- ✅ Start Celery Beat scheduler (`celery-beat`)
+- ✅ Start Flower monitoring UI (`flower`) — [http://localhost:5555](http://localhost:5555)
 
 ### First Run
 
@@ -147,6 +151,14 @@ INFO:     Uvicorn running on http://0.0.0.0:8000
 ```
 
 **🎉 Your API is ready at [http://localhost:8000](http://localhost:8000)**
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| FastAPI | [http://localhost:8000](http://localhost:8000) | REST API |
+| Swagger UI | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive API docs |
+| Flower | [http://localhost:5555](http://localhost:5555) | Celery task monitoring |
+| PostgreSQL | `localhost:5432` | Database |
+| Redis | `localhost:6379` | Message broker |
 
 ---
 
@@ -385,16 +397,16 @@ The pipeline enforces a minimum of **60% test coverage**. Current coverage: **~7
 
 ### Test Count
 
-| Domain | Unit (validators) | Unit (use cases) | Integration | E2E | Total |
-|--------|:-----------------:|:----------------:|:-----------:|:---:|------:|
-| User | ✅ | ✅ | ✅ | ✅ | ~75 |
-| Product | ✅ | ✅ | ✅ | ✅ | ~40 |
-| SourceWebsite | ✅ | ✅ | ✅ | ✅ | ~63 |
-| PriceHistory | ✅ | ✅ | ✅ | ✅ | ~56 |
-| SearchConfig | ✅ | ✅ | ✅ | ✅ | ~70 |
-| SearchExecutionLog | ✅ | ✅ | ✅ | ✅ | ~49 |
-| Auth | — | — | — | ✅ | ~12 |
-| **Total** | | | | | **409** |
+| Domain | Unit (validators) | Unit (use cases) | Unit (presenters) | Integration | E2E | Total |
+|--------|:-----------------:|:----------------:|:-----------------:|:-----------:|:---:|------:|
+| User | ✅ | ✅ | ✅ | ✅ | ✅ | ~80 |
+| Product | ✅ | ✅ | ✅ | ✅ | ✅ | ~57 |
+| SourceWebsite | ✅ | ✅ | ✅ | ✅ | ✅ | ~77 |
+| PriceHistory | ✅ | ✅ | ✅ | ✅ | ✅ | ~71 |
+| SearchConfig | ✅ | ✅ | ✅ | ✅ | ✅ | ~85 |
+| SearchExecutionLog | ✅ | ✅ | ✅ | ✅ | ✅ | ~65 |
+| Auth | — | — | ✅ | — | ✅ | ~25 |
+| **Total** | | | | | | **486** |
 
 ### Artifacts
 
@@ -522,6 +534,7 @@ product-tracker/
 ├── src/
 │   ├── app/                           # Main application
 │   │   ├── entities/                  # Domain entities (User, Product, SourceWebsite, PriceHistory, SearchConfig)
+│   │   ├── fixtures/                  # Development fixtures (seed data)
 │   │   ├── use_cases/                 # Business logic (one file per domain)
 │   │   ├── domain/
 │   │   │   └── validators/            # Domain validation rules (one file per domain)

@@ -1,3 +1,5 @@
+import logging
+
 from requests import Response
 
 from src.product_scrapers.scrapers.base.requests_scraper import RequestScraper
@@ -6,21 +8,26 @@ from src.product_scrapers.scrapers.mixins.rotating_user_agent_mixin import (
     RotatingUserAgentMixin,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://enjusearch.enjoei.com.br"
 
-    def headers(self):
-        custom_headers = {
+    @staticmethod
+    def _build_default_headers():
+        return {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
             "DNT": "1",
             "Sec-GPC": "1",
         }
-        random_user_agent = self.get_random_user_agent()
 
+    def headers(self) -> dict:
+        custom_headers = self._build_default_headers()
+        random_user_agent = self.get_random_user_agent()
         if random_user_agent:
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
@@ -75,6 +82,7 @@ class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
             response = self._get_search_data(term=search_term, after=cursor)
             urls, cursor = self._extract_links(response.json())
             all_urls.extend(urls)
+            logger.debug("Enjoei: %d URLs collected so far", len(all_urls))
             if not cursor:
                 break
         return all_urls

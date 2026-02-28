@@ -1,5 +1,6 @@
 import html
 import json
+import logging
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -11,34 +12,38 @@ from src.product_scrapers.scrapers.mixins.rotating_user_agent_mixin import (
     RotatingUserAgentMixin,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://www.olx.com.br/brasil"
 
-    def headers(self):
-        custom_headers = {
+    @staticmethod
+    def _build_default_headers():
+        return {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
             "DNT": "1",
             "Sec-GPC": "1",
-            # ...
         }
-        random_user_agent = self.get_random_user_agent()
 
+    def headers(self) -> dict[str, Any]:
+        custom_headers = self._build_default_headers()
+        random_user_agent = self.get_random_user_agent()
         if random_user_agent:
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
 
-    def search(self, search_term: str) -> list[str]:
+    def search(self, search_term: str, max_pages: int = 50) -> list[str]:
         page_number = 1
         results = []
 
-        while True:
+        while page_number <= max_pages:
             search_url = self._build_search_url(search_term, page_number)
             resp = self.retry_request(search_url, self.headers())
-            html_content = resp.text if resp.text else ""
+            html_content = resp.text if resp and resp.text else ""
 
             if not html_content:
                 break
@@ -49,10 +54,11 @@ class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
                 if not links:
                     break
             except Exception as e:
-                print(f"Error extracting links: {e}")
+                logger.error("Error extracting links on page %d: %s", page_number, e)
                 break
 
             results.extend(links)
+            logger.debug("OLX: page %d — %d links collected", page_number, len(results))
             page_number += 1
 
         if not results:

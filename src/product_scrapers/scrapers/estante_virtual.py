@@ -1,5 +1,5 @@
-import datetime
 import json
+import logging
 from urllib.parse import quote_plus
 
 from bs4 import BeautifulSoup
@@ -10,21 +10,26 @@ from src.product_scrapers.scrapers.mixins.rotating_user_agent_mixin import (
     RotatingUserAgentMixin,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://www.estantevirtual.com.br"
 
-    def headers(self):
-        custom_headers = {
+    @staticmethod
+    def _build_default_headers():
+        return {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
             "DNT": "1",
             "Sec-GPC": "1",
         }
-        random_user_agent = self.get_random_user_agent()
 
+    def headers(self) -> dict:
+        custom_headers = self._build_default_headers()
+        random_user_agent = self.get_random_user_agent()
         if random_user_agent:
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
@@ -54,6 +59,11 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
 
             urls = self._get_products_list(resp.json())
             all_links.extend(urls)
+            logger.debug(
+                "EstanteVirtual: page %d — %d links collected",
+                page_number,
+                len(all_links),
+            )
 
         return all_links
 
@@ -75,7 +85,7 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
         location = self._extract_location(product_info)
         image_url = self._extract_image(product_info)
         is_available = self._extract_is_available(product_info)
-        product_id = product_info.get("id", int(datetime.datetime.now().timestamp()))
+        product_id = product_info.get("id", "unknown")
 
         return {
             "url": url,

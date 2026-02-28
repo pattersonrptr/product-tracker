@@ -37,7 +37,8 @@ A robust price monitoring system that automatically tracks product prices across
 - **🔐 User Management**: Complete authentication and authorization system (JWT)
 - **🌐 Source Websites**: Manage and configure e-commerce platforms to scrape
 - **⚙️ Search Configurations**: Define custom search parameters, schedules, and target platforms (M2M with source websites)
-- **🔄 Async Task Processing**: Background jobs with Celery for efficient scraping
+- **� Search Execution Logs**: Append-only audit trail of scraper runs (status, results count, error messages) — read-only via HTTP
+- **�🔄 Async Task Processing**: Background jobs with Celery for efficient scraping
 - **📝 JSON:API Compliant**: RESTful API following JSON:API specification
 
 ### Technical Features
@@ -234,6 +235,15 @@ Or use the **Authorize** button in Swagger UI.
 | `/search-configs/{id}` | PUT | Update search config | ✅ (Staff) |
 | `/search-configs/{id}` | DELETE | Delete search config | ✅ (Staff) |
 
+#### Search Execution Logs
+> Read-only — logs are created internally by the scraper/Celery tasks, not via HTTP.
+
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/search-execution-logs/` | GET | List all execution logs (paginated) | ✅ (Staff) |
+| `/search-execution-logs/{id}` | GET | Get execution log by ID | ✅ (Staff) |
+| `/search-execution-logs/search-config/{id}` | GET | Get all logs for a search config | ✅ (Staff) |
+
 ---
 
 ## 🧪 Running Tests
@@ -367,8 +377,9 @@ The pipeline enforces a minimum of **60% test coverage**. Current coverage: **~7
 | SourceWebsite | ✅ | ✅ | ✅ | ✅ | ~63 |
 | PriceHistory | ✅ | ✅ | ✅ | ✅ | ~56 |
 | SearchConfig | ✅ | ✅ | ✅ | ✅ | ~70 |
+| SearchExecutionLog | ✅ | ✅ | ✅ | ✅ | ~49 |
 | Auth | — | — | — | ✅ | ~12 |
-| **Total** | | | | | **360** |
+| **Total** | | | | | **409** |
 
 ### Artifacts
 

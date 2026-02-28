@@ -46,6 +46,9 @@ class SearchConfig(Base):
         secondary=search_config_source_website,
         back_populates="search_configs",
     )
+    search_execution_logs = relationship(
+        "SearchExecutionLog", back_populates="search_config"
+    )
 
     __table_args__ = (
         Index("ix_search_config_term", search_term),

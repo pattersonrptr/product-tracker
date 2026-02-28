@@ -21,7 +21,7 @@ fi
 # Product data with defaults
 TITLE="${1:-Test Product}"
 URL="${2:-https://www.mercadolivre.com.br/test-product-$(date +%s)}"
-SOURCE_WEBSITE_ID="${3:-3}"
+SOURCE_WEBSITE_ID="${3:-1}"
 
 # Create product request
 curl -s -X POST "$API_BASE_URL/products/" \

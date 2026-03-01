@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -9,16 +10,24 @@ from src.app.entities.user import User as UserEntity
 from src.app.infrastructure.database_config import get_db
 from src.app.infrastructure.repositories.user_repository import UserRepository
 from src.app.interfaces.http.presenters.auth_presenter import AuthPresenter
+from src.app.interfaces.http.presenters.user_presenter import UserPresenter
 from src.app.interfaces.http.schemas.auth_schema import (
     TokenResponse,
     TokenValidationRequest,
     TokenValidationResponse,
 )
+from src.app.interfaces.http.schemas.user_schema import (
+    UserCreateRequest,
+    UserReadResponse,
+)
 from src.app.security.auth import get_current_active_user
 from src.app.use_cases.user_use_cases import (
+    CreateUserUseCase,
+    GetUserByEmailUseCase,
     GetUserByUsernameUseCase,
     pwd_context,
 )
+from src.common.jsonapi import JsonApiError, JsonApiErrorResponse
 from src.config import settings
 from src.config.logging_config import get_logger
 
@@ -178,3 +187,78 @@ async def refresh_token(current_user: UserEntity = Depends(get_current_active_us
             "username": current_user.username,
         },
     )
+
+
+@auth_router.post("/register", response_model=UserReadResponse, status_code=201)
+async def register(
+    user_in: UserCreateRequest,
+    user_repo: UserRepository = Depends(get_user_repository),
+):
+    """
+    Public user registration endpoint.
+
+    Creates a new regular user account (is_staff=False, is_superuser=False).
+    No authentication required — any visitor can sign up.
+
+    Returns:
+        UserReadResponse: JSON:API formatted user resource (without sensitive fields)
+    """
+    logger.info(
+        f"Registration attempt for username: {user_in.data.attributes.username}",
+        extra={"username": user_in.data.attributes.username},
+    )
+
+    # Reject attempts to self-assign elevated privileges
+    user_in.data.attributes.is_staff = False
+    user_in.data.attributes.is_superuser = False
+
+    # Check for duplicate username
+    existing_username = GetUserByUsernameUseCase(user_repo).execute(
+        user_in.data.attributes.username
+    )
+    if existing_username:
+        errors = [
+            JsonApiError(
+                status="409",
+                code="USERNAME_TAKEN",
+                title="Username Already Taken",
+                detail=f"Username '{user_in.data.attributes.username}' is already registered.",
+                source={"pointer": "/data/attributes/username"},
+            )
+        ]
+        return JSONResponse(
+            status_code=409,
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
+
+    # Check for duplicate email
+    existing_email = GetUserByEmailUseCase(user_repo).execute(
+        user_in.data.attributes.email
+    )
+    if existing_email:
+        errors = [
+            JsonApiError(
+                status="409",
+                code="EMAIL_TAKEN",
+                title="Email Already Registered",
+                detail=f"Email '{user_in.data.attributes.email}' is already registered.",
+                source={"pointer": "/data/attributes/email"},
+            )
+        ]
+        return JSONResponse(
+            status_code=409,
+            content=JsonApiErrorResponse(errors=errors).model_dump(),
+            media_type="application/vnd.api+json",
+        )
+
+    hashed_password = pwd_context.hash(user_in.data.attributes.password)
+    use_case = CreateUserUseCase(user_repo)
+    created_user = use_case.execute(user_in, hashed_password)
+
+    logger.info(
+        f"User registered successfully: {created_user.username} (ID: {created_user.id})",
+        extra={"action": "user_registered", "user_id": created_user.id},
+    )
+
+    return UserPresenter.handle_success(created_user)

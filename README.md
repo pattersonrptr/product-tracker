@@ -196,6 +196,7 @@ Or use the **Authorize** button in Swagger UI.
 #### Authentication
 | Endpoint | Method | Description | Auth Required |
 |----------|--------|-------------|---------------|
+| `/auth/register` | POST | Public user registration | ❌ |
 | `/auth/login` | POST | Get access token | ❌ |
 | `/auth/validate` | POST | Validate token | ✅ |
 

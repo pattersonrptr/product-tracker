@@ -1,6 +1,9 @@
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        BUILD_ENV: dev
     container_name: web
     ports:
       - "8000:8000"

@@ -100,14 +100,15 @@ A robust price monitoring system that automatically tracks product prices across
 - **Docker** and **Docker Compose** installed ([Installation Guide](https://docs.docker.com/engine/install/))
 - **Git** for cloning the repository
 - **8GB RAM** minimum (for running all services)
+- **Poetry** ≥ 2.0 for local development ([Installation Guide](https://python-poetry.org/docs/#installation))
 
 ### Installation
 
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/pattersonrptr/product_tracker_backend.git
-cd product_tracker_backend
+git clone https://github.com/pattersonrptr/product-tracker.git
+cd product-tracker
 ```
 
 2. **Configure environment variables** (optional)
@@ -262,24 +263,20 @@ Or use the **Authorize** button in Swagger UI.
 
 ### Local (without Docker)
 
-```bash
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate
+> **Requirements**: [Poetry](https://python-poetry.org/docs/#installation) installed (`pipx install poetry` or see official docs).
 
-# Install dependencies
-pip install -r requirements.txt
+```bash
+# Install all dependencies (including dev: pytest, ruff, mypy, etc.)
+poetry install
+
+# Activate the virtual environment
+poetry shell
 
 # Run all tests
 pytest src/tests/
 
 # Run with verbose output
 pytest -v src/tests/
-
-# Run specific layer
-pytest src/tests/unit/
-pytest src/tests/integration/
-pytest src/tests/e2e/
 
 # Run with coverage report
 pytest --cov=src --cov-report=term-missing src/tests/
@@ -507,11 +504,12 @@ poetry update
 poetry run pytest
 poetry run python -m src.main
 
-# Export to requirements.txt (for Docker)
-poetry export -f requirements.txt --output requirements.txt --without-hashes
+# Export production requirements (used by Docker — do not edit manually)
+poetry export --without dev --without-hashes -f requirements.txt -o requirements.txt
 ```
 
-**Note:** Poetry is the source of truth for dependencies. The `requirements.txt` is maintained for backward compatibility.
+> **Note:** `pyproject.toml` / `poetry.lock` are the **source of truth** for all dependencies.
+> `requirements.txt` contains **only production deps** and is auto-generated from the lock file — never edit it by hand.
 
 ### Running Quality Checks
 

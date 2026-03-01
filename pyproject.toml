@@ -42,6 +42,7 @@ types-requests = "^2.32.4"
 types-beautifulsoup4 = "^4.12.0"
 types-passlib = "^1.7.7"
 types-python-jose = "^3.3.4"
+httpx = "^0.28.1"
 
 [tool.ruff]
 # Match project's current line length

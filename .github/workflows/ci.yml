@@ -29,25 +29,28 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
+      - name: Install Poetry
+        run: pip install poetry==2.2.1
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: poetry install --no-root
 
       # ── Lint ─────────────────────────────────────────────────────────────────
       - name: Lint with ruff
-        run: ruff check src/
+        run: poetry run ruff check src/
 
       - name: Check formatting with ruff
-        run: ruff format --check src/
+        run: poetry run ruff format --check src/
 
       # ── Type check ───────────────────────────────────────────────────────────
       - name: Type check with mypy
-        run: mypy src/
+        run: poetry run mypy src/
         continue-on-error: true   # mypy errors are informational; don't block CI yet
 
       # ── Tests ────────────────────────────────────────────────────────────────
       - name: Run tests with coverage
         run: |
-          pytest src/tests/ \
+          poetry run pytest src/tests/ \
             --cov=src \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \

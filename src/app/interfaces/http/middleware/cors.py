@@ -25,6 +25,11 @@ def setup_cors(app: FastAPI) -> None:
             "http://127.0.0.1:5173",
             "http://localhost:5174",
             "http://127.0.0.1:5174",
+            # Production Docker frontend (nginx on port 80)
+            "http://localhost",
+            "http://localhost:80",
+            "http://127.0.0.1",
+            "http://127.0.0.1:80",
         ],
         allow_credentials=True,
         allow_methods=["*"],

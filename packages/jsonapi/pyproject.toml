@@ -1,0 +1,16 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "fastapi-jsonapi"
+version = "0.1.0"
+description = "JSON:API implementation for FastAPI using Pydantic"
+authors = ["pattersonrptr"]
+readme = "README.md"
+packages = [{include = "fastapi_jsonapi", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = ">=2.0"
+fastapi = ">=0.100"

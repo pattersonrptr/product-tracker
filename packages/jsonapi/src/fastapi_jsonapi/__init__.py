@@ -1,13 +1,15 @@
 """
 JSON:API implementation for FastAPI.
-Re-exported from the fastapi-jsonapi package.
 Follows https://jsonapi.org/format/ specification.
 """
 
-from fastapi_jsonapi import (
-    CollectionResponse,
+from .errors import (
     JsonApiError,
     JsonApiErrorResponse,
+)
+from .middleware import make_jsonapi_middleware
+from .resources import (
+    CollectionResponse,
     ResourceIdentifier,
     ResourceObject,
     ResourceObjectForCreation,
@@ -26,6 +28,8 @@ __all__ = [
     # Errors
     "JsonApiError",
     "JsonApiErrorResponse",
+    # Middleware
+    "make_jsonapi_middleware",
 ]
 
 __version__ = "0.1.0"

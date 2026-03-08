@@ -30,6 +30,7 @@ cloudscraper = "^1.2.71"
 celery = "^5.5.3"
 flower = "^2.0.1"
 redis = "^5.2.1"
+fastapi-jsonapi = {path = "packages/jsonapi"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"

@@ -257,6 +257,32 @@ Communication:
 
 ---
 
+## Known Issues & Next Steps
+
+### Scrapers
+
+| # | Issue | Severity | Details |
+|---|---|---|---|
+| 1 | **OLX blocked in Docker** | 🔴 High | OLX blocks datacenter IPs — scraper returns 0 results from Docker containers. Works locally. Needs proxy rotation or residential IP solution. |
+| 2 | **`process_urls_list` RuntimeError** | 🟡 Medium | Calling `chord(group(...), callback)` inside a Celery task triggers `RuntimeError: Never call result.get() within a task`. Needs refactoring to avoid the chord anti-pattern (e.g., use `chain` + `on_chord_error` or replace with sequential processing). |
+| 3 | **422 on `/products/by-url`** | 🟡 Medium | Backend endpoint returns 422 for some product URLs during `save_product`. Likely a validation issue on `ProductCreatePayload`. Needs investigation. |
+| 4 | **Mercado Livre partial scrape rate** | 🟢 Low | ML search finds ~279 URLs but only ~54 products are successfully scraped (19% success). Many product pages may have changed layout or are no longer available. |
+
+### Frontend
+
+| # | Issue | Details |
+|---|---|---|
+| 5 | **No UI trigger for scraping** | There is no button or page in the frontend to manually start a scraper task. Users must invoke tasks via `docker compose exec` or Flower. |
+
+### Infrastructure
+
+| # | Issue | Details |
+|---|---|---|
+| 6 | **`.env` not in repo** | Root `.env` with secrets is `.gitignore`d. Need to create `.env.example` with placeholder values for onboarding. |
+| 7 | **No health checks in compose** | Services don't have Docker `healthcheck` directives — `depends_on` doesn't wait for readiness. |
+
+---
+
 ## Notes
 
 - The scrapers service has **no database driver** — it never talks to

@@ -15,4 +15,4 @@ export interface SourceWebsiteCreatePayload {
   isActive?: boolean
 }
 
-export interface SourceWebsiteUpdatePayload extends Partial<SourceWebsiteCreatePayload> {}
+export type SourceWebsiteUpdatePayload = Partial<SourceWebsiteCreatePayload>

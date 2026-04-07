@@ -36,4 +36,4 @@ export interface ProductCreatePayload {
   sourceMetadata?: Record<string, unknown>
 }
 
-export interface ProductUpdatePayload extends Partial<ProductCreatePayload> {}
+export type ProductUpdatePayload = Partial<ProductCreatePayload>

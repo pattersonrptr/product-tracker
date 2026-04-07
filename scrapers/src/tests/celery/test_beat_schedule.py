@@ -7,9 +7,6 @@ calls; patch celery.beat.ScheduleEntry / Scheduler internals to avoid Celery ini
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # get_dynamic_schedule
 # ---------------------------------------------------------------------------

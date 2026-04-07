@@ -4,7 +4,7 @@ Tests for src/scrapers/mercado_livre.py (Playwright-based version).
 Strategy: mock Playwright Page/Context objects so no real browser is launched.
 """
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -221,13 +221,15 @@ def test_search_collects_links_across_pages(mock_sleep, scraper):
     ctx = _mock_context()
     pages = iter([page1, page2])
 
-    with patch.object(scraper, "start"):
-        with patch.object(scraper, "new_page", side_effect=lambda: (ctx, next(pages))):
-            # new_page is called once in search (before the loop), but
-            # the scraper reuses the same page — so we patch it once
-            # Actually search() calls new_page() once and reuses the page.
-            # Let's align with the actual implementation.
-            pass
+    with (
+        patch.object(scraper, "start"),
+        patch.object(scraper, "new_page", side_effect=lambda: (ctx, next(pages))),
+    ):
+        # new_page is called once in search (before the loop), but
+        # the scraper reuses the same page — so we patch it once
+        # Actually search() calls new_page() once and reuses the page.
+        # Let's align with the actual implementation.
+        pass
 
     # The implementation calls new_page() once and reuses the same page.
     # So we need a single page that simulates two rounds of interaction.
@@ -284,9 +286,9 @@ def test_search_stops_on_empty_links(mock_sleep, scraper):
         patch.object(scraper, "stop"),
         patch.object(scraper, "new_page", return_value=(ctx, page)),
         patch.object(scraper, "_extract_links", return_value=[]),
+        pytest.raises(Exception, match="No results found"),
     ):
-        with pytest.raises(Exception, match="No results found"):
-            scraper.search("notebook", max_pages=5)
+        scraper.search("notebook", max_pages=5)
 
     ctx.close.assert_called_once()
 
@@ -301,9 +303,9 @@ def test_search_stops_on_page_load_error(mock_sleep, scraper):
         patch.object(scraper, "start"),
         patch.object(scraper, "stop"),
         patch.object(scraper, "new_page", return_value=(ctx, page)),
+        pytest.raises(Exception, match="No results found"),
     ):
-        with pytest.raises(Exception, match="No results found"):
-            scraper.search("notebook", max_pages=3)
+        scraper.search("notebook", max_pages=3)
 
     ctx.close.assert_called_once()
 
@@ -343,10 +345,9 @@ def test_search_context_closed_on_error(mock_sleep, scraper):
         patch.object(scraper, "new_page", return_value=(ctx, page)),
         patch.object(
             scraper, "_extract_links", side_effect=RuntimeError("boom")
-        ),
+        ),pytest.raises(RuntimeError, match="boom")
     ):
-        with pytest.raises(RuntimeError, match="boom"):
-            scraper.search("notebook", max_pages=1)
+        scraper.search("notebook", max_pages=1)
 
     ctx.close.assert_called_once()
 

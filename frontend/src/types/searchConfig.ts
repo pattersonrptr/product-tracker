@@ -21,4 +21,4 @@ export interface SearchConfigCreatePayload {
   sourceWebsiteIds: number[]
 }
 
-export interface SearchConfigUpdatePayload extends Partial<SearchConfigCreatePayload> {}
+export type SearchConfigUpdatePayload = Partial<SearchConfigCreatePayload>

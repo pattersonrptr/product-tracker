@@ -10,7 +10,6 @@ import pytest
 
 from src.scrapers.base.playwright_scraper import PlaywrightScraper
 
-
 # ---------------------------------------------------------------------------
 # Concrete subclass for testing
 # ---------------------------------------------------------------------------
@@ -99,7 +98,7 @@ def test_build_context_uses_headers(scraper, mock_playwright):
     context_mock = MagicMock()
     browser.new_context.return_value = context_mock
 
-    ctx = scraper._build_context()
+    scraper._build_context()
 
     browser.new_context.assert_called_once()
     call_kwargs = browser.new_context.call_args.kwargs

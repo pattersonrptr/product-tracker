@@ -175,8 +175,9 @@ def test_extract_links_raises_when_no_ads_data(scraper):
 # ---------------------------------------------------------------------------
 
 
+@patch("src.scrapers.olx.time.sleep")
 @patch.object(OLXScraper, "retry_request")
-def test_search_single_page(mock_retry, scraper):
+def test_search_single_page(mock_retry, mock_sleep, scraper):
     ads = [{"url": "https://olx.com/a"}, {"url": "https://olx.com/b"}]
     html_content = _build_olx_html(ads)
 
@@ -189,17 +190,60 @@ def test_search_single_page(mock_retry, scraper):
     result = scraper.search("notebook", max_pages=5)
     assert "https://olx.com/a" in result
     assert "https://olx.com/b" in result
+    mock_sleep.assert_called_with(0.5)
 
 
+@patch("src.scrapers.olx.time.sleep")
 @patch.object(OLXScraper, "retry_request")
-def test_search_empty_html_breaks_loop_raises_no_results(mock_retry, scraper):
+def test_search_empty_html_breaks_loop_raises_no_results(mock_retry, mock_sleep, scraper):
     mock_retry.return_value = _mock_response(text="")
     with pytest.raises(Exception, match="No results found"):
         scraper.search("notebook", max_pages=5)
 
 
+@patch("src.scrapers.olx.time.sleep")
 @patch.object(OLXScraper, "retry_request")
-def test_search_raises_when_no_results(mock_retry, scraper):
+def test_search_returns_collected_on_403(mock_retry, mock_sleep, scraper):
+    """When OLX returns 403 (rate-limited), search returns what was collected."""
+    ads = [{"url": "https://olx.com/a"}]
+    html_content = _build_olx_html(ads)
+
+    page1_resp = _mock_response(text=html_content)
+    page2_resp = _mock_response(status_code=403, text="")
+
+    mock_retry.side_effect = [page1_resp, page2_resp]
+
+    result = scraper.search("notebook", max_pages=5)
+    assert result == ["https://olx.com/a"]
+
+
+@patch("src.scrapers.olx.time.sleep")
+@patch.object(OLXScraper, "retry_request")
+def test_search_returns_collected_on_none_response(mock_retry, mock_sleep, scraper):
+    """When retry_request returns None, search returns what was collected."""
+    ads = [{"url": "https://olx.com/a"}]
+    html_content = _build_olx_html(ads)
+
+    page1_resp = _mock_response(text=html_content)
+
+    mock_retry.side_effect = [page1_resp, None]
+
+    result = scraper.search("notebook", max_pages=5)
+    assert result == ["https://olx.com/a"]
+
+
+@patch("src.scrapers.olx.time.sleep")
+@patch.object(OLXScraper, "retry_request")
+def test_search_raises_when_first_page_returns_none(mock_retry, mock_sleep, scraper):
+    """When the very first page returns None, no results → raises."""
+    mock_retry.return_value = None
+    with pytest.raises(Exception, match="No results found"):
+        scraper.search("notebook", max_pages=5)
+
+
+@patch("src.scrapers.olx.time.sleep")
+@patch.object(OLXScraper, "retry_request")
+def test_search_raises_when_no_results(mock_retry, mock_sleep, scraper):
     mock_retry.return_value = _mock_response(text="<html><body></body></html>")
     # _extract_links raises → caught → break → results empty → Exception
     with pytest.raises(Exception, match="No results found"):

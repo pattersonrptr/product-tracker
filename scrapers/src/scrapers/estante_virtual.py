@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from urllib.parse import quote_plus
 
 from bs4 import BeautifulSoup
@@ -14,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
+    # Radware Bot Manager blocks cloudscraper's TLS fingerprint;
+    # plain requests works reliably.
+    USE_CLOUDSCRAPER = False
+
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://www.estantevirtual.com.br"
@@ -54,16 +59,48 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
                 params=params,
             )
 
-            if page_number == resp.json().get("totalPages"):
+            if resp is None:
+                logger.warning(
+                    "EstanteVirtual: no response on page %d, stopping", page_number
+                )
+                break
+
+            # Validate JSON response (anti-bot may return HTML captcha page)
+            content_type = resp.headers.get("Content-Type", "")
+            if "application/json" not in content_type:
+                logger.warning(
+                    "EstanteVirtual: page %d returned non-JSON (%s), possible anti-bot",
+                    page_number,
+                    content_type,
+                )
+                break
+
+            try:
+                data = resp.json()
+            except Exception as e:
+                logger.error(
+                    "EstanteVirtual: failed to parse JSON on page %d: %s",
+                    page_number,
+                    e,
+                )
+                break
+
+            total_pages = data.get("totalPages", 0)
+            if page_number >= total_pages:
                 has_next = False
 
-            urls = self._get_products_list(resp.json())
+            urls = self._get_products_list(data)
             all_links.extend(urls)
             logger.debug(
-                "EstanteVirtual: page %d — %d links collected",
+                "EstanteVirtual: page %d/%d — %d links collected",
                 page_number,
+                total_pages,
                 len(all_links),
             )
+
+            # Throttle to avoid triggering anti-bot
+            if has_next:
+                time.sleep(0.5)
 
         return all_links
 
@@ -102,7 +139,7 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
         }
 
     def _fetch_page(self, url: str):
-        resp = self.retry_request(url)
+        resp = self.retry_request(url, self.headers())
         resp.raise_for_status()
         return resp
 

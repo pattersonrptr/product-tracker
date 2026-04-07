@@ -1,8 +1,9 @@
 """
 Tests for src/product_scrapers/scrapers/estante_virtual.py.
 
-Strategy: patch cloudscraper.create_scraper and RotatingUserAgentMixin._load_user_agents
-so no real HTTP or file I/O happens.
+Strategy: patch RotatingUserAgentMixin._load_user_agents so no real file I/O
+happens, and patch retry_request so no real HTTP calls are made.
+EstanteVirtual uses USE_CLOUDSCRAPER = False (plain requests.Session).
 """
 
 import json
@@ -19,12 +20,14 @@ from src.scrapers.estante_virtual import EstanteVirtualScraper
 # ---------------------------------------------------------------------------
 
 
-def _mock_response(status_code: int = 200, json_data=None, content: bytes = b""):
+def _mock_response(status_code: int = 200, json_data=None, content: bytes = b"",
+                    content_type: str = "application/json; charset=utf-8"):
     resp = MagicMock(spec=requests.Response)
     resp.status_code = status_code
     resp.json.return_value = json_data or {}
     resp.content = content
     resp.raise_for_status = MagicMock()
+    resp.headers = {"Content-Type": content_type}
     return resp
 
 
@@ -155,8 +158,9 @@ def test_get_products_list_empty(scraper):
 # ---------------------------------------------------------------------------
 
 
+@patch("src.scrapers.estante_virtual.time.sleep")
 @patch.object(EstanteVirtualScraper, "retry_request")
-def test_search_single_page(mock_retry, scraper):
+def test_search_single_page(mock_retry, mock_sleep, scraper):
     skus = [{"productSlug": "/livros/a"}, {"productSlug": "/livros/b"}]
     search_json = _build_search_json(total_pages=1, skus=skus)
     mock_retry.return_value = _mock_response(json_data=search_json)
@@ -166,8 +170,9 @@ def test_search_single_page(mock_retry, scraper):
     assert "https://www.estantevirtual.com.br/livros/a" in result
 
 
+@patch("src.scrapers.estante_virtual.time.sleep")
 @patch.object(EstanteVirtualScraper, "retry_request")
-def test_search_multiple_pages(mock_retry, scraper):
+def test_search_multiple_pages(mock_retry, mock_sleep, scraper):
     """When page_number < totalPages, continues; when equal, stops."""
     skus_p1 = [{"productSlug": "/livros/p1"}]
     skus_p2 = [{"productSlug": "/livros/p2"}]
@@ -180,6 +185,43 @@ def test_search_multiple_pages(mock_retry, scraper):
     result = scraper.search("Machado")
     assert len(result) == 2
     assert mock_retry.call_count == 2
+    mock_sleep.assert_called_with(0.5)
+
+
+@patch("src.scrapers.estante_virtual.time.sleep")
+@patch.object(EstanteVirtualScraper, "retry_request")
+def test_search_stops_on_none_response(mock_retry, mock_sleep, scraper):
+    """When retry_request returns None, search stops and returns empty."""
+    mock_retry.return_value = None
+
+    result = scraper.search("whatever")
+    assert result == []
+
+
+@patch("src.scrapers.estante_virtual.time.sleep")
+@patch.object(EstanteVirtualScraper, "retry_request")
+def test_search_stops_on_non_json_response(mock_retry, mock_sleep, scraper):
+    """When response is HTML (anti-bot captcha), search stops gracefully."""
+    resp = _mock_response(content_type="text/html; charset=utf-8")
+    mock_retry.return_value = resp
+
+    result = scraper.search("Dom Casmurro")
+    assert result == []
+
+
+@patch("src.scrapers.estante_virtual.time.sleep")
+@patch.object(EstanteVirtualScraper, "retry_request")
+def test_search_returns_partial_on_antibot_midway(mock_retry, mock_sleep, scraper):
+    """If anti-bot kicks in on page 2, page 1 results are still returned."""
+    skus_p1 = [{"productSlug": "/livros/p1"}]
+    page1_resp = _mock_response(json_data=_build_search_json(3, skus_p1))
+    page2_antibot = _mock_response(content_type="text/html; charset=utf-8")
+
+    mock_retry.side_effect = [page1_resp, page2_antibot]
+
+    result = scraper.search("Machado")
+    assert len(result) == 1
+    assert "https://www.estantevirtual.com.br/livros/p1" in result
 
 
 # ---------------------------------------------------------------------------

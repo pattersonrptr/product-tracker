@@ -82,3 +82,4 @@ pnpm-debug.log*
 *.db
 *.ipynb
 notes.txt
+scrapers/scraper_test_report.json

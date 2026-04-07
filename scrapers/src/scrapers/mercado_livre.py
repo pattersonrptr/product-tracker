@@ -1,10 +1,10 @@
 import logging
 import re
-from urllib.parse import parse_qs, urlparse
+import time
+from typing import Any
+from urllib.parse import parse_qs, quote_plus, urlparse
 
-from bs4 import BeautifulSoup
-
-from src.scrapers.base.requests_scraper import RequestScraper
+from src.scrapers.base.playwright_scraper import PlaywrightScraper
 from src.scrapers.interfaces.scraper_interface import ScraperInterface
 from src.scrapers.mixins.rotating_user_agent_mixin import (
     RotatingUserAgentMixin,
@@ -13,7 +13,17 @@ from src.scrapers.mixins.rotating_user_agent_mixin import (
 logger = logging.getLogger(__name__)
 
 
-class MercadoLivreScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
+class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
+    """Mercado Livre scraper using Playwright for JS-rendered pages."""
+
+    # ML blocks old/non-Chrome user-agents, so we always use a modern
+    # Chrome UA string instead of the random pool from the mixin.
+    _CHROME_UA = (
+        "Mozilla/5.0 (X11; Linux x86_64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    )
+
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://lista.mercadolivre.com.br"
@@ -27,75 +37,127 @@ class MercadoLivreScraper(ScraperInterface, RequestScraper, RotatingUserAgentMix
             "Sec-GPC": "1",
         }
 
-    def headers(self) -> dict:
+    def headers(self) -> dict[str, Any]:
         custom_headers = self._build_default_headers()
-        random_user_agent = self.get_random_user_agent()
-        if random_user_agent:
-            custom_headers["User-Agent"] = random_user_agent
+        custom_headers["User-Agent"] = self._CHROME_UA
         return custom_headers
 
-    def _extract_links(self, html: str) -> list:
-        soup = BeautifulSoup(html, "html.parser")
-        links = []
+    # ------------------------------------------------------------------
+    # Search
+    # ------------------------------------------------------------------
 
-        for a in soup.select(".poly-component__title-wrapper a"):
-            href = a.get("href", "")
-            if not href.startswith("https://click1"):
+    def _extract_links(self, page) -> list[str]:
+        """Extract product URLs from a rendered search results page."""
+        raw_links = page.eval_on_selector_all(
+            ".poly-component__title",
+            "els => els.map(e => e.href)",
+        )
+
+        links = []
+        seen = set()
+        for href in raw_links:
+            if not href:
+                continue
+            # Skip ML click-tracker URLs
+            if "click1.mercadolivre" in href:
+                continue
+            if href not in seen:
+                seen.add(href)
                 links.append(href)
 
         return links
 
-    def _get_next_url(self, total_links: int, search_term: str) -> str:
-        if not total_links:
-            return ""
-        start_from = total_links + 1
-        return f"{self.BASE_URL}/{search_term}_Desde_{start_from}_NoIndex_True"
+    def _build_search_url(self, search_term: str, offset: int = 0) -> str:
+        encoded = quote_plus(search_term)
+        if offset == 0:
+            return f"{self.BASE_URL}/{encoded}"
+        start_from = offset + 1
+        return f"{self.BASE_URL}/{encoded}_Desde_{start_from}_NoIndex_True"
 
-    def search(self, search_term: str, max_pages: int = 50) -> list:
-        page_number = 1
-        total_links = 0
-        all_links = []
-        search_url = f"{self.BASE_URL}/{search_term}"
+    def search(self, search_term: str, max_pages: int = 50) -> list[str]:
+        all_links: list[str] = []
 
-        while page_number <= max_pages:
-            try:
-                resp = self.retry_request(search_url, self.headers())
-                html_content = resp.text if resp and resp.text else ""
+        self.start()
+        context, page = self.new_page()
 
-                if not html_content:
+        try:
+            for page_number in range(1, max_pages + 1):
+                search_url = self._build_search_url(search_term, len(all_links))
+                logger.debug("ML: loading page %d — %s", page_number, search_url)
+
+                try:
+                    page.goto(
+                        search_url,
+                        wait_until="domcontentloaded",
+                        timeout=30_000,
+                    )
+                    page.wait_for_selector(
+                        ".ui-search-layout__item", timeout=10_000
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "ML: page %d failed to load: %s — stopping",
+                        page_number,
+                        e,
+                    )
                     break
 
-                links = self._extract_links(html_content)
+                links = self._extract_links(page)
 
                 if not links:
+                    logger.debug("ML: no links on page %d — stopping", page_number)
                     break
 
                 all_links.extend(links)
                 logger.debug(
-                    "ML: page %d — %d links collected", page_number, len(all_links)
+                    "ML: page %d — %d links (total %d)",
+                    page_number,
+                    len(links),
+                    len(all_links),
                 )
-                page_number += 1
-                total_links += len(links)
-                search_url = self._get_next_url(total_links, search_term)
 
-            except Exception as e:
-                logger.error(
-                    "Error on page %d (URL: %s): %s", page_number, search_url, e
+                # Check if there is a next page
+                next_btn = page.query_selector(
+                    "a.andes-pagination__link[title='Seguinte']"
                 )
-                break
+                if not next_btn:
+                    logger.debug("ML: no next page button — stopping")
+                    break
+
+                # Throttle to avoid detection
+                time.sleep(1.0)
+        finally:
+            context.close()
+            self.stop()
+
+        if not all_links:
+            raise Exception("No results found")
 
         return all_links
 
-    def scrape_data(self, url: str) -> dict:
-        resp = self.retry_request(url, self.headers())
-        html_content = resp.content
-        soup = BeautifulSoup(html_content, "html.parser")
-        title = self._extract_title(soup)
-        price = self._extract_price(soup)
-        description = self._extract_description(soup)
-        source_product_code = self._extract_product_code(url)
-        is_available = self._extract_availability(soup)
-        image_url = self._extract_image_src(soup)
+    # ------------------------------------------------------------------
+    # Product detail
+    # ------------------------------------------------------------------
+
+    def scrape_data(self, url: str) -> dict[str, Any]:
+        self.start()
+        context, page = self.new_page()
+
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            page.wait_for_selector("h1.ui-pdp-title", timeout=10_000)
+
+            title = self._extract_title(page)
+            price = self._extract_price(page)
+            description = self._extract_description(page)
+            source_product_code = self._extract_product_code(url)
+            is_available = self._extract_availability(page)
+            image_url = self._extract_image_src(page)
+            seller_name = self._extract_seller(page)
+            location = self._extract_location(page)
+        finally:
+            context.close()
+            self.stop()
 
         return {
             "url": url,
@@ -103,64 +165,79 @@ class MercadoLivreScraper(ScraperInterface, RequestScraper, RotatingUserAgentMix
             "price": price,
             "description": description,
             "source_product_code": source_product_code,
-            "city": "not found",
+            "city": location,
             "state": "not found",
-            "seller_name": "not found",
+            "seller_name": seller_name,
             "is_available": is_available,
-            "image_urls": image_url,
+            "image_urls": image_url or "",
             "source_metadata": {},
         }
 
-    def _extract_price(self, soup):
-        price_element = soup.find("meta", itemprop="price")
-        if price_element:
-            return price_element.get("content", "")
-        return ""
+    def _extract_title(self, page) -> str:
+        el = page.query_selector("h1.ui-pdp-title")
+        return el.inner_text().strip() if el else ""
 
-    def _extract_title(self, soup):
-        title_element = soup.find("h1", class_="ui-pdp-title")
-        title = title_element.get_text(strip=True) if title_element else ""
-        return title
+    def _extract_price(self, page) -> str:
+        meta = page.query_selector('meta[itemprop="price"]')
+        if meta:
+            return meta.get_attribute("content") or ""
+        fraction = page.query_selector(".andes-money-amount__fraction")
+        return fraction.inner_text().strip() if fraction else ""
 
-    def _extract_description(self, soup):
-        description_element = soup.find("p", {"class": "ui-pdp-description__content"})
-        description = (
-            description_element.get_text(strip=True) if description_element else ""
-        )
-        return description
+    def _extract_description(self, page) -> str:
+        el = page.query_selector("p.ui-pdp-description__content")
+        return el.inner_text().strip() if el else ""
 
-    def _extract_availability(self, soup) -> bool:
-        try:
-            stock_info = soup.select_one(".ui-pdp-stock-information__title")
-            if stock_info and "disponível" in stock_info.get_text(strip=True).lower():
+    def _extract_availability(self, page) -> bool:
+        el = page.query_selector(".ui-pdp-stock-information__title")
+        if el:
+            text = el.inner_text().strip().lower()
+            if "disponível" in text or "disponivel" in text:
                 return True
-        except Exception:
-            pass
-        return False
+        price = self._extract_price(page)
+        return bool(price)
 
     @staticmethod
     def _extract_product_code(url: str) -> str:
-        """Extract the ML product ID (e.g. MLB123456789) from the URL path."""
-        # Typical ML URL: https://www.mercadolivre.com.br/...-MLB123456789-_JM#...
+        """Extract the ML product ID (e.g. MLB123456789) from the URL."""
         match = re.search(r"(MLB\d+)", url)
         if match:
             return f"ML - {match.group(1)}"
-        # Fallback: try #wid= fragment (used in some listing URLs)
         fragment = urlparse(url).fragment
         params = parse_qs(fragment)
         wid = params.get("wid", [None])[0]
         if wid:
             return f"ML - {wid}"
-        # Last resort: use the last path segment
         path_segment = urlparse(url).path.rstrip("/").split("/")[-1]
         return f"ML - {path_segment}" if path_segment else "ML - unknown"
 
-    def _extract_image_src(self, soup):
-        try:
-            img = soup.select_one("img.ui-pdp-image.ui-pdp-gallery__figure__image")
-            return img["src"] if img and img.has_attr("src") else None
-        except Exception:
-            return None
+    def _extract_image_src(self, page) -> str | None:
+        el = page.query_selector("img.ui-pdp-image.ui-pdp-gallery__figure__image")
+        if el:
+            return el.get_attribute("src")
+        el = page.query_selector("figure.ui-pdp-gallery__figure img")
+        if el:
+            return el.get_attribute("src")
+        return None
+
+    def _extract_seller(self, page) -> str:
+        el = page.query_selector(".ui-pdp-seller__link-trigger-button")
+        if el:
+            return el.inner_text().strip()
+        el = page.query_selector(".ui-pdp-seller__header__title")
+        if el:
+            return el.inner_text().strip()
+        return "not found"
+
+    def _extract_location(self, page) -> str:
+        el = page.query_selector(".ui-pdp-media__body p")
+        if el:
+            return el.inner_text().strip()
+        return "not found"
+
+    # ------------------------------------------------------------------
+    # Update
+    # ------------------------------------------------------------------
 
     def update_data(self, product: dict) -> dict:
         data = self.scrape_data(product["url"])

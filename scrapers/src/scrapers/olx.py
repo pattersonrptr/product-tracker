@@ -1,6 +1,7 @@
 import html
 import json
 import logging
+import time
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -43,7 +44,24 @@ class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
         while page_number <= max_pages:
             search_url = self._build_search_url(search_term, page_number)
             resp = self.retry_request(search_url, self.headers())
-            html_content = resp.text if resp and resp.text else ""
+
+            if resp is None:
+                logger.warning(
+                    "OLX: no response on page %d, stopping with %d links",
+                    page_number,
+                    len(results),
+                )
+                break
+
+            if resp.status_code == 403:
+                logger.warning(
+                    "OLX: rate-limited (403) on page %d, returning %d links collected so far",
+                    page_number,
+                    len(results),
+                )
+                break
+
+            html_content = resp.text if resp.text else ""
 
             if not html_content:
                 break
@@ -60,6 +78,9 @@ class OLXScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
             results.extend(links)
             logger.debug("OLX: page %d — %d links collected", page_number, len(results))
             page_number += 1
+
+            # Throttle requests to avoid rate-limiting (403)
+            time.sleep(0.5)
 
         if not results:
             raise Exception("No results found")

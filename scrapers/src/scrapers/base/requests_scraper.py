@@ -10,9 +10,22 @@ logger = logging.getLogger(__name__)
 
 
 class RequestScraper(ABC):
+    """Base class providing HTTP session with retry logic.
+
+    By default uses ``cloudscraper`` to bypass Cloudflare-like protections.
+    Subclasses that are blocked by cloudscraper's TLS fingerprint (e.g.
+    Radware Bot Manager) can set ``USE_CLOUDSCRAPER = False`` to use a
+    plain ``requests.Session`` instead.
+    """
+
+    USE_CLOUDSCRAPER: bool = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._session = cloudscraper.create_scraper()
+        if self.USE_CLOUDSCRAPER:
+            self._session = cloudscraper.create_scraper()
+        else:
+            self._session = requests.Session()
 
     @abstractmethod
     def headers(self) -> dict[str, Any]:
@@ -29,7 +42,7 @@ class RequestScraper(ABC):
         if params is None:
             params = {}
         if headers is None:
-            headers = {}
+            headers = self.headers()
         for i in range(max_retries + 1):
             try:
                 response = self._session.get(

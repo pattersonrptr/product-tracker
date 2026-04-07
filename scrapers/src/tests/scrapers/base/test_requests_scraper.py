@@ -61,6 +61,31 @@ def test_init_creates_cloudscraper_session(mock_create_scraper):
 
 
 # ---------------------------------------------------------------------------
+# __init__ / USE_CLOUDSCRAPER = False
+# ---------------------------------------------------------------------------
+
+
+class _PlainRequestScraper(RequestScraper):
+    """Subclass that opts out of cloudscraper."""
+
+    USE_CLOUDSCRAPER = False
+
+    def headers(self) -> dict:
+        return {"User-Agent": "plain"}
+
+
+@patch("src.scrapers.base.requests_scraper.requests.Session")
+def test_init_creates_plain_session_when_cloudscraper_disabled(mock_session_cls):
+    mock_session = MagicMock()
+    mock_session_cls.return_value = mock_session
+
+    scraper = _PlainRequestScraper()
+
+    mock_session_cls.assert_called_once()
+    assert scraper._session is mock_session
+
+
+# ---------------------------------------------------------------------------
 # retry_request — happy path
 # ---------------------------------------------------------------------------
 
@@ -79,8 +104,12 @@ def test_retry_request_returns_response_on_first_attempt(mock_create_scraper):
     result = scraper.retry_request("http://example.com")
 
     assert result is resp
+    # When headers is not passed, defaults to self.headers()
     mock_session.get.assert_called_once_with(
-        "http://example.com", headers={}, params={}, allow_redirects=True
+        "http://example.com",
+        headers={"User-Agent": "test"},
+        params={},
+        allow_redirects=True,
     )
 
 

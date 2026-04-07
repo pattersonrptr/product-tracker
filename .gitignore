@@ -20,7 +20,6 @@ env/
 ENV/
 
 # Poetry / pip
-poetry.lock
 pip-log.txt
 
 # Testing / coverage

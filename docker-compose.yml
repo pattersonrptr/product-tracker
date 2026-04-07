@@ -1,7 +1,8 @@
 services:
+  # ── Backend API ──────────────────────────────────────────────────────────
   web:
     build:
-      context: .
+      context: ./backend
       args:
         BUILD_ENV: dev
     container_name: web
@@ -14,12 +15,16 @@ services:
       - DATABASE_URL=postgresql://user:password@db:5432/price_monitor
       - PYTHONPATH=/src
     volumes:
-      - ./alembic:/src/alembic
-      - .:/src
+      - ./backend/alembic:/src/alembic
+      - ./backend:/src
     command: ./start.sh
 
+  # ── Scraper Workers ──────────────────────────────────────────────────────
   scraper:
-    build: .
+    build:
+      context: ./scrapers
+      args:
+        BUILD_ENV: dev
     container_name: scraper
     depends_on:
       - db
@@ -27,23 +32,44 @@ services:
       - web
     environment:
       - API_URL=http://web:8000
-      - DATABASE_URL=postgresql://user:password@db:5432/price_monitor
       - CELERY_BROKER_URL=redis://redis:6379/0
       - PYTHONPATH=/src
       - CELERY_WORKER_USERNAME=celery_user
       - CELERY_WORKER_PASSWORD=celery_user_password
     volumes:
-      - ./alembic:/src/alembic
-      - .:/src
+      - ./scrapers:/src
     command:
       [
         "/bin/sh",
         "-c",
-        "celery multi start 8 -A src.product_scrapers.celery.tasks --loglevel=info --concurrency=2 --detach && tail -f /dev/null",
+        "celery multi start 8 -A src.celery.tasks --loglevel=info --concurrency=2 --detach && tail -f /dev/null",
       ]
 
+  # ── Celery Beat (Scheduler) ─────────────────────────────────────────────
+  celery-beat:
+    build:
+      context: ./scrapers
+      args:
+        BUILD_ENV: dev
+    container_name: celery-beat
+    depends_on:
+      - scraper
+      - redis
+      - web
+    environment:
+      - API_URL=http://web:8000
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - PYTHONPATH=/src
+      - CELERY_WORKER_USERNAME=celery_user
+      - CELERY_WORKER_PASSWORD=celery_user_password
+    volumes:
+      - ./scrapers:/src
+    command: celery -A src.celery.tasks beat --loglevel=info
+
+  # ── Flower (Celery Monitoring) ───────────────────────────────────────────
   flower:
-    build: .
+    build:
+      context: ./scrapers
     container_name: flower
     depends_on:
       - redis
@@ -51,21 +77,9 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
     ports:
       - "5555:5555"
-    command: celery -A src.product_scrapers.celery.tasks flower --port=5555
+    command: celery -A src.celery.tasks flower --port=5555
 
-  celery-beat:
-    build: .
-    container_name: celery-beat
-    depends_on:
-      - scraper
-      - redis
-    environment:
-      - API_URL=http://web:8000
-      - DATABASE_URL=postgresql://user:password@db:5432/price_monitor
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - PYTHONPATH=/src
-    command: celery -A src.product_scrapers.celery.tasks beat --loglevel=info
-
+  # ── PostgreSQL ───────────────────────────────────────────────────────────
   db:
     image: postgres:13
     container_name: db
@@ -78,11 +92,26 @@ services:
     ports:
       - "5432:5432"
 
+  # ── Redis ────────────────────────────────────────────────────────────────
   redis:
     image: redis:alpine
     container_name: redis
     ports:
       - "6379:6379"
+
+  # ── Frontend ─────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    image: product-tracker-front
+    container_name: product-tracker-front
+    ports:
+      - "80:80"
+    depends_on:
+      - web
+    restart: unless-stopped
 
 volumes:
   pgdata:

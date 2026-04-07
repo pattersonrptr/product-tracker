@@ -7,9 +7,13 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: Lint, Type Check & Tests
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    name: "Backend — Lint, Type Check & Tests"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
 
     env:
       ENABLE_FILE_LOGGING: "false"
@@ -34,19 +38,16 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root
 
-      # ── Lint ─────────────────────────────────────────────────────────────────
       - name: Lint with ruff
         run: poetry run ruff check src/
 
       - name: Check formatting with ruff
         run: poetry run ruff format --check src/
 
-      # ── Type check ───────────────────────────────────────────────────────────
       - name: Type check with mypy
         run: poetry run mypy src/
-        continue-on-error: true   # mypy errors are informational; don't block CI yet
+        continue-on-error: true
 
-      # ── Tests ────────────────────────────────────────────────────────────────
       - name: Run tests with coverage
         run: |
           poetry run pytest src/tests/ \
@@ -56,13 +57,76 @@ jobs:
             --cov-fail-under=60 \
             -v
 
-      # ── Coverage report ──────────────────────────────────────────────────────
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: always() && !env.ACT
         env:
           ACT: ${{ env.ACT }}
         with:
-          name: coverage-report
-          path: coverage.xml
+          name: backend-coverage-report
+          path: backend/coverage.xml
           retention-days: 7
+
+  # ── Scrapers ───────────────────────────────────────────────────────────────
+  scrapers:
+    name: "Scrapers — Lint & Tests"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scrapers
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pip install poetry==2.2.1
+
+      - name: Install dependencies
+        run: poetry install --no-root
+
+      - name: Lint with ruff
+        run: poetry run ruff check src/
+
+      - name: Check formatting with ruff
+        run: poetry run ruff format --check src/
+
+      - name: Run tests
+        run: |
+          poetry run pytest src/tests/ \
+            --cov=src \
+            --cov-report=term-missing \
+            -v
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    name: "Frontend — Lint & Tests"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test

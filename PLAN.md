@@ -117,35 +117,16 @@ product-tracker/                  ← Git root
 | `scrapers/` (OLX, Enjoei …) | `requests`, `bs4`, `cloudscraper` + internal refs | ✅ No |
 | `api/api_client.py` | `requests`, `os` (reads `API_URL`) | ✅ No — HTTP only |
 | `celery/tasks.py` | `ApiClient`, `ScraperFactory`, `ScraperManager` | ✅ No — all internal |
-| `celery/beat_schedule.py` | `src.app.infrastructure.database.*` | ❌ **YES** — direct DB |
+| `celery/beat_schedule.py` | `ApiClient` (internal) | ✅ No — HTTP only |
 
-**Only `beat_schedule.py`** imports from the backend codebase. Everything else
-already communicates over HTTP through `ApiClient`.
+**All scraper components communicate exclusively via HTTP** through `ApiClient`.
+No direct database imports remain — the scrapers service is fully decoupled.
 
-### Decoupling Strategy — Option A: Beat via API
+### ~~Decoupling Strategy~~ — ✅ Already Implemented
 
-Replace the direct database query in `beat_schedule.py` with an HTTP call
-through `ApiClient.get_active_search_configs()` (which already exists).
-
-**Before (coupled):**
-```python
-from src.app.infrastructure.database.models.search_config_model import SearchConfig
-from src.app.infrastructure.database_config import SessionLocal
-
-db = SessionLocal()
-searches = db.query(SearchConfig).filter(SearchConfig.is_active).all()
-```
-
-**After (decoupled):**
-```python
-from src.api.api_client import ApiClient
-
-client = ApiClient(get_celery_worker_token())
-searches = client.get_active_search_configs()
-```
-
-This eliminates the only import from `src.app` and makes the scrapers service
-fully independent.
+The refactoring described in Option A (replacing direct DB access in
+`beat_schedule.py` with `ApiClient.get_active_search_configs()`) has already
+been completed. The scrapers service is fully independent.
 
 ---
 
@@ -164,27 +145,27 @@ fully independent.
 
 ### Phase 2 — Decouple & Configure
 
-| # | Task | Details |
-|---|---|---|
-| 7 | Refactor `beat_schedule.py` | Replace direct DB access with `ApiClient` HTTP calls |
-| 8 | Fix scraper imports | Change `src.product_scrapers.*` → `src.*` (new package root) |
-| 9 | Create `scrapers/pyproject.toml` | Deps: `celery`, `flower`, `redis`, `requests`, `beautifulsoup4`, `cloudscraper`, `python-dotenv` |
-| 10 | Create `scrapers/Dockerfile` | Lightweight image, no DB drivers needed |
-| 11 | Clean backend `pyproject.toml` | Remove: `beautifulsoup4`, `cloudscraper`, `celery`, `flower`, `redis` |
-| 12 | Update Celery task names | Change `src.product_scrapers.celery.tasks.*` → `src.celery.tasks.*` |
+| # | Task | Status | Details |
+|---|---|---|---|
+| 7 | Refactor `beat_schedule.py` | ✅ **Done** | Replace direct DB access with `ApiClient` HTTP calls |
+| 8 | Fix scraper imports | ✅ **Done** | Change `src.product_scrapers.*` → `src.*` (new package root) |
+| 9 | Create `scrapers/pyproject.toml` | ✅ **Done** | Deps: `celery`, `flower`, `redis`, `requests`, `beautifulsoup4`, `cloudscraper`, `python-dotenv` |
+| 10 | Create `scrapers/Dockerfile` | ✅ **Done** | Lightweight image, no DB drivers needed |
+| 11 | Clean backend `pyproject.toml` | ✅ **Done** | Remove: `beautifulsoup4`, `cloudscraper`, `celery`, `flower`, `redis` |
+| 12 | Update Celery task names | ✅ **Done** | Change `src.product_scrapers.celery.tasks.*` → `src.celery.tasks.*` |
 
 ### Phase 3 — Root-Level Infrastructure
 
-| # | Task | Details |
-|---|---|---|
-| 13 | Create unified `.gitignore` | Merge Python + Node.js ignores |
-| 14 | Create root `docker-compose.yml` | All services: `web`, `scraper`, `celery-beat`, `flower`, `db`, `redis`, `frontend` |
-| 15 | Create root `.env.example` | Combined variables for all services |
-| 16 | Create root `README.md` | Project overview pointing to sub-READMEs |
-| 17 | Create `scrapers/README.md` | Documentation for the scrapers service |
-| 18 | Create `Makefile` | Shortcuts: `make up`, `make backend-test`, `make scrapers-test`, `make frontend-dev`, etc. |
-| 19 | Update `.pre-commit-config.yaml` | Adjust paths for monorepo layout |
-| 20 | Update `.github/workflows/ci.yml` | Add jobs for backend, scrapers, and frontend with `working-directory` |
+| # | Task | Status | Details |
+|---|---|---|---|
+| 13 | Create unified `.gitignore` | ✅ **Done** | Merge Python + Node.js ignores |
+| 14 | Create root `docker-compose.yml` | ✅ **Done** | All services: `web`, `scraper`, `celery-beat`, `flower`, `db`, `redis`, `frontend` |
+| 15 | Create root `.env.example` | ✅ **Done** | Combined variables for all services |
+| 16 | Create root `README.md` | ✅ **Done** | Project overview pointing to sub-READMEs |
+| 17 | Create `scrapers/README.md` | ✅ **Done** | Documentation for the scrapers service |
+| 18 | Create `Makefile` | ✅ **Done** | Shortcuts: `make up`, `make backend-test`, `make scrapers-test`, `make frontend-dev`, etc. |
+| 19 | Update `.pre-commit-config.yaml` | ✅ **Done** | Adjust paths for monorepo layout |
+| 20 | Update `.github/workflows/ci.yml` | ✅ **Done** | Add jobs for backend, scrapers, and frontend with `working-directory` |
 
 ### Phase 4 — Validate
 
@@ -285,8 +266,10 @@ Communication:
 
 ## Notes
 
-- The scrapers service has **no database driver** — it never talks to
-  PostgreSQL directly.
+- **The scrapers service is fully decoupled** — it has no database driver and
+  communicates exclusively via HTTP with the backend API.
+- **`beat_schedule.py` has been refactored** — it uses `ApiClient` instead of
+  direct database access, completing the decoupling effort.
 - Each service can be built and tested independently.
 - The `Makefile` provides a unified developer experience despite the split.
 - Future scrapers (new e-commerce sites) are added only in `scrapers/` — no

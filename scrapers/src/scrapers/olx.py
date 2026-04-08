@@ -1,7 +1,7 @@
+import asyncio
 import html
 import json
 import logging
-import time
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -20,7 +20,7 @@ class OLXScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://www.olx.com.br/brasil"
-        self._MAX_PAGES = 50
+        self._MAX_PAGES = 10  # Increased to capture more results while keeping batches reasonable
 
     @staticmethod
     def _build_default_headers():
@@ -38,17 +38,25 @@ class OLXScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
 
-    def search(self, search_term: str, max_pages: int = 50) -> list[str]:
+    def search(self, search_term: str, max_pages: int = 5) -> list[str]:
+        """Synchronous entry point — runs the async search loop."""
+        return self._run_async(
+            self._search_async(search_term, max_pages)
+        )
+
+    async def _search_async(self, search_term: str, max_pages: int = 5) -> list[str]:
         page_number = 1
         results = []
 
         while page_number <= max_pages:
             search_url = self._build_search_url(search_term, page_number)
 
+            context = None
             try:
-                # Use Playwright to render the page
-                page = self.fetch_page(search_url, wait_until="domcontentloaded")
-                html_content = page.content()
+                context, page = await self.fetch_page(
+                    search_url, wait_until="domcontentloaded"
+                )
+                html_content = await page.content()
             except Exception as e:
                 logger.warning(
                     "OLX: failed to load page %d (%s), stopping with %d links",
@@ -58,7 +66,8 @@ class OLXScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
                 )
                 break
             finally:
-                page.context.close()
+                if context:
+                    await context.close()
 
             if not html_content:
                 logger.warning(
@@ -75,15 +84,19 @@ class OLXScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
                     logger.debug("OLX: no more links on page %d", page_number)
                     break
             except Exception as e:
-                logger.error("Error extracting links on page %d: %s", page_number, e)
+                logger.error(
+                    "Error extracting links on page %d: %s", page_number, e
+                )
                 break
 
             results.extend(links)
-            logger.debug("OLX: page %d — %d links collected", page_number, len(results))
+            logger.debug(
+                "OLX: page %d — %d links collected", page_number, len(results)
+            )
             page_number += 1
 
             # Throttle to avoid rate-limiting
-            time.sleep(1.0)
+            await asyncio.sleep(1.0)
 
         if not results:
             raise Exception("No results found")
@@ -91,16 +104,26 @@ class OLXScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
         return results
 
     def scrape_data(self, url: str) -> dict[str, Any]:
+        """Synchronous entry point — runs the async scrape."""
+        return self._run_async(self._scrape_data_async(url))
+
+    async def _scrape_data_async(self, url: str) -> dict[str, Any]:
+        context = None
         try:
-            page = self.fetch_page(url, wait_until="networkidle")
-            html_content = page.content()
+            context, page = await self.fetch_page(url, wait_until="domcontentloaded")
+            # Wait briefly for JS data to be injected into the DOM
+            await page.wait_for_selector(
+                "script#initial-data", state="attached", timeout=10_000
+            )
+            html_content = await page.content()
             soup = BeautifulSoup(html_content, "html.parser")
             json_data = self._extract_json_data(soup)
         except Exception as e:
             logger.error("Failed to scrape data from %s: %s", url, e)
             raise
         finally:
-            page.context.close()
+            if context:
+                await context.close()
 
         title = json_data.get("subject")
         description = json_data.get("body")

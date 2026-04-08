@@ -134,23 +134,65 @@ def process_urls_list(
     search_config_id: int,
     log_id: str | None = None,
 ):
-    """Split URLs into chunks and dispatch scraping tasks for each chunk."""
+    """Split URLs into small batches and dispatch one task per batch.
+
+    Each ``scrape_batch`` task reuses a single browser instance for all
+    URLs in its batch, then persists the results — avoiding the memory
+    explosion of launching one Chromium process per URL.
+    """
     scraper = ScraperManager(ScraperFactory().create_scraper(scraper_name))
-    chunks = scraper.split_search_urls(search_results, 100)
+    # Use smaller chunks (20) so each batch finishes in reasonable time
+    chunks = list(scraper.split_search_urls(search_results, 20))
 
-    task_group = group(
-        chord(
-            scrape_product_page.s(url, scraper_name).set(countdown=5) for url in chunk
-        )(save_products.s(scraper_name, search_config_id, log_id))
-        for chunk in chunks
-    )
+    for chunk in chunks:
+        scrape_batch.apply_async(
+            args=[chunk, scraper_name, search_config_id, log_id],
+            countdown=5,
+        )
 
-    return task_group.apply_async()
+    return {"status": "dispatched", "batches": len(chunks)}
+
+
+@app.task(name="src.celery.tasks.scrape_batch")
+def scrape_batch(
+    urls: list[str],
+    scraper_name: str,
+    search_config_id: int | None = None,
+    log_id: str | None = None,
+):
+    """Scrape a batch of URLs using a single browser, then save results.
+
+    This avoids the memory cost of launching a separate Chromium process
+    for every single URL (the old ``scrape_product_page`` approach).
+    """
+    scraper_instance = ScraperFactory().create_scraper(scraper_name)
+    scraper = ScraperManager(scraper_instance)
+    results = []
+
+    try:
+        for url in urls:
+            try:
+                product_data = scraper.scrape_product(url)
+                results.append({"status": "success", "data": product_data})
+            except Exception as e:
+                logger.warning("Failed to scrape %s: %s", url, e)
+                results.append({"status": "error", "url": url, "message": str(e)})
+    finally:
+        # Ensure browser is closed and loop is torn down after the batch
+        if hasattr(scraper_instance, "stop_sync"):
+            scraper_instance.stop_sync()
+
+    # Persist immediately (no chord needed)
+    return save_products(results, scraper_name, search_config_id, log_id)
 
 
 @app.task(name="src.celery.tasks.scrape_product_page")
 def scrape_product_page(url: str, scraper_name: str):
-    """Scrape a single product page and return the extracted data."""
+    """Scrape a single product page and return the extracted data.
+
+    Kept for backward-compatibility / one-off scrapes.  For bulk work
+    prefer ``scrape_batch`` which reuses the browser across URLs.
+    """
     scraper = ScraperManager(ScraperFactory().create_scraper(scraper_name))
     try:
         product_data = scraper.scrape_product(url)

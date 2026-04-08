@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-from urllib.parse import quote_plus
 
 from bs4 import BeautifulSoup
 
@@ -48,7 +47,7 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
             page_number += 1
 
             params = {
-                "q": quote_plus(search_term),
+                "q": search_term,
                 "searchField": "titulo-autor",
                 "page": f"{page_number}",
             }

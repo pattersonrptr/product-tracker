@@ -1,6 +1,6 @@
+import asyncio
 import logging
 import re
-import time
 from typing import Any
 from urllib.parse import parse_qs, quote_plus, urlparse
 
@@ -46,18 +46,18 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
     # Search
     # ------------------------------------------------------------------
 
-    def _extract_links(self, page) -> list[str]:
+    async def _extract_links(self, page) -> list[str]:
         """Extract product URLs from a rendered search results page."""
-        raw_links = page.eval_on_selector_all(
-            ".poly-component__title",
-            "els => els.map(e => e.href)",
-        )
+        raw_links = await page.query_selector_all(".poly-component__title")
+        hrefs = []
+        for el in raw_links:
+            href = await el.get_attribute("href")
+            if href:
+                hrefs.append(href)
 
         links = []
         seen = set()
-        for href in raw_links:
-            if not href:
-                continue
+        for href in hrefs:
             # Skip ML click-tracker URLs
             if "click1.mercadolivre" in href:
                 continue
@@ -74,11 +74,17 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
         start_from = offset + 1
         return f"{self.BASE_URL}/{encoded}_Desde_{start_from}_NoIndex_True"
 
-    def search(self, search_term: str, max_pages: int = 50) -> list[str]:
+    def search(self, search_term: str, max_pages: int = 5) -> list[str]:
+        """Synchronous entry point — runs the async search loop."""
+        return self._run_async(
+            self._search_async(search_term, max_pages)
+        )
+
+    async def _search_async(self, search_term: str, max_pages: int = 5) -> list[str]:
         all_links: list[str] = []
 
-        self.start()
-        context, page = self.new_page()
+        await self.start()
+        context, page = await self.new_page()
 
         try:
             for page_number in range(1, max_pages + 1):
@@ -86,12 +92,14 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
                 logger.debug("ML: loading page %d — %s", page_number, search_url)
 
                 try:
-                    page.goto(
+                    await page.goto(
                         search_url,
                         wait_until="domcontentloaded",
                         timeout=30_000,
                     )
-                    page.wait_for_selector(".ui-search-layout__item", timeout=10_000)
+                    await page.wait_for_selector(
+                        ".ui-search-layout__item", timeout=10_000
+                    )
                 except Exception as e:
                     logger.warning(
                         "ML: page %d failed to load: %s — stopping",
@@ -100,7 +108,7 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
                     )
                     break
 
-                links = self._extract_links(page)
+                links = await self._extract_links(page)
 
                 if not links:
                     logger.debug("ML: no links on page %d — stopping", page_number)
@@ -115,7 +123,7 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
                 )
 
                 # Check if there is a next page
-                next_btn = page.query_selector(
+                next_btn = await page.query_selector(
                     "a.andes-pagination__link[title='Seguinte']"
                 )
                 if not next_btn:
@@ -123,10 +131,10 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
                     break
 
                 # Throttle to avoid detection
-                time.sleep(1.0)
+                await asyncio.sleep(1.0)
         finally:
-            context.close()
-            self.stop()
+            await context.close()
+            await self.stop()
 
         if not all_links:
             raise Exception("No results found")
@@ -138,24 +146,28 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
     # ------------------------------------------------------------------
 
     def scrape_data(self, url: str) -> dict[str, Any]:
-        self.start()
-        context, page = self.new_page()
+        """Synchronous entry point — runs the async scrape."""
+        return self._run_async(self._scrape_data_async(url))
+
+    async def _scrape_data_async(self, url: str) -> dict[str, Any]:
+        await self.start()
+        context, page = await self.new_page()
 
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-            page.wait_for_selector("h1.ui-pdp-title", timeout=10_000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            await page.wait_for_selector("h1.ui-pdp-title", timeout=10_000)
 
-            title = self._extract_title(page)
-            price = self._extract_price(page)
-            description = self._extract_description(page)
+            title = await self._extract_title(page)
+            price = await self._extract_price(page)
+            description = await self._extract_description(page)
             source_product_code = self._extract_product_code(url)
-            is_available = self._extract_availability(page)
-            image_url = self._extract_image_src(page)
-            seller_name = self._extract_seller(page)
-            location = self._extract_location(page)
+            is_available = await self._extract_availability(page)
+            image_url = await self._extract_image_src(page)
+            seller_name = await self._extract_seller(page)
+            location = await self._extract_location(page)
         finally:
-            context.close()
-            self.stop()
+            await context.close()
+            await self.stop()
 
         return {
             "url": url,
@@ -171,28 +183,28 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
             "source_metadata": {},
         }
 
-    def _extract_title(self, page) -> str:
-        el = page.query_selector("h1.ui-pdp-title")
-        return el.inner_text().strip() if el else ""
+    async def _extract_title(self, page) -> str:
+        el = await page.query_selector("h1.ui-pdp-title")
+        return (await el.inner_text()).strip() if el else ""
 
-    def _extract_price(self, page) -> str:
-        meta = page.query_selector('meta[itemprop="price"]')
+    async def _extract_price(self, page) -> str:
+        meta = await page.query_selector('meta[itemprop="price"]')
         if meta:
-            return meta.get_attribute("content") or ""
-        fraction = page.query_selector(".andes-money-amount__fraction")
-        return fraction.inner_text().strip() if fraction else ""
+            return await meta.get_attribute("content") or ""
+        fraction = await page.query_selector(".andes-money-amount__fraction")
+        return (await fraction.inner_text()).strip() if fraction else ""
 
-    def _extract_description(self, page) -> str:
-        el = page.query_selector("p.ui-pdp-description__content")
-        return el.inner_text().strip() if el else ""
+    async def _extract_description(self, page) -> str:
+        el = await page.query_selector("p.ui-pdp-description__content")
+        return (await el.inner_text()).strip() if el else ""
 
-    def _extract_availability(self, page) -> bool:
-        el = page.query_selector(".ui-pdp-stock-information__title")
+    async def _extract_availability(self, page) -> bool:
+        el = await page.query_selector(".ui-pdp-stock-information__title")
         if el:
-            text = el.inner_text().strip().lower()
+            text = (await el.inner_text()).strip().lower()
             if "disponível" in text or "disponivel" in text:
                 return True
-        price = self._extract_price(page)
+        price = await self._extract_price(page)
         return bool(price)
 
     @staticmethod
@@ -209,28 +221,30 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
         path_segment = urlparse(url).path.rstrip("/").split("/")[-1]
         return f"ML - {path_segment}" if path_segment else "ML - unknown"
 
-    def _extract_image_src(self, page) -> str | None:
-        el = page.query_selector("img.ui-pdp-image.ui-pdp-gallery__figure__image")
+    async def _extract_image_src(self, page) -> str | None:
+        el = await page.query_selector(
+            "img.ui-pdp-image.ui-pdp-gallery__figure__image"
+        )
         if el:
-            return el.get_attribute("src")
-        el = page.query_selector("figure.ui-pdp-gallery__figure img")
+            return await el.get_attribute("src")
+        el = await page.query_selector("figure.ui-pdp-gallery__figure img")
         if el:
-            return el.get_attribute("src")
+            return await el.get_attribute("src")
         return None
 
-    def _extract_seller(self, page) -> str:
-        el = page.query_selector(".ui-pdp-seller__link-trigger-button")
+    async def _extract_seller(self, page) -> str:
+        el = await page.query_selector(".ui-pdp-seller__link-trigger-button")
         if el:
-            return el.inner_text().strip()
-        el = page.query_selector(".ui-pdp-seller__header__title")
+            return (await el.inner_text()).strip()
+        el = await page.query_selector(".ui-pdp-seller__header__title")
         if el:
-            return el.inner_text().strip()
+            return (await el.inner_text()).strip()
         return "not found"
 
-    def _extract_location(self, page) -> str:
-        el = page.query_selector(".ui-pdp-media__body p")
+    async def _extract_location(self, page) -> str:
+        el = await page.query_selector(".ui-pdp-media__body p")
         if el:
-            return el.inner_text().strip()
+            return (await el.inner_text()).strip()
         return "not found"
 
     # ------------------------------------------------------------------

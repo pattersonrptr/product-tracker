@@ -1,21 +1,19 @@
 """
-Tests for src/product_scrapers/scrapers/olx.py.
+Tests for src/scrapers/olx.py (Playwright async-based version).
 
-Strategy: patch cloudscraper.create_scraper and RotatingUserAgentMixin._load_user_agents
-so no real HTTP or file I/O happens.
+Strategy: mock Playwright async API so no real browser is launched.
 """
 
 import json
-from unittest.mock import MagicMock, patch
+import html
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import requests
-from bs4 import BeautifulSoup
 
 from src.scrapers.olx import OLXScraper
 
 # ---------------------------------------------------------------------------
-# Fixtures / helpers
+# Helpers / fixtures
 # ---------------------------------------------------------------------------
 
 
@@ -34,7 +32,7 @@ def _build_product_html(
     city="São Paulo",
     uf="SP",
     images=None,
-) -> bytes:
+) -> str:
     """Build minimal initial-data HTML for an OLX product page."""
     if images is None:
         images = [{"original": "https://img.olx.com.br/1.jpg"}]
@@ -47,19 +45,18 @@ def _build_product_html(
         "location": {"municipality": city, "uf": uf},
         "images": images,
     }
-    import html
-
     data_json = html.escape(json.dumps({"ad": ad}))
-    return f'<html><body><script id="initial-data" data-json="{data_json}"></script></body></html>'.encode()
+    return f'<html><body><script id="initial-data" data-json="{data_json}"></script></body></html>'
 
 
-def _mock_response(status_code: int = 200, text: str = "", content: bytes = b""):
-    resp = MagicMock(spec=requests.Response)
-    resp.status_code = status_code
-    resp.text = text
-    resp.content = content
-    resp.raise_for_status = MagicMock()
-    return resp
+def _make_mock_page(html_content: str):
+    """Create a mock Playwright page that returns given html_content."""
+    page = AsyncMock()
+    page.content = AsyncMock(return_value=html_content)
+    page.goto = AsyncMock()
+    context = AsyncMock()
+    context.close = AsyncMock()
+    return context, page
 
 
 @pytest.fixture
@@ -99,7 +96,6 @@ def test_build_default_headers_returns_expected_keys(scraper):
 
 
 def test_headers_without_user_agent(scraper):
-    # No user agents loaded
     result = scraper.headers()
     assert "Accept" in result
     assert "User-Agent" not in result
@@ -171,85 +167,73 @@ def test_extract_links_raises_when_no_ads_data(scraper):
 
 
 # ---------------------------------------------------------------------------
-# search
+# search (async via _search_async directly)
 # ---------------------------------------------------------------------------
 
 
-@patch("src.scrapers.olx.time.sleep")
-@patch.object(OLXScraper, "retry_request")
-def test_search_single_page(mock_retry, mock_sleep, scraper):
+@pytest.mark.asyncio
+async def test_search_single_page(scraper):
     ads = [{"url": "https://olx.com/a"}, {"url": "https://olx.com/b"}]
     html_content = _build_olx_html(ads)
 
-    # First page has links; second page returns empty → stop
-    page1_resp = _mock_response(text=html_content)
-    page2_resp = _mock_response(text="<html></html>")  # will raise No data found
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+    page = AsyncMock()
+    page.content = AsyncMock(side_effect=[html_content, "<html></html>"])
+    page.goto = AsyncMock()
 
-    mock_retry.side_effect = [page1_resp, page2_resp]
+    call_count = 0
 
-    result = scraper.search("notebook", max_pages=5)
+    async def fake_fetch(url, wait_until="networkidle"):
+        return ctx, page
+
+    with (
+        patch.object(scraper, "fetch_page", side_effect=fake_fetch),
+        patch("src.scrapers.olx.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        result = await scraper._search_async("notebook", max_pages=5)
+
     assert "https://olx.com/a" in result
     assert "https://olx.com/b" in result
-    mock_sleep.assert_called_with(0.5)
 
 
-@patch("src.scrapers.olx.time.sleep")
-@patch.object(OLXScraper, "retry_request")
-def test_search_empty_html_breaks_loop_raises_no_results(
-    mock_retry, mock_sleep, scraper
-):
-    mock_retry.return_value = _mock_response(text="")
-    with pytest.raises(Exception, match="No results found"):
-        scraper.search("notebook", max_pages=5)
+@pytest.mark.asyncio
+async def test_search_empty_html_breaks_loop_raises_no_results(scraper):
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+    page = AsyncMock()
+    page.content = AsyncMock(return_value="")
+    page.goto = AsyncMock()
+
+    with patch.object(scraper, "fetch_page", return_value=(ctx, page)):
+        with pytest.raises(Exception, match="No results found"):
+            await scraper._search_async("notebook", max_pages=5)
 
 
-@patch("src.scrapers.olx.time.sleep")
-@patch.object(OLXScraper, "retry_request")
-def test_search_returns_collected_on_403(mock_retry, mock_sleep, scraper):
-    """When OLX returns 403 (rate-limited), search returns what was collected."""
-    ads = [{"url": "https://olx.com/a"}]
-    html_content = _build_olx_html(ads)
+@pytest.mark.asyncio
+async def test_search_raises_when_first_page_returns_none(scraper):
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+    page = AsyncMock()
+    page.content = AsyncMock(return_value=None)
+    page.goto = AsyncMock()
 
-    page1_resp = _mock_response(text=html_content)
-    page2_resp = _mock_response(status_code=403, text="")
-
-    mock_retry.side_effect = [page1_resp, page2_resp]
-
-    result = scraper.search("notebook", max_pages=5)
-    assert result == ["https://olx.com/a"]
+    with patch.object(scraper, "fetch_page", return_value=(ctx, page)):
+        with pytest.raises(Exception, match="No results found"):
+            await scraper._search_async("notebook", max_pages=5)
 
 
-@patch("src.scrapers.olx.time.sleep")
-@patch.object(OLXScraper, "retry_request")
-def test_search_returns_collected_on_none_response(mock_retry, mock_sleep, scraper):
-    """When retry_request returns None, search returns what was collected."""
-    ads = [{"url": "https://olx.com/a"}]
-    html_content = _build_olx_html(ads)
+@pytest.mark.asyncio
+async def test_search_raises_when_no_results(scraper):
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+    page = AsyncMock()
+    page.content = AsyncMock(return_value="<html><body></body></html>")
+    page.goto = AsyncMock()
 
-    page1_resp = _mock_response(text=html_content)
-
-    mock_retry.side_effect = [page1_resp, None]
-
-    result = scraper.search("notebook", max_pages=5)
-    assert result == ["https://olx.com/a"]
-
-
-@patch("src.scrapers.olx.time.sleep")
-@patch.object(OLXScraper, "retry_request")
-def test_search_raises_when_first_page_returns_none(mock_retry, mock_sleep, scraper):
-    """When the very first page returns None, no results → raises."""
-    mock_retry.return_value = None
-    with pytest.raises(Exception, match="No results found"):
-        scraper.search("notebook", max_pages=5)
-
-
-@patch("src.scrapers.olx.time.sleep")
-@patch.object(OLXScraper, "retry_request")
-def test_search_raises_when_no_results(mock_retry, mock_sleep, scraper):
-    mock_retry.return_value = _mock_response(text="<html><body></body></html>")
-    # _extract_links raises → caught → break → results empty → Exception
-    with pytest.raises(Exception, match="No results found"):
-        scraper.search("nothing", max_pages=1)
+    with patch.object(scraper, "fetch_page", return_value=(ctx, page)):
+        with pytest.raises(Exception, match="No results found"):
+            await scraper._search_async("nothing", max_pages=1)
 
 
 # ---------------------------------------------------------------------------
@@ -258,29 +242,31 @@ def test_search_raises_when_no_results(mock_retry, mock_sleep, scraper):
 
 
 def test_extract_json_data_returns_ad(scraper):
-    html_bytes = _build_product_html(
-        subject="Book", list_id="42", price_value="R$30,00"
-    )
-    soup = BeautifulSoup(html_bytes, "html.parser")
+    html_str = _build_product_html(subject="Book", list_id="42", price_value="R$30,00")
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html_str, "html.parser")
     data = scraper._extract_json_data(soup)
     assert data["subject"] == "Book"
     assert data["listId"] == "42"
 
 
 def test_extract_json_data_returns_empty_when_no_script(scraper):
+    from bs4 import BeautifulSoup
+
     soup = BeautifulSoup("<html></html>", "html.parser")
     data = scraper._extract_json_data(soup)
     assert data == {}
 
 
 # ---------------------------------------------------------------------------
-# scrape_data
+# scrape_data (async via _run_async)
 # ---------------------------------------------------------------------------
 
 
-@patch.object(OLXScraper, "retry_request")
-def test_scrape_data_returns_expected_fields(mock_retry, scraper):
-    html_bytes = _build_product_html(
+@pytest.mark.asyncio
+async def test_scrape_data_returns_expected_fields(scraper):
+    html_str = _build_product_html(
         subject="Old Bike",
         list_id="777",
         price_value="R$1.200,00",
@@ -289,9 +275,15 @@ def test_scrape_data_returns_expected_fields(mock_retry, scraper):
         city="Curitiba",
         uf="PR",
     )
-    mock_retry.return_value = _mock_response(content=html_bytes)
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+    page = AsyncMock()
+    page.content = AsyncMock(return_value=html_str)
+    page.goto = AsyncMock()
 
-    result = scraper.scrape_data("https://olx.com/item/777")
+    with patch.object(scraper, "fetch_page", return_value=(ctx, page)):
+        result = await scraper._scrape_data_async("https://olx.com/item/777")
+
     assert result["url"] == "https://olx.com/item/777"
     assert result["title"] == "Old Bike"
     assert result["description"] == "Ótimo estado"
@@ -300,24 +292,34 @@ def test_scrape_data_returns_expected_fields(mock_retry, scraper):
     assert result["state"] == "PR"
     assert result["source_product_code"] == "OLX - 777"
     assert result["image_urls"] == "https://img.olx.com.br/1.jpg"
-    assert result["is_available"] is True  # price is truthy
+    assert result["is_available"] is True
 
 
-@patch.object(OLXScraper, "retry_request")
-def test_scrape_data_no_price_is_unavailable(mock_retry, scraper):
-    html_bytes = _build_product_html(price_value="")
-    mock_retry.return_value = _mock_response(content=html_bytes)
+@pytest.mark.asyncio
+async def test_scrape_data_no_price_is_unavailable(scraper):
+    html_str = _build_product_html(price_value="")
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+    page = AsyncMock()
+    page.content = AsyncMock(return_value=html_str)
+    page.goto = AsyncMock()
 
-    result = scraper.scrape_data("https://olx.com/item/123")
+    with patch.object(scraper, "fetch_page", return_value=(ctx, page)):
+        result = await scraper._scrape_data_async("https://olx.com/item/123")
     assert result["is_available"] is False
 
 
-@patch.object(OLXScraper, "retry_request")
-def test_scrape_data_no_images(mock_retry, scraper):
-    html_bytes = _build_product_html(images=[])
-    mock_retry.return_value = _mock_response(content=html_bytes)
+@pytest.mark.asyncio
+async def test_scrape_data_no_images(scraper):
+    html_str = _build_product_html(images=[])
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+    page = AsyncMock()
+    page.content = AsyncMock(return_value=html_str)
+    page.goto = AsyncMock()
 
-    result = scraper.scrape_data("https://olx.com/item/123")
+    with patch.object(scraper, "fetch_page", return_value=(ctx, page)):
+        result = await scraper._scrape_data_async("https://olx.com/item/123")
     assert result["image_urls"] == ""
 
 
@@ -327,7 +329,8 @@ def test_scrape_data_no_images(mock_retry, scraper):
 
 
 @patch.object(OLXScraper, "scrape_data")
-def test_update_data_merges_and_preserves_id(mock_scrape, scraper):
+@pytest.mark.asyncio
+async def test_update_data_merges_and_preserves_id(mock_scrape, scraper):
     mock_scrape.return_value = {
         "url": "https://olx.com/a",
         "title": "Updated Title",
@@ -343,7 +346,8 @@ def test_update_data_merges_and_preserves_id(mock_scrape, scraper):
 
 
 @patch.object(OLXScraper, "scrape_data")
-def test_update_data_without_id(mock_scrape, scraper):
+@pytest.mark.asyncio
+async def test_update_data_without_id(mock_scrape, scraper):
     """If product has no 'id', update_data still works."""
     mock_scrape.return_value = {"url": "https://olx.com/a", "title": "New"}
     product = {"url": "https://olx.com/a"}

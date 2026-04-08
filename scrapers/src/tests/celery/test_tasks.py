@@ -430,11 +430,11 @@ def test_run_scraper_search_non_200_source_website_skipped(
 # ---------------------------------------------------------------------------
 
 
+@patch("src.celery.tasks.scrape_batch")
 @patch("src.celery.tasks.ScraperFactory")
 @patch("src.celery.tasks.ScraperManager")
-@patch("src.celery.tasks.group")
 def test_process_urls_list_splits_and_dispatches(
-    mock_group, mock_manager_cls, mock_factory_cls
+    mock_manager_cls, mock_factory_cls, mock_scrape_batch
 ):
     mock_scraper = MagicMock()
     mock_factory_cls.return_value.create_scraper.return_value = mock_scraper
@@ -443,14 +443,17 @@ def test_process_urls_list_splits_and_dispatches(
     mock_manager.split_search_urls.return_value = [["url1", "url2"]]
     mock_manager_cls.return_value = mock_manager
 
-    mock_task_group = MagicMock()
-    mock_group.return_value = mock_task_group
-    mock_task_group.apply_async.return_value = {"dispatched": True}
-
     search_results = {"status": "success", "urls": ["url1", "url2"]}
-    process_urls_list(search_results, "enjoei", search_config_id=1, log_id="42")
+    result = process_urls_list(
+        search_results, "enjoei", search_config_id=1, log_id="42"
+    )
 
     mock_manager.split_search_urls.assert_called_once_with(search_results, 20)
+    mock_scrape_batch.apply_async.assert_called_once_with(
+        args=[["url1", "url2"], "enjoei", 1, "42"],
+        countdown=5,
+    )
+    assert result == {"status": "dispatched", "batches": 1}
 
 
 # ---------------------------------------------------------------------------

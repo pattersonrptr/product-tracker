@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -53,31 +53,68 @@ def test_build_default_headers_contains_expected_keys():
 
 
 # ---------------------------------------------------------------------------
-# _get_search_data
+# _get_search_data_async
 # ---------------------------------------------------------------------------
 
 
-def test_get_search_data_calls_retry_request_with_correct_params(scraper):
-    with patch.object(scraper, "retry_request", return_value=MagicMock()) as mock_retry:
-        scraper._get_search_data("notebook")
-    mock_retry.assert_called_once()
-    args, kwargs = mock_retry.call_args
-    assert "graphql-search-x" in args[0]
-    assert kwargs["params"]["term"] == "notebook"
+def _make_async_page_response(json_data):
+    """Create an async mock (context, page) pair for fetch_page."""
+    import json as json_mod
+
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+
+    text_content_val = json_mod.dumps(json_data)
+    locator_mock = MagicMock()
+    locator_mock.text_content = AsyncMock(return_value=text_content_val)
+    page = AsyncMock()
+    page.locator = MagicMock(return_value=locator_mock)
+    page.goto = AsyncMock()
+    return ctx, page
 
 
-def test_get_search_data_passes_after_cursor_when_provided(scraper):
-    with patch.object(scraper, "retry_request", return_value=MagicMock()) as mock_retry:
-        scraper._get_search_data("fone", after="CURSOR_ABC")
-    _, kwargs = mock_retry.call_args
-    assert kwargs["params"]["after"] == "CURSOR_ABC"
+@pytest.mark.asyncio
+async def test_get_search_data_async_calls_fetch_page_with_correct_params(scraper):
+    mock_data = {"data": {"search": {"products": {"edges": []}}}}
+    ctx, page = _make_async_page_response(mock_data)
+
+    with patch.object(
+        scraper, "fetch_page", new_callable=AsyncMock, return_value=(ctx, page)
+    ) as mock_fetch:
+        await scraper._get_search_data_async("notebook")
+
+    mock_fetch.assert_called_once()
+    call_args = mock_fetch.call_args
+    assert "graphql-search-x" in call_args[0][0]
+    assert "term=notebook" in call_args[0][0]
 
 
-def test_get_search_data_omits_after_when_none(scraper):
-    with patch.object(scraper, "retry_request", return_value=MagicMock()) as mock_retry:
-        scraper._get_search_data("fone", after=None)
-    _, kwargs = mock_retry.call_args
-    assert "after" not in kwargs["params"]
+@pytest.mark.asyncio
+async def test_get_search_data_async_passes_after_cursor(scraper):
+    mock_data = {"data": {"search": {"products": {"edges": []}}}}
+    ctx, page = _make_async_page_response(mock_data)
+
+    with patch.object(
+        scraper, "fetch_page", new_callable=AsyncMock, return_value=(ctx, page)
+    ) as mock_fetch:
+        await scraper._get_search_data_async("fone", after="CURSOR_ABC")
+
+    call_args = mock_fetch.call_args
+    assert "after=CURSOR_ABC" in call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_get_search_data_async_omits_after_when_none(scraper):
+    mock_data = {"data": {"search": {"products": {"edges": []}}}}
+    ctx, page = _make_async_page_response(mock_data)
+
+    with patch.object(
+        scraper, "fetch_page", new_callable=AsyncMock, return_value=(ctx, page)
+    ) as mock_fetch:
+        await scraper._get_search_data_async("fone", after=None)
+
+    call_args = mock_fetch.call_args
+    assert "after" not in call_args[0][0]
 
 
 # ---------------------------------------------------------------------------
@@ -131,21 +168,28 @@ def test_extract_links_node_without_id_is_skipped(scraper):
 
 
 # ---------------------------------------------------------------------------
-# search (pagination)
+# _search_async (pagination)
 # ---------------------------------------------------------------------------
 
 
-def test_search_single_page(scraper):
+@pytest.mark.asyncio
+async def test_search_async_single_page(scraper):
     mock_response = MagicMock()
     with (
-        patch.object(scraper, "_get_search_data", return_value=mock_response),
+        patch.object(
+            scraper,
+            "_get_search_data_async",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ),
         patch.object(scraper, "_extract_links", return_value=(["url1", "url2"], None)),
     ):
-        result = scraper.search("notebook")
+        result = await scraper._search_async("notebook")
     assert result == ["url1", "url2"]
 
 
-def test_search_multiple_pages_stops_when_no_cursor(scraper):
+@pytest.mark.asyncio
+async def test_search_async_multiple_pages_stops_when_no_cursor(scraper):
     mock_response = MagicMock()
     extract_side_effects = [
         (["url1"], "CURSOR1"),
@@ -154,25 +198,31 @@ def test_search_multiple_pages_stops_when_no_cursor(scraper):
     ]
     with (
         patch.object(
-            scraper, "_get_search_data", return_value=mock_response
+            scraper,
+            "_get_search_data_async",
+            new_callable=AsyncMock,
+            return_value=mock_response,
         ) as mock_get,
         patch.object(scraper, "_extract_links", side_effect=extract_side_effects),
     ):
-        result = scraper.search("fone")
+        result = await scraper._search_async("fone")
     assert result == ["url1", "url2", "url3"]
     assert mock_get.call_count == 3
 
 
-def test_search_passes_cursor_to_next_page(scraper):
+@pytest.mark.asyncio
+async def test_search_async_passes_cursor_to_next_page(scraper):
     mock_response = MagicMock()
     calls = []
 
-    def fake_get_search_data(term, after=None):
+    async def fake_get_search_data(term, after=None):
         calls.append(after)
         return mock_response
 
     with (
-        patch.object(scraper, "_get_search_data", side_effect=fake_get_search_data),
+        patch.object(
+            scraper, "_get_search_data_async", side_effect=fake_get_search_data
+        ),
         patch.object(
             scraper,
             "_extract_links",
@@ -182,13 +232,13 @@ def test_search_passes_cursor_to_next_page(scraper):
             ],
         ),
     ):
-        scraper.search("test")
+        await scraper._search_async("test")
 
     assert calls == [None, "NEXT"]
 
 
 # ---------------------------------------------------------------------------
-# scrape_data
+# _scrape_data_async
 # ---------------------------------------------------------------------------
 
 _SCRAPE_RESPONSE = {
@@ -204,11 +254,31 @@ _SCRAPE_RESPONSE = {
 }
 
 
-def test_scrape_data_returns_correct_fields(scraper):
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = _SCRAPE_RESPONSE
-    with patch.object(scraper, "retry_request", return_value=mock_resp):
-        data = scraper.scrape_data("http://pages.enjoei.com.br/products/12345/v2.json")
+def _make_scrape_page_response(data):
+    import json as json_mod
+
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+
+    text_content_mock = AsyncMock(return_value=json_mod.dumps(data))
+    locator_mock = MagicMock(return_value=AsyncMock())
+    locator_mock.return_value.text_content = text_content_mock
+
+    page = AsyncMock()
+    page.locator = locator_mock
+    page.goto = AsyncMock()
+    return ctx, page
+
+
+@pytest.mark.asyncio
+async def test_scrape_data_async_returns_correct_fields(scraper):
+    ctx, page = _make_scrape_page_response(_SCRAPE_RESPONSE)
+    with patch.object(
+        scraper, "fetch_page", new_callable=AsyncMock, return_value=(ctx, page)
+    ):
+        data = await scraper._scrape_data_async(
+            "http://pages.enjoei.com.br/products/12345/v2.json"
+        )
     assert data["url"] == "https://pages.enjoei.com.br/products/12345"
     assert data["title"] == "Controle Gamesir"
     assert data["price"] == "299"
@@ -218,35 +288,41 @@ def test_scrape_data_returns_correct_fields(scraper):
     assert data["description"] == "Novo em caixa"
 
 
-def test_scrape_data_unavailable_product(scraper):
+@pytest.mark.asyncio
+async def test_scrape_data_async_unavailable_product(scraper):
     payload = {**_SCRAPE_RESPONSE}
     payload["fallback_pricing"] = {"price": {"listed": "0"}, "state": "sold"}
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = payload
-    with patch.object(scraper, "retry_request", return_value=mock_resp):
-        data = scraper.scrape_data("http://x.com")
+    ctx, page = _make_scrape_page_response(payload)
+    with patch.object(
+        scraper, "fetch_page", new_callable=AsyncMock, return_value=(ctx, page)
+    ):
+        data = await scraper._scrape_data_async("http://x.com")
     assert data["is_available"] is False
 
 
-def test_scrape_data_no_photos_yields_empty_image_url(scraper):
+@pytest.mark.asyncio
+async def test_scrape_data_async_no_photos_yields_empty_image_url(scraper):
     payload = {**_SCRAPE_RESPONSE, "photos": []}
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = payload
-    with patch.object(scraper, "retry_request", return_value=mock_resp):
-        data = scraper.scrape_data("http://x.com")
+    ctx, page = _make_scrape_page_response(payload)
+    with patch.object(
+        scraper, "fetch_page", new_callable=AsyncMock, return_value=(ctx, page)
+    ):
+        data = await scraper._scrape_data_async("http://x.com")
     assert data["image_urls"] == ""
 
 
-def test_scrape_data_uses_sale_price_when_listed_is_none(scraper):
+@pytest.mark.asyncio
+async def test_scrape_data_async_uses_sale_price_when_listed_is_none(scraper):
     payload = {**_SCRAPE_RESPONSE}
     payload["fallback_pricing"] = {
         "price": {"listed": None, "sale": "199"},
         "state": "published",
     }
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = payload
-    with patch.object(scraper, "retry_request", return_value=mock_resp):
-        data = scraper.scrape_data("http://x.com")
+    ctx, page = _make_scrape_page_response(payload)
+    with patch.object(
+        scraper, "fetch_page", new_callable=AsyncMock, return_value=(ctx, page)
+    ):
+        data = await scraper._scrape_data_async("http://x.com")
     assert data["price"] == "199"
 
 
@@ -264,9 +340,8 @@ def test_update_data_merges_existing_product_with_fresh_scraped_data(scraper):
     fresh = {"url": "https://pages.enjoei.com.br/products/12345", "price": "350"}
     with patch.object(scraper, "scrape_data", return_value=fresh) as mock_scrape:
         result = scraper.update_data(product)
-    # URL extracted from product["url"].split("-")[-1]
     mock_scrape.assert_called_once_with(
         "https://pages.enjoei.com.br/products/12345/v2.json"
     )
     assert result["price"] == "350"
-    assert result["id"] == "7"  # original field preserved from merge
+    assert result["id"] == "7"

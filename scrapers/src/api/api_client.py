@@ -125,7 +125,7 @@ class ApiClient:
 
     def get_product_by_url(self, url: str) -> dict[str, Any]:
         logger.debug("Getting product by URL: %s", url)
-        response = self._make_request("GET", "/products/by-url/", params={"url": url})
+        response = self._make_request("GET", "/products/url", params={"url": url})
         if response.status_code == 200:
             return self._extract_attributes(response.json())
         return {}
@@ -145,7 +145,7 @@ class ApiClient:
     def update_product(self, product_id: int | str, product: dict) -> dict[str, Any]:
         logger.debug("Updating product ID: %s", product_id)
         payload = self._wrap_for_update("product", product_id, product)
-        response = self._make_request("PATCH", f"/products/{product_id}", data=payload)
+        response = self._make_request("PUT", f"/products/{product_id}", data=payload)
         if response.status_code == 200:
             return self._extract_attributes(response.json())
         return {}

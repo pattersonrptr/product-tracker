@@ -1,8 +1,9 @@
+import asyncio
+import json
 import logging
+from urllib.parse import urlencode
 
-from requests import Response
-
-from src.scrapers.base.requests_scraper import RequestScraper
+from src.scrapers.base.playwright_scraper import PlaywrightScraper
 from src.scrapers.interfaces.scraper_interface import ScraperInterface
 from src.scrapers.mixins.rotating_user_agent_mixin import (
     RotatingUserAgentMixin,
@@ -11,7 +12,7 @@ from src.scrapers.mixins.rotating_user_agent_mixin import (
 logger = logging.getLogger(__name__)
 
 
-class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
+class EnjoeiScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://enjusearch.enjoei.com.br"
@@ -32,7 +33,8 @@ class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
 
-    def _get_search_data(self, term: str, after: str = None) -> Response:
+    async def _get_search_data_async(self, term: str, after: str | None = None) -> dict:
+        """Fetch search data via Playwright by loading the GraphQL JSON endpoint."""
         params = {
             "first": "50",
             "query_id": "7d3ea67171219db36dfcf404acab5807",
@@ -43,11 +45,23 @@ class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
         if after:
             params["after"] = after
 
-        return self.retry_request(
-            f"{self.BASE_URL}/graphql-search-x",
-            self.headers(),
-            params=params,
-        )
+        url = f"{self.BASE_URL}/graphql-search-x?{urlencode(params)}"
+
+        context = None
+        try:
+            context, page = await self.fetch_page(url, wait_until="networkidle")
+            body_text = await page.locator("body").text_content()
+            try:
+                return json.loads(body_text)
+            except json.JSONDecodeError:
+                logger.warning("Enjoei: non-JSON response: %s", body_text[:200])
+                return {}
+        except Exception as e:
+            logger.error("Enjoei: failed to fetch search data: %s", e)
+            return {}
+        finally:
+            if context:
+                await context.close()
 
     def _extract_links(self, data: dict) -> tuple:
         urls = []
@@ -76,20 +90,57 @@ class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
         return urls, cursor
 
     def search(self, search_term: str) -> list[str]:
-        all_urls = []
+        """Synchronous entry point — runs the async search loop."""
+        return self._run_async(self._search_async(search_term))
+
+    async def _search_async(self, search_term: str) -> list[str]:
+        all_urls: list[str] = []
         cursor = None
-        while True:
-            response = self._get_search_data(term=search_term, after=cursor)
-            urls, cursor = self._extract_links(response.json())
+        max_iterations = 20
+
+        for _ in range(max_iterations):
+            response_data = await self._get_search_data_async(
+                term=search_term, after=cursor
+            )
+            if not response_data:
+                logger.warning("Enjoei: no response data, stopping")
+                break
+
+            urls, cursor = self._extract_links(response_data)
             all_urls.extend(urls)
             logger.debug("Enjoei: %d URLs collected so far", len(all_urls))
+
             if not cursor:
                 break
+
+            await asyncio.sleep(1.5)
+
+        if not all_urls:
+            raise Exception("No results found")
+
         return all_urls
 
     def scrape_data(self, url: str) -> dict:
-        response = self.retry_request(url, self.headers())
-        data = response.json()
+        """Synchronous entry point — runs the async scrape."""
+        return self._run_async(self._scrape_data_async(url))
+
+    async def _scrape_data_async(self, url: str) -> dict:
+        context = None
+        try:
+            context, page = await self.fetch_page(url, wait_until="networkidle")
+            body_text = await page.locator("body").text_content()
+            try:
+                data = json.loads(body_text)
+            except json.JSONDecodeError:
+                logger.error("Enjoei: failed to parse product data from %s", url)
+                raise Exception("Invalid product data") from None
+        except Exception as e:
+            logger.error("Enjoei: failed to scrape data from %s: %s", url, e)
+            raise
+        finally:
+            if context:
+                await context.close()
+
         url = data["canonical_url"]
         price_dict = data.get("fallback_pricing", {}).get("price", {})
         price = price_dict.get("listed") or price_dict.get("sale") or "0"

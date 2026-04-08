@@ -38,13 +38,22 @@ services:
       - PYTHONPATH=/src
       - CELERY_WORKER_USERNAME=celery_user
       - CELERY_WORKER_PASSWORD=celery_user_password
+    deploy:
+      resources:
+        limits:
+          memory: 16G
     volumes:
       - ./scrapers:/src
     command:
       [
-        "/bin/sh",
-        "-c",
-        "celery multi start 8 -A src.celery.tasks --loglevel=info --concurrency=2 --detach && tail -f /dev/null",
+        "celery",
+        "-A",
+        "src.celery.tasks",
+        "worker",
+        "--loglevel=info",
+        "--concurrency=4",
+        "--pool=prefork",
+        "--hostname=scraper@%h",
       ]
 
   # ── Celery Beat (Scheduler) ─────────────────────────────────────────────

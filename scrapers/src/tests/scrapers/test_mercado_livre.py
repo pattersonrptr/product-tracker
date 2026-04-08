@@ -1,10 +1,10 @@
 """
-Tests for src/scrapers/mercado_livre.py (Playwright-based version).
+Tests for src/scrapers/mercado_livre.py (Playwright async-based version).
 
-Strategy: mock Playwright Page/Context objects so no real browser is launched.
+Strategy: mock Playwright async API so no real browser is launched.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -17,9 +17,9 @@ from src.scrapers.mercado_livre import MercadoLivreScraper
 
 def _mock_element(text: str = "", attribute: str | None = None):
     """Create a mock Playwright ElementHandle."""
-    el = MagicMock()
-    el.inner_text.return_value = text
-    el.get_attribute.return_value = attribute
+    el = AsyncMock()
+    el.inner_text = AsyncMock(return_value=text)
+    el.get_attribute = AsyncMock(return_value=attribute)
     return el
 
 
@@ -35,9 +35,9 @@ def _mock_page(
     has_next_page: bool = False,
 ):
     """Create a mock Playwright Page with configurable query_selector results."""
-    page = MagicMock()
+    page = AsyncMock()
 
-    def query_selector(selector):
+    async def query_selector(selector):
         if selector == "h1.ui-pdp-title":
             return _mock_element(text=title) if title else None
         if selector == 'meta[itemprop="price"]':
@@ -73,21 +73,27 @@ def _mock_page(
         return None
 
     page.query_selector = MagicMock(side_effect=query_selector)
-    page.goto = MagicMock()
-    page.wait_for_selector = MagicMock()
+    page.goto = AsyncMock()
+    page.wait_for_selector = AsyncMock()
 
     # For _extract_links
     if search_links is not None:
-        page.eval_on_selector_all = MagicMock(return_value=search_links)
+        mock_links = []
+        for href in search_links:
+            el = AsyncMock()
+            el.get_attribute = AsyncMock(return_value=href)
+            mock_links.append(el)
+        page.query_selector_all = AsyncMock(return_value=mock_links)
     else:
-        page.eval_on_selector_all = MagicMock(return_value=[])
+        page.query_selector_all = AsyncMock(return_value=[])
 
     return page
 
 
 def _mock_context():
-    ctx = MagicMock()
-    ctx.close = MagicMock()
+    ctx = AsyncMock()
+    ctx.close = AsyncMock()
+    ctx.new_page = AsyncMock()
     return ctx
 
 
@@ -157,86 +163,86 @@ def test_build_search_url_subsequent_page(scraper):
 
 
 # ---------------------------------------------------------------------------
-# _extract_links
+# _extract_links (async)
 # ---------------------------------------------------------------------------
 
 
-def test_extract_links_returns_product_links(scraper):
-    page = _mock_page(search_links=["https://ml.com/a", "https://ml.com/b"])
-    links = scraper._extract_links(page)
+@pytest.mark.asyncio
+async def test_extract_links_returns_product_links(scraper):
+    elements = []
+    for href in ["https://ml.com/a", "https://ml.com/b"]:
+        el = MagicMock()
+        el.get_attribute = AsyncMock(return_value=href)
+        elements.append(el)
+    page = MagicMock()
+    page.query_selector_all = AsyncMock(return_value=elements)
+    links = await scraper._extract_links(page)
     assert "https://ml.com/a" in links
     assert "https://ml.com/b" in links
 
 
-def test_extract_links_filters_click1_tracker(scraper):
-    page = _mock_page(
-        search_links=[
-            "https://ml.com/a",
-            "https://click1.mercadolivre.com.br/tracker",
-        ]
-    )
-    links = scraper._extract_links(page)
+@pytest.mark.asyncio
+async def test_extract_links_filters_click1_tracker(scraper):
+    elements = []
+    for href in ["https://ml.com/a", "https://click1.mercadolivre.com.br/tracker"]:
+        el = MagicMock()
+        el.get_attribute = AsyncMock(return_value=href)
+        elements.append(el)
+    page = MagicMock()
+    page.query_selector_all = AsyncMock(return_value=elements)
+    links = await scraper._extract_links(page)
     assert "https://ml.com/a" in links
     assert not any("click1" in link for link in links)
 
 
-def test_extract_links_empty_when_no_items(scraper):
-    page = _mock_page(search_links=[])
-    links = scraper._extract_links(page)
+@pytest.mark.asyncio
+async def test_extract_links_empty_when_no_items(scraper):
+    page = MagicMock()
+    page.query_selector_all = AsyncMock(return_value=[])
+    links = await scraper._extract_links(page)
     assert links == []
 
 
-def test_extract_links_deduplicates(scraper):
-    page = _mock_page(
-        search_links=["https://ml.com/a", "https://ml.com/a", "https://ml.com/b"]
-    )
-    links = scraper._extract_links(page)
+@pytest.mark.asyncio
+async def test_extract_links_deduplicates(scraper):
+    elements = []
+    for href in ["https://ml.com/a", "https://ml.com/a", "https://ml.com/b"]:
+        el = MagicMock()
+        el.get_attribute = AsyncMock(return_value=href)
+        elements.append(el)
+    page = MagicMock()
+    page.query_selector_all = AsyncMock(return_value=elements)
+    links = await scraper._extract_links(page)
     assert links == ["https://ml.com/a", "https://ml.com/b"]
 
 
-def test_extract_links_skips_empty_href(scraper):
-    page = _mock_page(search_links=["", None, "https://ml.com/a"])
-    links = scraper._extract_links(page)
+@pytest.mark.asyncio
+async def test_extract_links_skips_empty_href(scraper):
+    elements = []
+    for href in ["", None, "https://ml.com/a"]:
+        el = MagicMock()
+        el.get_attribute = AsyncMock(return_value=href)
+        elements.append(el)
+    page = MagicMock()
+    page.query_selector_all = AsyncMock(return_value=elements)
+    links = await scraper._extract_links(page)
     assert links == ["https://ml.com/a"]
 
 
 # ---------------------------------------------------------------------------
-# search
+# search (async via _run_async)
 # ---------------------------------------------------------------------------
 
 
-@patch("src.scrapers.mercado_livre.time.sleep")
-def test_search_collects_links_across_pages(mock_sleep, scraper):
-    page1 = _mock_page(
-        search_links=["https://ml.com/a", "https://ml.com/b"],
-        has_next_page=True,
-    )
-    page2 = _mock_page(
-        search_links=["https://ml.com/c"],
-        has_next_page=False,
-    )
-
-    ctx = _mock_context()
-    pages = iter([page1, page2])
-
-    with (
-        patch.object(scraper, "start"),
-        patch.object(scraper, "new_page", side_effect=lambda: (ctx, next(pages))),
-    ):
-        # new_page is called once in search (before the loop), but
-        # the scraper reuses the same page — so we patch it once
-        # Actually search() calls new_page() once and reuses the page.
-        # Let's align with the actual implementation.
-        pass
-
-    # The implementation calls new_page() once and reuses the same page.
-    # So we need a single page that simulates two rounds of interaction.
+@pytest.mark.asyncio
+async def test_search_collects_links_across_pages(scraper):
     page = MagicMock()
-    ctx = _mock_context()
+    page.goto = AsyncMock()
+    page.wait_for_selector = AsyncMock()
 
     call_count = 0
 
-    def fake_extract_links(p):
+    async def fake_extract_links(p):
         nonlocal call_count
         call_count += 1
         if call_count == 1:
@@ -245,7 +251,7 @@ def test_search_collects_links_across_pages(mock_sleep, scraper):
 
     next_btn_count = 0
 
-    def fake_query_selector(selector):
+    async def fake_query_selector(selector):
         nonlocal next_btn_count
         if selector == "a.andes-pagination__link[title='Seguinte']":
             next_btn_count += 1
@@ -254,113 +260,135 @@ def test_search_collects_links_across_pages(mock_sleep, scraper):
             return None
         return None
 
-    page.goto = MagicMock()
-    page.wait_for_selector = MagicMock()
     page.query_selector = MagicMock(side_effect=fake_query_selector)
 
+    ctx = _mock_context()
+
     with (
-        patch.object(scraper, "start"),
-        patch.object(scraper, "stop"),
-        patch.object(scraper, "new_page", return_value=(ctx, page)),
+        patch.object(scraper, "start", new_callable=AsyncMock),
+        patch.object(scraper, "stop", new_callable=AsyncMock),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         patch.object(scraper, "_extract_links", side_effect=fake_extract_links),
+        patch("src.scrapers.mercado_livre.asyncio.sleep", new_callable=AsyncMock),
     ):
-        result = scraper.search("notebook", max_pages=5)
+        result = await scraper._search_async("notebook", max_pages=5)
 
     assert "https://ml.com/a" in result
     assert "https://ml.com/b" in result
     assert len(result) == 2
-    ctx.close.assert_called_once()
+    ctx.close.assert_awaited_once()
 
 
-@patch("src.scrapers.mercado_livre.time.sleep")
-def test_search_stops_on_empty_links(mock_sleep, scraper):
+@pytest.mark.asyncio
+async def test_search_stops_on_empty_links(scraper):
     page = MagicMock()
-    page.goto = MagicMock()
-    page.wait_for_selector = MagicMock()
+    page.goto = AsyncMock()
+    page.wait_for_selector = AsyncMock()
     ctx = _mock_context()
 
     with (
-        patch.object(scraper, "start"),
-        patch.object(scraper, "stop"),
-        patch.object(scraper, "new_page", return_value=(ctx, page)),
+        patch.object(scraper, "start", new_callable=AsyncMock),
+        patch.object(scraper, "stop", new_callable=AsyncMock),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         patch.object(scraper, "_extract_links", return_value=[]),
         pytest.raises(Exception, match="No results found"),
     ):
-        scraper.search("notebook", max_pages=5)
+        await scraper._search_async("notebook", max_pages=5)
 
-    ctx.close.assert_called_once()
+    ctx.close.assert_awaited_once()
 
 
-@patch("src.scrapers.mercado_livre.time.sleep")
-def test_search_stops_on_page_load_error(mock_sleep, scraper):
+@pytest.mark.asyncio
+async def test_search_stops_on_page_load_error(scraper):
     page = MagicMock()
-    page.goto.side_effect = Exception("Timeout")
+    page.goto = AsyncMock(side_effect=Exception("Timeout"))
+    page.wait_for_selector = AsyncMock()
     ctx = _mock_context()
 
     with (
-        patch.object(scraper, "start"),
-        patch.object(scraper, "stop"),
-        patch.object(scraper, "new_page", return_value=(ctx, page)),
+        patch.object(scraper, "start", new_callable=AsyncMock),
+        patch.object(scraper, "stop", new_callable=AsyncMock),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         pytest.raises(Exception, match="No results found"),
     ):
-        scraper.search("notebook", max_pages=3)
+        await scraper._search_async("notebook", max_pages=3)
 
-    ctx.close.assert_called_once()
+    ctx.close.assert_awaited_once()
 
 
-@patch("src.scrapers.mercado_livre.time.sleep")
-def test_search_stops_when_no_next_button(mock_sleep, scraper):
-    page = MagicMock()
-    page.goto = MagicMock()
-    page.wait_for_selector = MagicMock()
-    page.query_selector = MagicMock(return_value=None)  # No next button
+@pytest.mark.asyncio
+async def test_search_stops_when_no_next_button(scraper):
+    page = AsyncMock()
+    page.goto = AsyncMock()
+    page.wait_for_selector = AsyncMock()
+    page.query_selector = AsyncMock(return_value=None)  # No next button
+    page.set_default_timeout = MagicMock()
     ctx = _mock_context()
 
     with (
-        patch.object(scraper, "start"),
-        patch.object(scraper, "stop"),
-        patch.object(scraper, "new_page", return_value=(ctx, page)),
-        patch.object(scraper, "_extract_links", return_value=["https://ml.com/a"]),
+        patch.object(scraper, "start", new_callable=AsyncMock),
+        patch.object(scraper, "stop", new_callable=AsyncMock),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
+        patch.object(
+            scraper,
+            "_extract_links",
+            new_callable=AsyncMock,
+            return_value=["https://ml.com/a"],
+        ),
+        patch("src.scrapers.mercado_livre.asyncio.sleep", new_callable=AsyncMock),
     ):
-        result = scraper.search("notebook", max_pages=5)
+        result = await scraper._search_async("notebook", max_pages=5)
 
     assert result == ["https://ml.com/a"]
 
 
-@patch("src.scrapers.mercado_livre.time.sleep")
-def test_search_context_closed_on_error(mock_sleep, scraper):
+@pytest.mark.asyncio
+async def test_search_context_closed_on_error(scraper):
     """Ensure the context is closed even when an unexpected error occurs."""
     page = MagicMock()
-    page.goto = MagicMock()
-    page.wait_for_selector = MagicMock()
+    page.goto = AsyncMock()
+    page.wait_for_selector = AsyncMock()
     ctx = _mock_context()
 
     with (
-        patch.object(scraper, "start"),
-        patch.object(scraper, "stop"),
-        patch.object(scraper, "new_page", return_value=(ctx, page)),
+        patch.object(scraper, "start", new_callable=AsyncMock),
+        patch.object(scraper, "stop", new_callable=AsyncMock),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         patch.object(scraper, "_extract_links", side_effect=RuntimeError("boom")),
         pytest.raises(RuntimeError, match="boom"),
     ):
-        scraper.search("notebook", max_pages=1)
+        await scraper._search_async("notebook", max_pages=1)
 
-    ctx.close.assert_called_once()
+    ctx.close.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
-# _extract_price
+# _extract_price (async)
 # ---------------------------------------------------------------------------
 
 
-def test_extract_price_from_meta(scraper):
+@pytest.mark.asyncio
+async def test_extract_price_from_meta(scraper):
     page = _mock_page(price_meta="1500.00")
-    assert scraper._extract_price(page) == "1500.00"
+    result = await scraper._extract_price(page)
+    assert result == "1500.00"
 
 
-def test_extract_price_fallback_to_fraction(scraper):
-    page = MagicMock()
+@pytest.mark.asyncio
+async def test_extract_price_fallback_to_fraction(scraper):
+    page = AsyncMock()
 
-    def qs(selector):
+    async def qs(selector):
         if selector == 'meta[itemprop="price"]':
             return None
         if selector == ".andes-money-amount__fraction":
@@ -368,68 +396,86 @@ def test_extract_price_fallback_to_fraction(scraper):
         return None
 
     page.query_selector = MagicMock(side_effect=qs)
-    assert scraper._extract_price(page) == "2499"
+    result = await scraper._extract_price(page)
+    assert result == "2499"
 
 
-def test_extract_price_returns_empty_when_missing(scraper):
+@pytest.mark.asyncio
+async def test_extract_price_returns_empty_when_missing(scraper):
     page = _mock_page(price_meta=None)
-    # Both meta and fraction return None
-    assert scraper._extract_price(page) == ""
+    result = await scraper._extract_price(page)
+    assert result == ""
 
 
 # ---------------------------------------------------------------------------
-# _extract_title
+# _extract_title (async)
 # ---------------------------------------------------------------------------
 
 
-def test_extract_title(scraper):
+@pytest.mark.asyncio
+async def test_extract_title(scraper):
     page = _mock_page(title="Notebook Dell")
-    assert scraper._extract_title(page) == "Notebook Dell"
+    result = await scraper._extract_title(page)
+    assert result == "Notebook Dell"
 
 
-def test_extract_title_returns_empty_when_missing(scraper):
+@pytest.mark.asyncio
+async def test_extract_title_returns_empty_when_missing(scraper):
     page = _mock_page(title=None)
-    assert scraper._extract_title(page) == ""
+    result = await scraper._extract_title(page)
+    assert result == ""
 
 
 # ---------------------------------------------------------------------------
-# _extract_description
+# _extract_description (async)
 # ---------------------------------------------------------------------------
 
 
-def test_extract_description(scraper):
+@pytest.mark.asyncio
+async def test_extract_description(scraper):
     page = _mock_page(description="Bom estado")
-    assert scraper._extract_description(page) == "Bom estado"
+    result = await scraper._extract_description(page)
+    assert result == "Bom estado"
 
 
-def test_extract_description_returns_empty_when_missing(scraper):
+@pytest.mark.asyncio
+async def test_extract_description_returns_empty_when_missing(scraper):
     page = _mock_page(description=None)
-    assert scraper._extract_description(page) == ""
+    result = await scraper._extract_description(page)
+    assert result == ""
 
 
 # ---------------------------------------------------------------------------
-# _extract_availability
+# _extract_availability (async)
 # ---------------------------------------------------------------------------
 
 
-def test_extract_availability_true_from_stock_info(scraper):
+@pytest.mark.asyncio
+async def test_extract_availability_true_from_stock_info(scraper):
     page = _mock_page(stock_text="Disponível: 5 unidades", price_meta="100")
-    assert scraper._extract_availability(page) is True
+    result = await scraper._extract_availability(page)
+    assert result is True
 
 
-def test_extract_availability_true_from_price_fallback(scraper):
+@pytest.mark.asyncio
+async def test_extract_availability_true_from_price_fallback(scraper):
     page = _mock_page(stock_text=None, price_meta="100")
-    assert scraper._extract_availability(page) is True
+    result = await scraper._extract_availability(page)
+    assert result is True
 
 
-def test_extract_availability_false_when_out_of_stock(scraper):
+@pytest.mark.asyncio
+async def test_extract_availability_false_when_out_of_stock(scraper):
     page = _mock_page(stock_text="Sem estoque", price_meta=None)
-    assert scraper._extract_availability(page) is False
+    result = await scraper._extract_availability(page)
+    assert result is False
 
 
-def test_extract_availability_false_when_nothing(scraper):
+@pytest.mark.asyncio
+async def test_extract_availability_false_when_nothing(scraper):
     page = _mock_page(stock_text=None, price_meta=None)
-    assert scraper._extract_availability(page) is False
+    result = await scraper._extract_availability(page)
+    assert result is False
 
 
 # ---------------------------------------------------------------------------
@@ -457,19 +503,22 @@ def test_extract_product_code_fallback_to_path_segment():
 
 
 # ---------------------------------------------------------------------------
-# _extract_image_src
+# _extract_image_src (async)
 # ---------------------------------------------------------------------------
 
 
-def test_extract_image_src_returns_src(scraper):
+@pytest.mark.asyncio
+async def test_extract_image_src_returns_src(scraper):
     page = _mock_page(image_src="https://img.com/photo.jpg")
-    assert scraper._extract_image_src(page) == "https://img.com/photo.jpg"
+    result = await scraper._extract_image_src(page)
+    assert result == "https://img.com/photo.jpg"
 
 
-def test_extract_image_src_fallback_to_figure(scraper):
-    page = MagicMock()
+@pytest.mark.asyncio
+async def test_extract_image_src_fallback_to_figure(scraper):
+    page = AsyncMock()
 
-    def qs(selector):
+    async def qs(selector):
         if selector == "img.ui-pdp-image.ui-pdp-gallery__figure__image":
             return None
         if selector == "figure.ui-pdp-gallery__figure img":
@@ -477,28 +526,34 @@ def test_extract_image_src_fallback_to_figure(scraper):
         return None
 
     page.query_selector = MagicMock(side_effect=qs)
-    assert scraper._extract_image_src(page) == "https://fallback.jpg"
+    result = await scraper._extract_image_src(page)
+    assert result == "https://fallback.jpg"
 
 
-def test_extract_image_src_returns_none_when_missing(scraper):
+@pytest.mark.asyncio
+async def test_extract_image_src_returns_none_when_missing(scraper):
     page = _mock_page(image_src=None)
-    assert scraper._extract_image_src(page) is None
+    result = await scraper._extract_image_src(page)
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
-# _extract_seller
+# _extract_seller (async)
 # ---------------------------------------------------------------------------
 
 
-def test_extract_seller(scraper):
+@pytest.mark.asyncio
+async def test_extract_seller(scraper):
     page = _mock_page(seller="Loja Oficial")
-    assert scraper._extract_seller(page) == "Loja Oficial"
+    result = await scraper._extract_seller(page)
+    assert result == "Loja Oficial"
 
 
-def test_extract_seller_fallback_to_header_title(scraper):
-    page = MagicMock()
+@pytest.mark.asyncio
+async def test_extract_seller_fallback_to_header_title(scraper):
+    page = AsyncMock()
 
-    def qs(selector):
+    async def qs(selector):
         if selector == ".ui-pdp-seller__link-trigger-button":
             return None
         if selector == ".ui-pdp-seller__header__title":
@@ -506,35 +561,43 @@ def test_extract_seller_fallback_to_header_title(scraper):
         return None
 
     page.query_selector = MagicMock(side_effect=qs)
-    assert scraper._extract_seller(page) == "Vendedor Teste"
+    result = await scraper._extract_seller(page)
+    assert result == "Vendedor Teste"
 
 
-def test_extract_seller_not_found(scraper):
+@pytest.mark.asyncio
+async def test_extract_seller_not_found(scraper):
     page = _mock_page(seller=None)
-    assert scraper._extract_seller(page) == "not found"
+    result = await scraper._extract_seller(page)
+    assert result == "not found"
 
 
 # ---------------------------------------------------------------------------
-# _extract_location
+# _extract_location (async)
 # ---------------------------------------------------------------------------
 
 
-def test_extract_location(scraper):
+@pytest.mark.asyncio
+async def test_extract_location(scraper):
     page = _mock_page(location="São Paulo")
-    assert scraper._extract_location(page) == "São Paulo"
+    result = await scraper._extract_location(page)
+    assert result == "São Paulo"
 
 
-def test_extract_location_not_found(scraper):
+@pytest.mark.asyncio
+async def test_extract_location_not_found(scraper):
     page = _mock_page(location=None)
-    assert scraper._extract_location(page) == "not found"
+    result = await scraper._extract_location(page)
+    assert result == "not found"
 
 
 # ---------------------------------------------------------------------------
-# scrape_data
+# scrape_data (async via _run_async)
 # ---------------------------------------------------------------------------
 
 
-def test_scrape_data_returns_expected_fields(scraper):
+@pytest.mark.asyncio
+async def test_scrape_data_returns_expected_fields(scraper):
     page = _mock_page(
         title="Notebook Dell",
         price_meta="3500.00",
@@ -547,12 +610,14 @@ def test_scrape_data_returns_expected_fields(scraper):
     ctx = _mock_context()
 
     with (
-        patch.object(scraper, "start"),
-        patch.object(scraper, "stop"),
-        patch.object(scraper, "new_page", return_value=(ctx, page)),
+        patch.object(scraper, "start", new_callable=AsyncMock),
+        patch.object(scraper, "stop", new_callable=AsyncMock),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
     ):
         url = "https://www.mercadolivre.com.br/notebook-MLB123456789-_JM"
-        result = scraper.scrape_data(url)
+        result = await scraper._scrape_data_async(url)
 
     assert result["url"] == url
     assert result["title"] == "Notebook Dell"
@@ -564,38 +629,46 @@ def test_scrape_data_returns_expected_fields(scraper):
     assert result["city"] == "Curitiba - PR"
     assert result["state"] == "not found"
     assert result["seller_name"] == "Loja Dell"
-    ctx.close.assert_called_once()
+    ctx.close.assert_awaited_once()
 
 
-def test_scrape_data_unavailable_product(scraper):
+@pytest.mark.asyncio
+async def test_scrape_data_unavailable_product(scraper):
     page = _mock_page(stock_text=None, price_meta=None)
     ctx = _mock_context()
 
     with (
-        patch.object(scraper, "start"),
-        patch.object(scraper, "stop"),
-        patch.object(scraper, "new_page", return_value=(ctx, page)),
+        patch.object(scraper, "start", new_callable=AsyncMock),
+        patch.object(scraper, "stop", new_callable=AsyncMock),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
     ):
-        result = scraper.scrape_data("https://www.mercadolivre.com.br/item-MLB1")
+        result = await scraper._scrape_data_async(
+            "https://www.mercadolivre.com.br/item-MLB1"
+        )
 
     assert result["is_available"] is False
-    ctx.close.assert_called_once()
+    ctx.close.assert_awaited_once()
 
 
-def test_scrape_data_closes_context_on_error(scraper):
+@pytest.mark.asyncio
+async def test_scrape_data_closes_context_on_error(scraper):
     page = MagicMock()
-    page.goto.side_effect = RuntimeError("Timeout")
+    page.goto = AsyncMock(side_effect=RuntimeError("Timeout"))
     ctx = _mock_context()
 
     with (
-        patch.object(scraper, "start"),
-        patch.object(scraper, "stop"),
-        patch.object(scraper, "new_page", return_value=(ctx, page)),
+        patch.object(scraper, "start", new_callable=AsyncMock),
+        patch.object(scraper, "stop", new_callable=AsyncMock),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         pytest.raises(RuntimeError, match="Timeout"),
     ):
-        scraper.scrape_data("https://www.mercadolivre.com.br/item-MLB1")
+        await scraper._scrape_data_async("https://www.mercadolivre.com.br/item-MLB1")
 
-    ctx.close.assert_called_once()
+    ctx.close.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------
@@ -604,7 +677,8 @@ def test_scrape_data_closes_context_on_error(scraper):
 
 
 @patch.object(MercadoLivreScraper, "scrape_data")
-def test_update_data_merges_fields(mock_scrape, scraper):
+@pytest.mark.asyncio
+async def test_update_data_merges_fields(mock_scrape, scraper):
     mock_scrape.return_value = {
         "url": "https://ml.com/a",
         "title": "Updated Title",

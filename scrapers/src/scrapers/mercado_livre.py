@@ -14,7 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
-    """Mercado Livre scraper using Playwright for JS-rendered pages."""
+    """Mercado Livre scraper using Playwright for JS-rendered pages.
+
+    Requires a **residential proxy** to bypass ML's server-side IP
+    reputation system.  Set ``PROXY_ENABLED=true`` and the ``PROXY_*``
+    environment variables — see ``src/config/proxy.py``.
+    """
+
+    # ML blocks our IP at the server level (302 → account-verification).
+    # A residential proxy gives us a clean IP that ML won't flag.
+    _USE_PROXY = True
 
     # ML blocks old/non-Chrome user-agents, so we always use a modern
     # Chrome UA string instead of the random pool from the mixin.

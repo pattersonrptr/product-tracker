@@ -83,3 +83,4 @@ pnpm-debug.log*
 notes.txt
 scrapers/scraper_test_report.json
 .openclaude-profile.json
+.qwen/

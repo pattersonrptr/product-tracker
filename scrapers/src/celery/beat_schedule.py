@@ -4,7 +4,6 @@ from datetime import datetime
 
 from celery.beat import ScheduleEntry, Scheduler
 from celery.schedules import crontab
-
 from src.api.api_client import ApiClient
 
 logger = logging.getLogger(__name__)

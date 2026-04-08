@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
@@ -26,6 +28,7 @@ class PlaywrightScraper(ABC):
         super().__init__(*args, **kwargs)
         self._playwright = None
         self._browser: Browser | None = None
+        self._loop = None
 
     # ------------------------------------------------------------------
     # Browser lifecycle
@@ -35,6 +38,17 @@ class PlaywrightScraper(ABC):
         """Launch the Chromium browser."""
         if self._browser and self._browser.is_connected():
             return
+
+        # Fix for Celery asyncio conflict: close existing event loop if present
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Create a new loop for Playwright
+                self._loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(self._loop)
+        except RuntimeError:
+            pass  # No event loop, safe to proceed
+
         self._playwright = sync_playwright().start()
         self._browser = self._playwright.chromium.launch(headless=self._HEADLESS)
         logger.debug("Playwright browser started (headless=%s)", self._HEADLESS)
@@ -47,6 +61,11 @@ class PlaywrightScraper(ABC):
         if self._playwright:
             self._playwright.stop()
             self._playwright = None
+        # Restore original event loop if we changed it
+        if self._loop:
+            with contextlib.suppress(Exception):
+                asyncio.set_event_loop(self._loop)
+            self._loop = None
         logger.debug("Playwright browser stopped")
 
     # ------------------------------------------------------------------

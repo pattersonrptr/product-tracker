@@ -1,8 +1,8 @@
+import json
 import logging
+import time
 
-from requests import Response
-
-from src.scrapers.base.requests_scraper import RequestScraper
+from src.scrapers.base.playwright_scraper import PlaywrightScraper
 from src.scrapers.interfaces.scraper_interface import ScraperInterface
 from src.scrapers.mixins.rotating_user_agent_mixin import (
     RotatingUserAgentMixin,
@@ -11,7 +11,7 @@ from src.scrapers.mixins.rotating_user_agent_mixin import (
 logger = logging.getLogger(__name__)
 
 
-class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
+class EnjoeiScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://enjusearch.enjoei.com.br"
@@ -32,7 +32,8 @@ class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
 
-    def _get_search_data(self, term: str, after: str = None) -> Response:
+    def _get_search_data(self, term: str, after: str = None) -> dict:
+        """Fetch search data via Playwright by intercepting GraphQL responses."""
         params = {
             "first": "50",
             "query_id": "7d3ea67171219db36dfcf404acab5807",
@@ -43,11 +44,25 @@ class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
         if after:
             params["after"] = after
 
-        return self.retry_request(
-            f"{self.BASE_URL}/graphql-search-x",
-            self.headers(),
-            params=params,
-        )
+        # Build URL with params
+        from urllib.parse import urlencode
+        url = f"{self.BASE_URL}/graphql-search-x?{urlencode(params)}"
+
+        try:
+            page = self.fetch_page(url, wait_until="networkidle")
+            # Wait for the JSON response body
+            body_text = page.locator("body").text_content()
+            # If it's JSON response, parse it
+            try:
+                return json.loads(body_text)
+            except json.JSONDecodeError:
+                logger.warning("Enjoei: non-JSON response: %s", body_text[:200])
+                return {}
+        except Exception as e:
+            logger.error("Enjoei: failed to fetch search data: %s", e)
+            return {}
+        finally:
+            page.context.close()
 
     def _extract_links(self, data: dict) -> tuple:
         urls = []
@@ -78,18 +93,44 @@ class EnjoeiScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
     def search(self, search_term: str) -> list[str]:
         all_urls = []
         cursor = None
-        while True:
-            response = self._get_search_data(term=search_term, after=cursor)
-            urls, cursor = self._extract_links(response.json())
+        max_iterations = 20  # Safety limit
+        iterations = 0
+
+        while iterations < max_iterations:
+            response_data = self._get_search_data(term=search_term, after=cursor)
+            if not response_data:
+                logger.warning("Enjoei: no response data, stopping")
+                break
+
+            urls, cursor = self._extract_links(response_data)
             all_urls.extend(urls)
             logger.debug("Enjoei: %d URLs collected so far", len(all_urls))
+
             if not cursor:
                 break
+
+            iterations += 1
+            time.sleep(1.5)  # Throttle to avoid rate limiting
+
+        if not all_urls:
+            raise Exception("No results found")
+
         return all_urls
 
     def scrape_data(self, url: str) -> dict:
-        response = self.retry_request(url, self.headers())
-        data = response.json()
+        try:
+            page = self.fetch_page(url, wait_until="networkidle")
+            body_text = page.locator("body").text_content()
+            try:
+                data = json.loads(body_text)
+            except json.JSONDecodeError:
+                logger.error("Enjoei: failed to parse product data from %s", url)
+                raise Exception("Invalid product data") from None
+        except Exception as e:
+            logger.error("Enjoei: failed to scrape data from %s: %s", url, e)
+            raise
+        finally:
+            page.context.close()
         url = data["canonical_url"]
         price_dict = data.get("fallback_pricing", {}).get("price", {})
         price = price_dict.get("listed") or price_dict.get("sale") or "0"

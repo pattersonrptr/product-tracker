@@ -5,7 +5,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any
 
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 logger = logging.getLogger(__name__)
 

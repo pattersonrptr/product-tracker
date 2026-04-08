@@ -4,9 +4,9 @@ Tests for src/scrapers/olx.py (Playwright async-based version).
 Strategy: mock Playwright async API so no real browser is launched.
 """
 
-import json
 import html
-from unittest.mock import AsyncMock, MagicMock, patch
+import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -182,8 +182,6 @@ async def test_search_single_page(scraper):
     page.content = AsyncMock(side_effect=[html_content, "<html></html>"])
     page.goto = AsyncMock()
 
-    call_count = 0
-
     async def fake_fetch(url, wait_until="networkidle"):
         return ctx, page
 
@@ -205,9 +203,11 @@ async def test_search_empty_html_breaks_loop_raises_no_results(scraper):
     page.content = AsyncMock(return_value="")
     page.goto = AsyncMock()
 
-    with patch.object(scraper, "fetch_page", return_value=(ctx, page)):
-        with pytest.raises(Exception, match="No results found"):
-            await scraper._search_async("notebook", max_pages=5)
+    with (
+        patch.object(scraper, "fetch_page", return_value=(ctx, page)),
+        pytest.raises(Exception, match="No results found"),
+    ):
+        await scraper._search_async("notebook", max_pages=5)
 
 
 @pytest.mark.asyncio
@@ -218,9 +218,11 @@ async def test_search_raises_when_first_page_returns_none(scraper):
     page.content = AsyncMock(return_value=None)
     page.goto = AsyncMock()
 
-    with patch.object(scraper, "fetch_page", return_value=(ctx, page)):
-        with pytest.raises(Exception, match="No results found"):
-            await scraper._search_async("notebook", max_pages=5)
+    with (
+        patch.object(scraper, "fetch_page", return_value=(ctx, page)),
+        pytest.raises(Exception, match="No results found"),
+    ):
+        await scraper._search_async("notebook", max_pages=5)
 
 
 @pytest.mark.asyncio
@@ -231,9 +233,11 @@ async def test_search_raises_when_no_results(scraper):
     page.content = AsyncMock(return_value="<html><body></body></html>")
     page.goto = AsyncMock()
 
-    with patch.object(scraper, "fetch_page", return_value=(ctx, page)):
-        with pytest.raises(Exception, match="No results found"):
-            await scraper._search_async("nothing", max_pages=1)
+    with (
+        patch.object(scraper, "fetch_page", return_value=(ctx, page)),
+        pytest.raises(Exception, match="No results found"),
+    ):
+        await scraper._search_async("nothing", max_pages=1)
 
 
 # ---------------------------------------------------------------------------

@@ -76,9 +76,7 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
 
     def search(self, search_term: str, max_pages: int = 5) -> list[str]:
         """Synchronous entry point — runs the async search loop."""
-        return self._run_async(
-            self._search_async(search_term, max_pages)
-        )
+        return self._run_async(self._search_async(search_term, max_pages))
 
     async def _search_async(self, search_term: str, max_pages: int = 5) -> list[str]:
         all_links: list[str] = []
@@ -222,9 +220,7 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
         return f"ML - {path_segment}" if path_segment else "ML - unknown"
 
     async def _extract_image_src(self, page) -> str | None:
-        el = await page.query_selector(
-            "img.ui-pdp-image.ui-pdp-gallery__figure__image"
-        )
+        el = await page.query_selector("img.ui-pdp-image.ui-pdp-gallery__figure__image")
         if el:
             return await el.get_attribute("src")
         el = await page.query_selector("figure.ui-pdp-gallery__figure img")

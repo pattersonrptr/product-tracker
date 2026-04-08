@@ -83,9 +83,9 @@ def _mock_page(
             el = AsyncMock()
             el.get_attribute = AsyncMock(return_value=href)
             mock_links.append(el)
-        page.query_selector_all = MagicMock(return_value=mock_links)
+        page.query_selector_all = AsyncMock(return_value=mock_links)
     else:
-        page.query_selector_all = MagicMock(return_value=[])
+        page.query_selector_all = AsyncMock(return_value=[])
 
     return page
 
@@ -175,7 +175,7 @@ async def test_extract_links_returns_product_links(scraper):
         el.get_attribute = AsyncMock(return_value=href)
         elements.append(el)
     page = MagicMock()
-    page.query_selector_all = MagicMock(return_value=elements)
+    page.query_selector_all = AsyncMock(return_value=elements)
     links = await scraper._extract_links(page)
     assert "https://ml.com/a" in links
     assert "https://ml.com/b" in links
@@ -189,7 +189,7 @@ async def test_extract_links_filters_click1_tracker(scraper):
         el.get_attribute = AsyncMock(return_value=href)
         elements.append(el)
     page = MagicMock()
-    page.query_selector_all = MagicMock(return_value=elements)
+    page.query_selector_all = AsyncMock(return_value=elements)
     links = await scraper._extract_links(page)
     assert "https://ml.com/a" in links
     assert not any("click1" in link for link in links)
@@ -198,7 +198,7 @@ async def test_extract_links_filters_click1_tracker(scraper):
 @pytest.mark.asyncio
 async def test_extract_links_empty_when_no_items(scraper):
     page = MagicMock()
-    page.query_selector_all = MagicMock(return_value=[])
+    page.query_selector_all = AsyncMock(return_value=[])
     links = await scraper._extract_links(page)
     assert links == []
 
@@ -211,7 +211,7 @@ async def test_extract_links_deduplicates(scraper):
         el.get_attribute = AsyncMock(return_value=href)
         elements.append(el)
     page = MagicMock()
-    page.query_selector_all = MagicMock(return_value=elements)
+    page.query_selector_all = AsyncMock(return_value=elements)
     links = await scraper._extract_links(page)
     assert links == ["https://ml.com/a", "https://ml.com/b"]
 
@@ -224,7 +224,7 @@ async def test_extract_links_skips_empty_href(scraper):
         el.get_attribute = AsyncMock(return_value=href)
         elements.append(el)
     page = MagicMock()
-    page.query_selector_all = MagicMock(return_value=elements)
+    page.query_selector_all = AsyncMock(return_value=elements)
     links = await scraper._extract_links(page)
     assert links == ["https://ml.com/a"]
 
@@ -267,7 +267,9 @@ async def test_search_collects_links_across_pages(scraper):
     with (
         patch.object(scraper, "start", new_callable=AsyncMock),
         patch.object(scraper, "stop", new_callable=AsyncMock),
-        patch.object(scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         patch.object(scraper, "_extract_links", side_effect=fake_extract_links),
         patch("src.scrapers.mercado_livre.asyncio.sleep", new_callable=AsyncMock),
     ):
@@ -289,7 +291,9 @@ async def test_search_stops_on_empty_links(scraper):
     with (
         patch.object(scraper, "start", new_callable=AsyncMock),
         patch.object(scraper, "stop", new_callable=AsyncMock),
-        patch.object(scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         patch.object(scraper, "_extract_links", return_value=[]),
         pytest.raises(Exception, match="No results found"),
     ):
@@ -308,7 +312,9 @@ async def test_search_stops_on_page_load_error(scraper):
     with (
         patch.object(scraper, "start", new_callable=AsyncMock),
         patch.object(scraper, "stop", new_callable=AsyncMock),
-        patch.object(scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         pytest.raises(Exception, match="No results found"),
     ):
         await scraper._search_async("notebook", max_pages=3)
@@ -318,23 +324,25 @@ async def test_search_stops_on_page_load_error(scraper):
 
 @pytest.mark.asyncio
 async def test_search_stops_when_no_next_button(scraper):
-    page = MagicMock()
+    page = AsyncMock()
     page.goto = AsyncMock()
     page.wait_for_selector = AsyncMock()
-    page.query_selector = MagicMock(return_value=None)  # No next button
+    page.query_selector = AsyncMock(return_value=None)  # No next button
+    page.set_default_timeout = MagicMock()
     ctx = _mock_context()
 
-    # Set browser so start() is skipped, and mock _build_context
-    scraper._browser = AsyncMock()
-    scraper._browser.is_connected.return_value = True
-
-    async def fake_build_context():
-        return ctx
-
     with (
+        patch.object(scraper, "start", new_callable=AsyncMock),
         patch.object(scraper, "stop", new_callable=AsyncMock),
-        patch.object(scraper, "_build_context", side_effect=fake_build_context),
-        patch.object(scraper, "_extract_links", return_value=["https://ml.com/a"]),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
+        patch.object(
+            scraper,
+            "_extract_links",
+            new_callable=AsyncMock,
+            return_value=["https://ml.com/a"],
+        ),
         patch("src.scrapers.mercado_livre.asyncio.sleep", new_callable=AsyncMock),
     ):
         result = await scraper._search_async("notebook", max_pages=5)
@@ -353,7 +361,9 @@ async def test_search_context_closed_on_error(scraper):
     with (
         patch.object(scraper, "start", new_callable=AsyncMock),
         patch.object(scraper, "stop", new_callable=AsyncMock),
-        patch.object(scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         patch.object(scraper, "_extract_links", side_effect=RuntimeError("boom")),
         pytest.raises(RuntimeError, match="boom"),
     ):
@@ -602,7 +612,9 @@ async def test_scrape_data_returns_expected_fields(scraper):
     with (
         patch.object(scraper, "start", new_callable=AsyncMock),
         patch.object(scraper, "stop", new_callable=AsyncMock),
-        patch.object(scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
     ):
         url = "https://www.mercadolivre.com.br/notebook-MLB123456789-_JM"
         result = await scraper._scrape_data_async(url)
@@ -628,9 +640,13 @@ async def test_scrape_data_unavailable_product(scraper):
     with (
         patch.object(scraper, "start", new_callable=AsyncMock),
         patch.object(scraper, "stop", new_callable=AsyncMock),
-        patch.object(scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
     ):
-        result = await scraper._scrape_data_async("https://www.mercadolivre.com.br/item-MLB1")
+        result = await scraper._scrape_data_async(
+            "https://www.mercadolivre.com.br/item-MLB1"
+        )
 
     assert result["is_available"] is False
     ctx.close.assert_awaited_once()
@@ -645,7 +661,9 @@ async def test_scrape_data_closes_context_on_error(scraper):
     with (
         patch.object(scraper, "start", new_callable=AsyncMock),
         patch.object(scraper, "stop", new_callable=AsyncMock),
-        patch.object(scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)),
+        patch.object(
+            scraper, "new_page", new_callable=AsyncMock, return_value=(ctx, page)
+        ),
         pytest.raises(RuntimeError, match="Timeout"),
     ):
         await scraper._scrape_data_async("https://www.mercadolivre.com.br/item-MLB1")

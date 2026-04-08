@@ -4,7 +4,6 @@ Tests for src/scrapers/base/playwright_scraper.py.
 Strategy: mock playwright.async_api so no real browser is launched.
 """
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -42,13 +41,13 @@ def _make_mock_browser():
     browser.is_connected.return_value = True
 
     context = AsyncMock()
-    context.add_init_script = MagicMock()
+    context.add_init_script = AsyncMock()
     page = AsyncMock()
     page.set_default_timeout = MagicMock()
     page.goto = AsyncMock()
     context.new_page = AsyncMock(return_value=page)
 
-    browser.new_context = MagicMock(return_value=context)
+    browser.new_context = AsyncMock(return_value=context)
     browser.close = AsyncMock()
     return browser, context, page
 
@@ -61,9 +60,7 @@ def mock_async_playwright():
     pw_instance = MagicMock()
     pw_instance.chromium.launch = AsyncMock(return_value=browser)
 
-    with patch(
-        "src.scrapers.base.playwright_scraper.async_playwright"
-    ) as mock_ap:
+    with patch("src.scrapers.base.playwright_scraper.async_playwright") as mock_ap:
         mock_ap.return_value.start = AsyncMock(return_value=pw_instance)
         yield {
             "async_playwright": mock_ap,
@@ -201,11 +198,10 @@ async def test_fetch_page_navigates_and_returns_page(scraper, mock_async_playwri
     browser, context, page = _make_mock_browser()
     scraper._browser = browser
 
-    p = await scraper.fetch_page("https://example.com")
+    ctx, p = await scraper.fetch_page("https://example.com")
 
-    page.goto.assert_called_once_with(
-        "https://example.com", wait_until="networkidle"
-    )
+    page.goto.assert_called_once_with("https://example.com", wait_until="networkidle")
+    assert ctx is context
     assert p is page
 
 

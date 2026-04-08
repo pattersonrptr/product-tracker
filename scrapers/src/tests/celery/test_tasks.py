@@ -450,7 +450,7 @@ def test_process_urls_list_splits_and_dispatches(
     search_results = {"status": "success", "urls": ["url1", "url2"]}
     process_urls_list(search_results, "enjoei", search_config_id=1, log_id="42")
 
-    mock_manager.split_search_urls.assert_called_once_with(search_results, 100)
+    mock_manager.split_search_urls.assert_called_once_with(search_results, 20)
 
 
 # ---------------------------------------------------------------------------

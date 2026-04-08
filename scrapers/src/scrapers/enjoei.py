@@ -33,9 +33,7 @@ class EnjoeiScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin)
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
 
-    async def _get_search_data_async(
-        self, term: str, after: str | None = None
-    ) -> dict:
+    async def _get_search_data_async(self, term: str, after: str | None = None) -> dict:
         """Fetch search data via Playwright by loading the GraphQL JSON endpoint."""
         params = {
             "first": "50",

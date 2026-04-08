@@ -20,7 +20,9 @@ class OLXScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
     def __init__(self):
         super().__init__()
         self.BASE_URL = "https://www.olx.com.br/brasil"
-        self._MAX_PAGES = 10  # Increased to capture more results while keeping batches reasonable
+        self._MAX_PAGES = (
+            10  # Increased to capture more results while keeping batches reasonable
+        )
 
     @staticmethod
     def _build_default_headers():
@@ -40,9 +42,7 @@ class OLXScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
 
     def search(self, search_term: str, max_pages: int = 5) -> list[str]:
         """Synchronous entry point — runs the async search loop."""
-        return self._run_async(
-            self._search_async(search_term, max_pages)
-        )
+        return self._run_async(self._search_async(search_term, max_pages))
 
     async def _search_async(self, search_term: str, max_pages: int = 5) -> list[str]:
         page_number = 1
@@ -84,15 +84,11 @@ class OLXScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin):
                     logger.debug("OLX: no more links on page %d", page_number)
                     break
             except Exception as e:
-                logger.error(
-                    "Error extracting links on page %d: %s", page_number, e
-                )
+                logger.error("Error extracting links on page %d: %s", page_number, e)
                 break
 
             results.extend(links)
-            logger.debug(
-                "OLX: page %d — %d links collected", page_number, len(results)
-            )
+            logger.debug("OLX: page %d — %d links collected", page_number, len(results))
             page_number += 1
 
             # Throttle to avoid rate-limiting

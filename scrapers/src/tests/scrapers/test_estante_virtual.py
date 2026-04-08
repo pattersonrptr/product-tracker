@@ -1,16 +1,15 @@
 """
-Tests for src/product_scrapers/scrapers/estante_virtual.py.
+Tests for src/scrapers/estante_virtual.py.
 
 Strategy: patch RotatingUserAgentMixin._load_user_agents so no real file I/O
-happens, and patch retry_request so no real HTTP calls are made.
-EstanteVirtual uses USE_CLOUDSCRAPER = False (plain requests.Session).
+happens, and mock Playwright async methods so no real browser is launched.
+EstanteVirtual now uses PlaywrightScraper to bypass Radware Bot Manager.
 """
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import requests
 from bs4 import BeautifulSoup
 
 from src.scrapers.estante_virtual import EstanteVirtualScraper
@@ -20,24 +19,31 @@ from src.scrapers.estante_virtual import EstanteVirtualScraper
 # ---------------------------------------------------------------------------
 
 
-def _mock_response(
-    status_code: int = 200,
-    json_data=None,
-    content: bytes = b"",
-    content_type: str = "application/json; charset=utf-8",
-):
-    resp = MagicMock(spec=requests.Response)
-    resp.status_code = status_code
-    resp.json.return_value = json_data or {}
-    resp.content = content
-    resp.raise_for_status = MagicMock()
-    resp.headers = {"Content-Type": content_type}
-    return resp
-
-
 def _build_search_json(total_pages: int, skus: list[dict]) -> dict:
     """Minimal API response from EstanteVirtual /busca/api."""
     return {"totalPages": total_pages, "parentSkus": skus}
+
+
+def _make_async_page(body_text: str = "", html_content: str = ""):
+    """Create an async mock (context, page) pair.
+
+    *body_text* — returned by ``page.locator("body").text_content()``
+    *html_content* — returned by ``page.content()``
+    """
+    context = AsyncMock()
+    page = AsyncMock()
+
+    resp = AsyncMock()
+    resp.status = 200
+    page.goto = AsyncMock(return_value=resp)
+
+    locator = AsyncMock()
+    locator.text_content = AsyncMock(return_value=body_text)
+    page.locator = MagicMock(return_value=locator)
+
+    page.content = AsyncMock(return_value=html_content)
+
+    return context, page
 
 
 def _build_product_html(
@@ -50,7 +56,7 @@ def _build_product_html(
     image_slug: str = "/images/book.jpg",
     product_id: int = 42,
     city: str = "São Paulo",
-) -> bytes:
+) -> str:
     """Build an HTML page with window.__INITIAL_STATE__ JSON embedded."""
     state = {
         "Product": {
@@ -82,7 +88,7 @@ def _build_product_html(
     json_str = json.dumps(state)
     return f"""<html><body>
         <script>window.__INITIAL_STATE__ = {json_str};</script>
-    </body></html>""".encode()
+    </body></html>"""
 
 
 @pytest.fixture
@@ -158,74 +164,133 @@ def test_get_products_list_empty(scraper):
 
 
 # ---------------------------------------------------------------------------
-# search
+# search (async, mocked Playwright)
 # ---------------------------------------------------------------------------
 
 
-@patch("src.scrapers.estante_virtual.time.sleep")
-@patch.object(EstanteVirtualScraper, "retry_request")
-def test_search_single_page(mock_retry, mock_sleep, scraper):
+@pytest.mark.asyncio
+async def test_search_single_page(scraper):
     skus = [{"productSlug": "/livros/a"}, {"productSlug": "/livros/b"}]
     search_json = _build_search_json(total_pages=1, skus=skus)
-    mock_retry.return_value = _mock_response(json_data=search_json)
+    body_text = json.dumps(search_json)
 
-    result = scraper.search("Dom Casmurro")
+    context, page = _make_async_page(body_text=body_text)
+
+    with patch.object(scraper, "new_page", AsyncMock(return_value=(context, page))):
+        result = await scraper._search_async("Dom Casmurro")
+
     assert len(result) == 2
     assert "https://www.estantevirtual.com.br/livros/a" in result
+    context.close.assert_awaited_once()
 
 
-@patch("src.scrapers.estante_virtual.time.sleep")
-@patch.object(EstanteVirtualScraper, "retry_request")
-def test_search_multiple_pages(mock_retry, mock_sleep, scraper):
+@pytest.mark.asyncio
+async def test_search_multiple_pages(scraper):
     """When page_number < totalPages, continues; when equal, stops."""
     skus_p1 = [{"productSlug": "/livros/p1"}]
     skus_p2 = [{"productSlug": "/livros/p2"}]
 
-    mock_retry.side_effect = [
-        _mock_response(json_data=_build_search_json(2, skus_p1)),
-        _mock_response(json_data=_build_search_json(2, skus_p2)),
-    ]
+    body_p1 = json.dumps(_build_search_json(2, skus_p1))
+    body_p2 = json.dumps(_build_search_json(2, skus_p2))
 
-    result = scraper.search("Machado")
+    context, page = _make_async_page()
+    locator = AsyncMock()
+    locator.text_content = AsyncMock(side_effect=[body_p1, body_p2])
+    page.locator = MagicMock(return_value=locator)
+
+    with (
+        patch.object(scraper, "new_page", AsyncMock(return_value=(context, page))),
+        patch("src.scrapers.estante_virtual.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        result = await scraper._search_async("Machado")
+
     assert len(result) == 2
-    assert mock_retry.call_count == 2
-    mock_sleep.assert_called_with(0.5)
+    assert page.goto.await_count == 2
 
 
-@patch("src.scrapers.estante_virtual.time.sleep")
-@patch.object(EstanteVirtualScraper, "retry_request")
-def test_search_stops_on_none_response(mock_retry, mock_sleep, scraper):
-    """When retry_request returns None, search stops and returns empty."""
-    mock_retry.return_value = None
+@pytest.mark.asyncio
+async def test_search_stops_on_failed_goto(scraper):
+    """When page.goto raises, search stops and returns empty."""
+    context, page = _make_async_page()
+    page.goto = AsyncMock(side_effect=Exception("Timeout"))
 
-    result = scraper.search("whatever")
+    with patch.object(scraper, "new_page", AsyncMock(return_value=(context, page))):
+        result = await scraper._search_async("whatever")
+
+    assert result == []
+    context.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_search_stops_on_non_200(scraper):
+    """When response status is not 200, search stops."""
+    context, page = _make_async_page()
+    resp = AsyncMock()
+    resp.status = 403
+    page.goto = AsyncMock(return_value=resp)
+
+    with patch.object(scraper, "new_page", AsyncMock(return_value=(context, page))):
+        result = await scraper._search_async("blocked")
+
     assert result == []
 
 
-@patch("src.scrapers.estante_virtual.time.sleep")
-@patch.object(EstanteVirtualScraper, "retry_request")
-def test_search_stops_on_non_json_response(mock_retry, mock_sleep, scraper):
-    """When response is HTML (anti-bot captcha), search stops gracefully."""
-    resp = _mock_response(content_type="text/html; charset=utf-8")
-    mock_retry.return_value = resp
+@pytest.mark.asyncio
+async def test_search_stops_on_empty_body(scraper):
+    """When body text is empty, search stops."""
+    context, page = _make_async_page(body_text="")
+    locator = AsyncMock()
+    locator.text_content = AsyncMock(return_value="")
+    page.locator = MagicMock(return_value=locator)
 
-    result = scraper.search("Dom Casmurro")
+    with patch.object(scraper, "new_page", AsyncMock(return_value=(context, page))):
+        result = await scraper._search_async("empty")
+
     assert result == []
 
 
-@patch("src.scrapers.estante_virtual.time.sleep")
-@patch.object(EstanteVirtualScraper, "retry_request")
-def test_search_returns_partial_on_antibot_midway(mock_retry, mock_sleep, scraper):
+@pytest.mark.asyncio
+async def test_search_stops_on_non_json_body(scraper):
+    """When body is HTML (anti-bot captcha), search stops gracefully."""
+    context, page = _make_async_page(body_text="<html>captcha page</html>")
+
+    with patch.object(scraper, "new_page", AsyncMock(return_value=(context, page))):
+        result = await scraper._search_async("Dom Casmurro")
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_search_returns_partial_on_antibot_midway(scraper):
     """If anti-bot kicks in on page 2, page 1 results are still returned."""
     skus_p1 = [{"productSlug": "/livros/p1"}]
-    page1_resp = _mock_response(json_data=_build_search_json(3, skus_p1))
-    page2_antibot = _mock_response(content_type="text/html; charset=utf-8")
+    body_p1 = json.dumps(_build_search_json(3, skus_p1))
 
-    mock_retry.side_effect = [page1_resp, page2_antibot]
+    context, page = _make_async_page()
+    locator = AsyncMock()
+    locator.text_content = AsyncMock(side_effect=[body_p1, "<html>blocked</html>"])
+    page.locator = MagicMock(return_value=locator)
 
-    result = scraper.search("Machado")
+    with (
+        patch.object(scraper, "new_page", AsyncMock(return_value=(context, page))),
+        patch("src.scrapers.estante_virtual.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        result = await scraper._search_async("Machado")
+
     assert len(result) == 1
     assert "https://www.estantevirtual.com.br/livros/p1" in result
+
+
+@pytest.mark.asyncio
+async def test_search_stops_on_none_response(scraper):
+    """When page.goto returns None, search stops."""
+    context, page = _make_async_page()
+    page.goto = AsyncMock(return_value=None)
+
+    with patch.object(scraper, "new_page", AsyncMock(return_value=(context, page))):
+        result = await scraper._search_async("whatever")
+
+    assert result == []
 
 
 # ---------------------------------------------------------------------------
@@ -244,8 +309,8 @@ def test_parse_html_returns_beautifulsoup(scraper):
 
 
 def test_extract_initial_state_returns_dict(scraper):
-    html_bytes = _build_product_html()
-    soup = scraper._parse_html(html_bytes)
+    html_str = _build_product_html()
+    soup = scraper._parse_html(html_str.encode())
     state = scraper._extract_initial_state(soup)
     assert "Product" in state
 
@@ -394,13 +459,13 @@ def test_extract_prices_empty_when_no_grouper(scraper):
 
 
 # ---------------------------------------------------------------------------
-# scrape_data — full integration (mocked HTTP)
+# scrape_data (async, mocked Playwright)
 # ---------------------------------------------------------------------------
 
 
-@patch.object(EstanteVirtualScraper, "retry_request")
-def test_scrape_data_returns_expected_fields(mock_retry, scraper):
-    html_bytes = _build_product_html(
+@pytest.mark.asyncio
+async def test_scrape_data_returns_expected_fields(scraper):
+    html = _build_product_html(
         title="Dom Casmurro",
         author="Machado de Assis",
         sale_in_cents=2500,
@@ -411,13 +476,12 @@ def test_scrape_data_returns_expected_fields(mock_retry, scraper):
         product_id=99,
         city="Rio de Janeiro",
     )
-    resp = _mock_response(content=html_bytes)
-    resp.raise_for_status = MagicMock()
-    mock_retry.return_value = resp
+    context, page = _make_async_page(html_content=html)
 
-    result = scraper.scrape_data(
-        "https://www.estantevirtual.com.br/livros/dom-casmurro"
-    )
+    with patch.object(scraper, "fetch_page", AsyncMock(return_value=(context, page))):
+        result = await scraper._scrape_data_async(
+            "https://www.estantevirtual.com.br/livros/dom-casmurro"
+        )
 
     assert result["url"] == "https://www.estantevirtual.com.br/livros/dom-casmurro"
     assert "Dom Casmurro" in result["title"]
@@ -429,16 +493,33 @@ def test_scrape_data_returns_expected_fields(mock_retry, scraper):
     assert result["is_available"] is True
     assert result["image_urls"] == "https://static.estantevirtual.com.br/images/dom.jpg"
     assert result["source_product_code"] == "EV - 99"
+    context.close.assert_awaited_once()
 
 
-@patch.object(EstanteVirtualScraper, "retry_request")
-def test_scrape_data_returns_empty_when_no_initial_state(mock_retry, scraper):
-    resp = _mock_response(content=b"<html><body>no state here</body></html>")
-    resp.raise_for_status = MagicMock()
-    mock_retry.return_value = resp
+@pytest.mark.asyncio
+async def test_scrape_data_returns_empty_when_no_initial_state(scraper):
+    context, page = _make_async_page(
+        html_content="<html><body>no state here</body></html>"
+    )
 
-    result = scraper.scrape_data("https://www.estantevirtual.com.br/livros/unknown")
+    with patch.object(scraper, "fetch_page", AsyncMock(return_value=(context, page))):
+        result = await scraper._scrape_data_async(
+            "https://www.estantevirtual.com.br/livros/unknown"
+        )
+
     assert result == {}
+    context.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_scrape_data_raises_on_fetch_error(scraper):
+    with (
+        patch.object(
+            scraper, "fetch_page", AsyncMock(side_effect=Exception("Network error"))
+        ),
+        pytest.raises(Exception, match="Network error"),
+    ):
+        await scraper._scrape_data_async("https://www.estantevirtual.com.br/x")
 
 
 # ---------------------------------------------------------------------------

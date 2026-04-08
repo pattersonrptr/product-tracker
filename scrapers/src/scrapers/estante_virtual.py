@@ -1,10 +1,12 @@
+import asyncio
 import json
 import logging
-import time
+from typing import Any
+from urllib.parse import urlencode
 
 from bs4 import BeautifulSoup
 
-from src.scrapers.base.requests_scraper import RequestScraper
+from src.scrapers.base.playwright_scraper import PlaywrightScraper
 from src.scrapers.interfaces.scraper_interface import ScraperInterface
 from src.scrapers.mixins.rotating_user_agent_mixin import (
     RotatingUserAgentMixin,
@@ -13,10 +15,15 @@ from src.scrapers.mixins.rotating_user_agent_mixin import (
 logger = logging.getLogger(__name__)
 
 
-class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentMixin):
-    # Radware Bot Manager blocks cloudscraper's TLS fingerprint;
-    # plain requests works reliably.
-    USE_CLOUDSCRAPER = False
+class EstanteVirtualScraper(
+    ScraperInterface, PlaywrightScraper, RotatingUserAgentMixin
+):
+    """Scraper for estantevirtual.com.br.
+
+    Uses Playwright to bypass Radware Bot Manager / ShieldSquare anti-bot
+    protection which requires JavaScript execution to pass a browser
+    challenge before any page content is served.
+    """
 
     def __init__(self):
         super().__init__()
@@ -25,90 +32,145 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
     @staticmethod
     def _build_default_headers():
         return {
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;"
+                "q=0.9,image/avif,image/webp,image/apng,*/*;"
+                "q=0.8,application/signed-exchange;v=b3;q=0.7"
+            ),
             "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
             "DNT": "1",
             "Sec-GPC": "1",
         }
 
-    def headers(self) -> dict:
+    def headers(self) -> dict[str, Any]:
         custom_headers = self._build_default_headers()
         random_user_agent = self.get_random_user_agent()
         if random_user_agent:
             custom_headers["User-Agent"] = random_user_agent
         return custom_headers
 
+    # ------------------------------------------------------------------
+    # Search
+    # ------------------------------------------------------------------
+
     def search(self, search_term: str) -> list[str]:
+        """Synchronous entry point — runs the async search loop."""
+        return self._run_async(self._search_async(search_term))
+
+    async def _search_async(self, search_term: str) -> list[str]:
+        """Paginate over the /busca/api JSON endpoint using Playwright.
+
+        A real browser is needed because Radware Bot Manager serves a JS
+        challenge (302 → validate.perfdrive.com) that ``requests`` cannot
+        solve.  Playwright handles the challenge automatically.
+        """
         page_number = 0
         has_next = True
-        all_links = []
+        all_links: list[str] = []
 
-        while has_next:
-            page_number += 1
+        # We reuse a single browser context for all search pages so the
+        # anti-bot cookies persist across pagination requests.
+        context = None
+        try:
+            context, page = await self.new_page()
 
-            params = {
-                "q": search_term,
-                "searchField": "titulo-autor",
-                "page": f"{page_number}",
-            }
-
-            resp = self.retry_request(
-                f"{self.BASE_URL}/busca/api",
-                self.headers(),
-                params=params,
-            )
-
-            if resp is None:
-                logger.warning(
-                    "EstanteVirtual: no response on page %d, stopping", page_number
+            while has_next:
+                page_number += 1
+                params = urlencode(
+                    {
+                        "q": search_term,
+                        "searchField": "titulo-autor",
+                        "page": str(page_number),
+                    }
                 )
-                break
+                url = f"{self.BASE_URL}/busca/api?{params}"
 
-            # Validate JSON response (anti-bot may return HTML captcha page)
-            content_type = resp.headers.get("Content-Type", "")
-            if "application/json" not in content_type:
-                logger.warning(
-                    "EstanteVirtual: page %d returned non-JSON (%s), possible anti-bot",
+                try:
+                    resp = await page.goto(url, wait_until="networkidle")
+                except Exception as e:
+                    logger.warning(
+                        "EstanteVirtual: failed to load page %d (%s), stopping",
+                        page_number,
+                        e,
+                    )
+                    break
+
+                if resp is None or resp.status != 200:
+                    status = resp.status if resp else "None"
+                    logger.warning(
+                        "EstanteVirtual: page %d returned status %s, stopping",
+                        page_number,
+                        status,
+                    )
+                    break
+
+                # Read the body text and parse as JSON
+                body_text = await page.locator("body").text_content()
+                if not body_text:
+                    logger.warning(
+                        "EstanteVirtual: empty body on page %d, stopping",
+                        page_number,
+                    )
+                    break
+
+                try:
+                    data = json.loads(body_text)
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        "EstanteVirtual: non-JSON on page %d (%s), possible anti-bot",
+                        page_number,
+                        e,
+                    )
+                    break
+
+                total_pages = data.get("totalPages", 0)
+                if page_number >= total_pages:
+                    has_next = False
+
+                urls = self._get_products_list(data)
+                all_links.extend(urls)
+                logger.debug(
+                    "EstanteVirtual: page %d/%d — %d links collected",
                     page_number,
-                    content_type,
+                    total_pages,
+                    len(all_links),
                 )
-                break
 
-            try:
-                data = resp.json()
-            except Exception as e:
-                logger.error(
-                    "EstanteVirtual: failed to parse JSON on page %d: %s",
-                    page_number,
-                    e,
-                )
-                break
+                # Throttle between pages
+                if has_next:
+                    await asyncio.sleep(1.0)
 
-            total_pages = data.get("totalPages", 0)
-            if page_number >= total_pages:
-                has_next = False
-
-            urls = self._get_products_list(data)
-            all_links.extend(urls)
-            logger.debug(
-                "EstanteVirtual: page %d/%d — %d links collected",
-                page_number,
-                total_pages,
-                len(all_links),
-            )
-
-            # Throttle to avoid triggering anti-bot
-            if has_next:
-                time.sleep(0.5)
+        finally:
+            if context:
+                await context.close()
 
         return all_links
 
-    def _get_products_list(self, data: dict) -> list:
+    def _get_products_list(self, data: dict) -> list[str]:
         return [f"{self.BASE_URL}{item['productSlug']}" for item in data["parentSkus"]]
 
+    # ------------------------------------------------------------------
+    # Scrape product detail
+    # ------------------------------------------------------------------
+
     def scrape_data(self, url: str) -> dict:
-        resp = self._fetch_page(url)
-        soup = self._parse_html(resp.content)
+        """Synchronous entry point — runs the async scrape."""
+        return self._run_async(self._scrape_data_async(url))
+
+    async def _scrape_data_async(self, url: str) -> dict:
+        """Load a product page via Playwright and extract structured data."""
+        context = None
+        try:
+            context, page = await self.fetch_page(url, wait_until="networkidle")
+            html_content = await page.content()
+        except Exception as e:
+            logger.error("EstanteVirtual: failed to load %s: %s", url, e)
+            raise
+        finally:
+            if context:
+                await context.close()
+
+        soup = self._parse_html(html_content.encode())
         data = self._extract_initial_state(soup)
 
         if not data:
@@ -125,7 +187,9 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
 
         return {
             "url": url,
-            "title": f"{product_info.get('name', '')} | {product_info.get('author', '')}",
+            "title": (
+                f"{product_info.get('name', '')} | " f"{product_info.get('author', '')}"
+            ),
             "price": f"{price:.2f}" if price else "",
             "description": description,
             "source_product_code": f"EV - {product_id}",
@@ -137,10 +201,9 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
             "source_metadata": {},
         }
 
-    def _fetch_page(self, url: str):
-        resp = self.retry_request(url, self.headers())
-        resp.raise_for_status()
-        return resp
+    # ------------------------------------------------------------------
+    # HTML / data extraction helpers (unchanged from requests version)
+    # ------------------------------------------------------------------
 
     def _parse_html(self, content: bytes) -> BeautifulSoup:
         return BeautifulSoup(content, "html.parser")
@@ -163,9 +226,7 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
         prices = []
         for condition in ["novo", "usado"]:
             if condition in group_products:
-                price = (
-                    group_products[condition].get("salePrice", 0) / 100
-                )  # Convert from cents
+                price = group_products[condition].get("salePrice", 0) / 100
                 prices.append(price)
         return prices
 
@@ -173,7 +234,6 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
         sale_in_cents = (
             product_info.get("currentProduct", {}).get("price", {}).get("saleInCents")
         )
-
         if sale_in_cents is None:
             raise ValueError("Price not found in product info")
         return sale_in_cents / 100
@@ -200,7 +260,6 @@ class EstanteVirtualScraper(ScraperInterface, RequestScraper, RotatingUserAgentM
         return ""
 
     def _extract_image(self, product_info: dict) -> str:
-        # window.__INITIAL_STATE__["Product"]["currentProduct"]["images"]["details"][0]
         img_details = (
             product_info.get("currentProduct", {}).get("images", {}).get("details", [])
         )

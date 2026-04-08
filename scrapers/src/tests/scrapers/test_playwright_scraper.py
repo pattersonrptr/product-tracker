@@ -38,9 +38,7 @@ def scraper():
 @pytest.fixture
 def mock_playwright():
     """Patch sync_playwright to return mocked objects."""
-    with patch(
-        "src.scrapers.base.playwright_scraper.sync_playwright"
-    ) as mock_sp:
+    with patch("src.scrapers.base.playwright_scraper.sync_playwright") as mock_sp:
         pw_instance = MagicMock()
         browser = MagicMock()
         browser.is_connected.return_value = True

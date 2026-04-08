@@ -162,9 +162,7 @@ def test_build_search_url_subsequent_page(scraper):
 
 
 def test_extract_links_returns_product_links(scraper):
-    page = _mock_page(
-        search_links=["https://ml.com/a", "https://ml.com/b"]
-    )
+    page = _mock_page(search_links=["https://ml.com/a", "https://ml.com/b"])
     links = scraper._extract_links(page)
     assert "https://ml.com/a" in links
     assert "https://ml.com/b" in links
@@ -322,9 +320,7 @@ def test_search_stops_when_no_next_button(mock_sleep, scraper):
         patch.object(scraper, "start"),
         patch.object(scraper, "stop"),
         patch.object(scraper, "new_page", return_value=(ctx, page)),
-        patch.object(
-            scraper, "_extract_links", return_value=["https://ml.com/a"]
-        ),
+        patch.object(scraper, "_extract_links", return_value=["https://ml.com/a"]),
     ):
         result = scraper.search("notebook", max_pages=5)
 
@@ -343,9 +339,8 @@ def test_search_context_closed_on_error(mock_sleep, scraper):
         patch.object(scraper, "start"),
         patch.object(scraper, "stop"),
         patch.object(scraper, "new_page", return_value=(ctx, page)),
-        patch.object(
-            scraper, "_extract_links", side_effect=RuntimeError("boom")
-        ),pytest.raises(RuntimeError, match="boom")
+        patch.object(scraper, "_extract_links", side_effect=RuntimeError("boom")),
+        pytest.raises(RuntimeError, match="boom"),
     ):
         scraper.search("notebook", max_pages=1)
 

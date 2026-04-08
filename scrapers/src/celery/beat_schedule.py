@@ -30,10 +30,9 @@ def _get_celery_worker_token():
         response = requests.post(auth_url, data=payload, headers=headers)
         response.raise_for_status()
         body = response.json()
-        token = (
-            body.get("data", {}).get("attributes", {}).get("access_token")
-            or body.get("access_token")
-        )
+        token = body.get("data", {}).get("attributes", {}).get(
+            "access_token"
+        ) or body.get("access_token")
         return token
     except requests.exceptions.RequestException as e:
         logger.error("Error retrieving Celery worker token for beat: %s", e)

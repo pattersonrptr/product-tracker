@@ -20,8 +20,12 @@ from src.scrapers.estante_virtual import EstanteVirtualScraper
 # ---------------------------------------------------------------------------
 
 
-def _mock_response(status_code: int = 200, json_data=None, content: bytes = b"",
-                    content_type: str = "application/json; charset=utf-8"):
+def _mock_response(
+    status_code: int = 200,
+    json_data=None,
+    content: bytes = b"",
+    content_type: str = "application/json; charset=utf-8",
+):
     resp = MagicMock(spec=requests.Response)
     resp.status_code = status_code
     resp.json.return_value = json_data or {}

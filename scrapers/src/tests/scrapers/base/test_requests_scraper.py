@@ -47,9 +47,7 @@ def _make_error_response():
 # ---------------------------------------------------------------------------
 
 
-@patch(
-    "src.scrapers.base.requests_scraper.cloudscraper.create_scraper"
-)
+@patch("src.scrapers.base.requests_scraper.cloudscraper.create_scraper")
 def test_init_creates_cloudscraper_session(mock_create_scraper):
     mock_session = MagicMock()
     mock_create_scraper.return_value = mock_session
@@ -90,9 +88,7 @@ def test_init_creates_plain_session_when_cloudscraper_disabled(mock_session_cls)
 # ---------------------------------------------------------------------------
 
 
-@patch(
-    "src.scrapers.base.requests_scraper.cloudscraper.create_scraper"
-)
+@patch("src.scrapers.base.requests_scraper.cloudscraper.create_scraper")
 def test_retry_request_returns_response_on_first_attempt(mock_create_scraper):
     mock_session = MagicMock()
     mock_create_scraper.return_value = mock_session
@@ -113,9 +109,7 @@ def test_retry_request_returns_response_on_first_attempt(mock_create_scraper):
     )
 
 
-@patch(
-    "src.scrapers.base.requests_scraper.cloudscraper.create_scraper"
-)
+@patch("src.scrapers.base.requests_scraper.cloudscraper.create_scraper")
 def test_retry_request_passes_headers_and_params(mock_create_scraper):
     mock_session = MagicMock()
     mock_create_scraper.return_value = mock_session
@@ -142,9 +136,7 @@ def test_retry_request_passes_headers_and_params(mock_create_scraper):
 
 
 @patch("src.scrapers.base.requests_scraper.time.sleep")
-@patch(
-    "src.scrapers.base.requests_scraper.cloudscraper.create_scraper"
-)
+@patch("src.scrapers.base.requests_scraper.cloudscraper.create_scraper")
 def test_retry_request_retries_on_connection_error_then_succeeds(
     mock_create_scraper, mock_sleep
 ):
@@ -166,9 +158,7 @@ def test_retry_request_retries_on_connection_error_then_succeeds(
 
 
 @patch("src.scrapers.base.requests_scraper.time.sleep")
-@patch(
-    "src.scrapers.base.requests_scraper.cloudscraper.create_scraper"
-)
+@patch("src.scrapers.base.requests_scraper.cloudscraper.create_scraper")
 def test_retry_request_returns_none_after_all_retries_exhausted(
     mock_create_scraper, mock_sleep
 ):
@@ -190,9 +180,7 @@ def test_retry_request_returns_none_after_all_retries_exhausted(
 
 
 @patch("src.scrapers.base.requests_scraper.time.sleep")
-@patch(
-    "src.scrapers.base.requests_scraper.cloudscraper.create_scraper"
-)
+@patch("src.scrapers.base.requests_scraper.cloudscraper.create_scraper")
 def test_retry_request_retries_on_http_error(mock_create_scraper, mock_sleep):
     mock_session = MagicMock()
     mock_create_scraper.return_value = mock_session
@@ -214,9 +202,7 @@ def test_retry_request_retries_on_http_error(mock_create_scraper, mock_sleep):
 # ---------------------------------------------------------------------------
 
 
-@patch(
-    "src.scrapers.base.requests_scraper.cloudscraper.create_scraper"
-)
+@patch("src.scrapers.base.requests_scraper.cloudscraper.create_scraper")
 def test_retry_request_returns_none_on_unexpected_exception(mock_create_scraper):
     mock_session = MagicMock()
     mock_create_scraper.return_value = mock_session
@@ -236,9 +222,7 @@ def test_retry_request_returns_none_on_unexpected_exception(mock_create_scraper)
 
 
 @patch("src.scrapers.base.requests_scraper.time.sleep")
-@patch(
-    "src.scrapers.base.requests_scraper.cloudscraper.create_scraper"
-)
+@patch("src.scrapers.base.requests_scraper.cloudscraper.create_scraper")
 def test_retry_request_exponential_backoff(mock_create_scraper, mock_sleep):
     mock_session = MagicMock()
     mock_create_scraper.return_value = mock_session

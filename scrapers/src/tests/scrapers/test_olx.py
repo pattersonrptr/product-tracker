@@ -195,7 +195,9 @@ def test_search_single_page(mock_retry, mock_sleep, scraper):
 
 @patch("src.scrapers.olx.time.sleep")
 @patch.object(OLXScraper, "retry_request")
-def test_search_empty_html_breaks_loop_raises_no_results(mock_retry, mock_sleep, scraper):
+def test_search_empty_html_breaks_loop_raises_no_results(
+    mock_retry, mock_sleep, scraper
+):
     mock_retry.return_value = _mock_response(text="")
     with pytest.raises(Exception, match="No results found"):
         scraper.search("notebook", max_pages=5)

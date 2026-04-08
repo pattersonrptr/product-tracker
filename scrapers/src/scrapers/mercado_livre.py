@@ -91,9 +91,7 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
                         wait_until="domcontentloaded",
                         timeout=30_000,
                     )
-                    page.wait_for_selector(
-                        ".ui-search-layout__item", timeout=10_000
-                    )
+                    page.wait_for_selector(".ui-search-layout__item", timeout=10_000)
                 except Exception as e:
                     logger.warning(
                         "ML: page %d failed to load: %s — stopping",

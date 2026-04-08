@@ -7,6 +7,8 @@ from typing import Any
 
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
+from src.config.proxy import ProxyConfig, load_proxy_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,10 +30,18 @@ class PlaywrightScraper(ABC):
     _HEADLESS: bool = True
     _DEFAULT_TIMEOUT: int = 30_000  # 30 seconds
 
+    # Subclasses that need proxy routing (e.g. MercadoLivreScraper) set
+    # this to ``True``.  The proxy is only used when *both* the flag is
+    # set and the ``PROXY_*`` environment variables are configured.
+    _USE_PROXY: bool = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._playwright = None
         self._browser: Browser | None = None
+        self._proxy_config: ProxyConfig | None = (
+            load_proxy_config() if self._USE_PROXY else None
+        )
 
     # ------------------------------------------------------------------
     # Browser lifecycle (async)
@@ -72,17 +82,28 @@ class PlaywrightScraper(ABC):
     ]
 
     async def _build_context(self) -> BrowserContext:
-        """Create a new browser context with stealth-like settings."""
+        """Create a new browser context with stealth-like settings.
+
+        When :attr:`_USE_PROXY` is ``True`` **and** the ``PROXY_*``
+        environment variables are set, each context is created with a
+        proxy so that the provider can rotate IPs per context.
+        """
         headers = self.headers()
         user_agent = headers.pop("User-Agent", None)
 
-        context = await self._browser.new_context(
-            user_agent=user_agent,
-            locale="pt-BR",
-            timezone_id="America/Sao_Paulo",
-            extra_http_headers=headers,
-            viewport={"width": 1366, "height": 768},
-        )
+        kwargs: dict[str, Any] = {
+            "user_agent": user_agent,
+            "locale": "pt-BR",
+            "timezone_id": "America/Sao_Paulo",
+            "extra_http_headers": headers,
+            "viewport": {"width": 1366, "height": 768},
+        }
+
+        if self._proxy_config:
+            kwargs["proxy"] = self._proxy_config.to_playwright_proxy()
+            logger.debug("Proxy applied to context: %s", self._proxy_config.server)
+
+        context = await self._browser.new_context(**kwargs)
 
         for script in self._STEALTH_SCRIPTS:
             await context.add_init_script(script)

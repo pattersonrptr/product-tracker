@@ -38,6 +38,11 @@ services:
       - PYTHONPATH=/src
       - CELERY_WORKER_USERNAME=celery_user
       - CELERY_WORKER_PASSWORD=celery_user_password
+      # Residential proxy for Mercado Livre (optional — disabled by default)
+      - PROXY_ENABLED=${PROXY_ENABLED:-false}
+      - PROXY_SERVER=${PROXY_SERVER:-}
+      - PROXY_USERNAME=${PROXY_USERNAME:-}
+      - PROXY_PASSWORD=${PROXY_PASSWORD:-}
     deploy:
       resources:
         limits:
@@ -73,6 +78,11 @@ services:
       - PYTHONPATH=/src
       - CELERY_WORKER_USERNAME=celery_user
       - CELERY_WORKER_PASSWORD=celery_user_password
+      # Residential proxy for Mercado Livre (optional — disabled by default)
+      - PROXY_ENABLED=${PROXY_ENABLED:-false}
+      - PROXY_SERVER=${PROXY_SERVER:-}
+      - PROXY_USERNAME=${PROXY_USERNAME:-}
+      - PROXY_PASSWORD=${PROXY_PASSWORD:-}
     volumes:
       - ./scrapers:/src
     command: celery -A src.celery.tasks beat --loglevel=info

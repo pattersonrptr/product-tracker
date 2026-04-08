@@ -690,3 +690,18 @@ async def test_update_data_merges_fields(mock_scrape, scraper):
     assert result["id"] == "55"
     assert result["title"] == "Updated Title"
     mock_scrape.assert_called_once_with("https://ml.com/a")
+
+
+# ---------------------------------------------------------------------------
+# Proxy support
+# ---------------------------------------------------------------------------
+
+
+def test_use_proxy_enabled():
+    """ML scraper should declare _USE_PROXY = True."""
+    assert MercadoLivreScraper._USE_PROXY is True
+
+
+def test_proxy_config_none_without_env(scraper):
+    """Without PROXY_ENABLED env var, proxy_config should be None."""
+    assert scraper._proxy_config is None

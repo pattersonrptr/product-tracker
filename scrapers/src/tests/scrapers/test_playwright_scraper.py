@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.config.proxy import ProxyConfig
 from src.scrapers.base.playwright_scraper import PlaywrightScraper
 
 # ---------------------------------------------------------------------------
@@ -17,6 +18,18 @@ from src.scrapers.base.playwright_scraper import PlaywrightScraper
 
 class ConcretePlaywrightScraper(PlaywrightScraper):
     """Minimal concrete subclass to test the ABC."""
+
+    def headers(self):
+        return {
+            "Accept": "text/html",
+            "User-Agent": "Test-UA/1.0",
+        }
+
+
+class ProxiedPlaywrightScraper(PlaywrightScraper):
+    """Subclass with proxy support enabled for testing."""
+
+    _USE_PROXY = True
 
     def headers(self):
         return {
@@ -281,3 +294,112 @@ def test_default_headless_is_true():
 
 def test_default_timeout():
     assert ConcretePlaywrightScraper._DEFAULT_TIMEOUT == 30_000
+
+
+def test_use_proxy_default_is_false():
+    assert ConcretePlaywrightScraper._USE_PROXY is False
+
+
+# ---------------------------------------------------------------------------
+# Proxy support
+# ---------------------------------------------------------------------------
+
+
+class TestProxyIntegration:
+    """Verify that proxy config is wired into context creation."""
+
+    def test_no_proxy_when_use_proxy_false(self):
+        """Scrapers without _USE_PROXY should have no proxy config."""
+        scraper = ConcretePlaywrightScraper()
+        assert scraper._proxy_config is None
+
+    @patch.dict(
+        "os.environ",
+        {
+            "PROXY_ENABLED": "true",
+            "PROXY_SERVER": "http://proxy:8080",
+            "PROXY_USERNAME": "user",
+            "PROXY_PASSWORD": "pass",
+        },
+    )
+    def test_no_proxy_when_use_proxy_false_even_if_env_set(self):
+        """Even with env vars set, _USE_PROXY=False means no proxy."""
+        scraper = ConcretePlaywrightScraper()
+        assert scraper._proxy_config is None
+
+    @patch.dict(
+        "os.environ",
+        {
+            "PROXY_ENABLED": "true",
+            "PROXY_SERVER": "http://proxy:8080",
+            "PROXY_USERNAME": "user",
+            "PROXY_PASSWORD": "pass",
+        },
+    )
+    def test_proxy_loaded_when_use_proxy_true(self):
+        """Scrapers with _USE_PROXY=True should load proxy from env."""
+        scraper = ProxiedPlaywrightScraper()
+        assert scraper._proxy_config is not None
+        assert scraper._proxy_config.server == "http://proxy:8080"
+        assert scraper._proxy_config.username == "user"
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_proxy_none_when_env_not_set(self):
+        """_USE_PROXY=True but no env vars → proxy is None."""
+        scraper = ProxiedPlaywrightScraper()
+        assert scraper._proxy_config is None
+
+    @pytest.mark.asyncio
+    @patch.dict(
+        "os.environ",
+        {
+            "PROXY_ENABLED": "true",
+            "PROXY_SERVER": "http://proxy:8080",
+            "PROXY_USERNAME": "user",
+            "PROXY_PASSWORD": "pass",
+        },
+    )
+    async def test_build_context_passes_proxy(self):
+        """_build_context() should pass proxy kwarg when configured."""
+        browser, context, page = _make_mock_browser()
+        scraper = ProxiedPlaywrightScraper()
+        scraper._browser = browser
+
+        await scraper._build_context()
+
+        call_kwargs = browser.new_context.call_args.kwargs
+        assert "proxy" in call_kwargs
+        assert call_kwargs["proxy"]["server"] == "http://proxy:8080"
+        assert call_kwargs["proxy"]["username"] == "user"
+        assert call_kwargs["proxy"]["password"] == "pass"
+
+    @pytest.mark.asyncio
+    async def test_build_context_no_proxy_kwarg_when_disabled(self):
+        """_build_context() should NOT pass proxy kwarg when not configured."""
+        browser, context, page = _make_mock_browser()
+        scraper = ConcretePlaywrightScraper()
+        scraper._browser = browser
+
+        await scraper._build_context()
+
+        call_kwargs = browser.new_context.call_args.kwargs
+        assert "proxy" not in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_build_context_proxy_injected_manually(self):
+        """Verify proxy kwarg via direct _proxy_config assignment."""
+        browser, context, page = _make_mock_browser()
+        scraper = ConcretePlaywrightScraper()
+        scraper._browser = browser
+        scraper._proxy_config = ProxyConfig(
+            server="socks5://my-proxy:1080", username="a", password="b"
+        )
+
+        await scraper._build_context()
+
+        call_kwargs = browser.new_context.call_args.kwargs
+        assert call_kwargs["proxy"] == {
+            "server": "socks5://my-proxy:1080",
+            "username": "a",
+            "password": "b",
+        }

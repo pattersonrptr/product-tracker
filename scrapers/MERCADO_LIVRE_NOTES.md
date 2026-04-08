@@ -1,8 +1,8 @@
 # Mercado Livre Scraper — Investigation Notes
 
-> **Last updated:** 2025-07-25
-> **Status:** ⏳ PROXY SUPPORT IMPLEMENTED — awaiting proxy credentials
-> **Branch:** `feature/proxy-support` (code ready, needs PROXY_* env vars)
+> **Last updated:** 2026-04-08
+> **Status:** 🔴 SUSPENDED — IP blocked by ML, residential proxy required but not viable (cost)
+> **Decision:** Scraper code + proxy infra ready, reactivate if IP situation changes
 
 ---
 
@@ -313,8 +313,23 @@ Start with a trial/minimum plan, test with `test_scrapers_live.py`.
 |---|---|
 | Early sessions | ML scraper created with Playwright, returned 0 results |
 | PR #28 | Batch processing fixes — ML still 0 results |
-| 2025-07-25 | Full investigation: server-side IP block confirmed |
-| 2025-07-25 | Tor tested — hard 403, confirmed blocked |
-| 2025-07-25 | All alternatives evaluated, residential proxy chosen |
-| 2025-07-25 | Proxy support implemented in `feature/proxy-support` branch |
-| Next | Sign up for proxy service → configure env vars → test live |
+| 2026-04-08 | Full investigation: server-side IP block confirmed |
+| 2026-04-08 | Tor tested — hard 403, confirmed blocked |
+| 2026-04-08 | All alternatives evaluated, residential proxy chosen |
+| 2026-04-08 | Proxy support implemented and merged (PR #30) |
+| 2026-04-08 | Re-tested: single request still blocked — confirmed IP-level, not rate-based |
+| 2026-04-08 | **Decision: ML suspended** — proxy cost not justified, other 3 scrapers work |
+
+---
+
+## Final Decision
+
+Mercado Livre scraping is **suspended indefinitely**. The block is at IP
+reputation level — even a single curl request gets redirected. This is not
+solvable without residential proxies (paid service).
+
+**The code is preserved and ready** — if circumstances change (new ISP, IP
+rotation becomes free, ML relaxes rules), just set the `PROXY_*` env vars
+and the scraper will work immediately.
+
+**Working scrapers:** OLX ✅ | Enjoei ✅ | Estante Virtual ✅

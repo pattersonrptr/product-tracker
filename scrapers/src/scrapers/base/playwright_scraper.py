@@ -7,7 +7,11 @@ from typing import Any
 
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
-from src.config.proxy import ProxyConfig, load_proxy_config
+from src.config.proxy_rotator import (
+    FreeProxyRotator,
+    PaidProxyRotator,
+    get_proxy_rotator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +35,17 @@ class PlaywrightScraper(ABC):
     _DEFAULT_TIMEOUT: int = 30_000  # 30 seconds
 
     # Subclasses that need proxy routing (e.g. MercadoLivreScraper) set
-    # this to ``True``.  The proxy is only used when *both* the flag is
-    # set and the ``PROXY_*`` environment variables are configured.
+    # this to ``True``.  When enabled, the scraper first checks for a
+    # paid proxy (PROXY_* env vars); if none is configured, it falls
+    # back to free SOCKS5 proxy rotation.
     _USE_PROXY: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._playwright = None
         self._browser: Browser | None = None
-        self._proxy_config: ProxyConfig | None = (
-            load_proxy_config() if self._USE_PROXY else None
+        self._proxy_rotator: PaidProxyRotator | FreeProxyRotator | None = (
+            get_proxy_rotator() if self._USE_PROXY else None
         )
 
     # ------------------------------------------------------------------
@@ -81,12 +86,17 @@ class PlaywrightScraper(ABC):
         'Object.defineProperty(navigator, "webdriver", { get: () => undefined });',
     ]
 
-    async def _build_context(self) -> BrowserContext:
+    async def _build_context(
+        self, proxy: dict[str, Any] | None = None
+    ) -> BrowserContext:
         """Create a new browser context with stealth-like settings.
 
-        When :attr:`_USE_PROXY` is ``True`` **and** the ``PROXY_*``
-        environment variables are set, each context is created with a
-        proxy so that the provider can rotate IPs per context.
+        Parameters
+        ----------
+        proxy:
+            An explicit Playwright-compatible proxy dict.  When *None*
+            and :attr:`_USE_PROXY` is ``True``, the next proxy from the
+            rotator is used automatically.
         """
         headers = self.headers()
         user_agent = headers.pop("User-Agent", None)
@@ -99,9 +109,14 @@ class PlaywrightScraper(ABC):
             "viewport": {"width": 1366, "height": 768},
         }
 
-        if self._proxy_config:
-            kwargs["proxy"] = self._proxy_config.to_playwright_proxy()
-            logger.debug("Proxy applied to context: %s", self._proxy_config.server)
+        # Resolve which proxy to use (explicit > rotator > none).
+        effective_proxy = proxy
+        if effective_proxy is None and self._proxy_rotator is not None:
+            effective_proxy = self._proxy_rotator.next_proxy()
+
+        if effective_proxy:
+            kwargs["proxy"] = effective_proxy
+            logger.debug("Proxy applied to context: %s", effective_proxy.get("server"))
 
         context = await self._browser.new_context(**kwargs)
 
@@ -109,6 +124,11 @@ class PlaywrightScraper(ABC):
             await context.add_init_script(script)
 
         return context
+
+    def _report_proxy_failure(self, proxy: dict[str, Any] | None) -> None:
+        """Tell the rotator that *proxy* is dead so it won't be reused."""
+        if proxy and self._proxy_rotator:
+            self._proxy_rotator.report_failure(proxy)
 
     async def new_page(self) -> tuple[BrowserContext, Page]:
         """Create a new context + page pair.

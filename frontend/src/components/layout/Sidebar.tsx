@@ -1,17 +1,23 @@
 /**
  * Collapsible navigation sidebar.
+ *
+ * User section:   Dashboard, My Alerts, Products
+ * Admin section:  Users, Search Configs, Source Websites
  */
 
-import CategoryIcon from '@mui/icons-material/Category'
-import HomeIcon from '@mui/icons-material/Home'
+import DashboardIcon from '@mui/icons-material/Dashboard'
+import InventoryIcon from '@mui/icons-material/Inventory'
 import ManageSearchIcon from '@mui/icons-material/ManageSearch'
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import PeopleIcon from '@mui/icons-material/People'
 import PublicIcon from '@mui/icons-material/Public'
+import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
 import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
+import ListSubheader from '@mui/material/ListSubheader'
 import Tooltip from '@mui/material/Tooltip'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
@@ -23,14 +29,16 @@ interface SidebarProps {
   open: boolean
 }
 
-const NAV_ITEMS = [
-  { label: 'Products', path: '/products', icon: <HomeIcon /> },
-  { label: 'Search Configs', path: '/search-configs', icon: <ManageSearchIcon /> },
-  { label: 'Source Websites', path: '/source-websites', icon: <PublicIcon /> },
+const USER_ITEMS = [
+  { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
+  { label: 'My Alerts', path: '/alerts', icon: <NotificationsActiveIcon /> },
+  { label: 'Products', path: '/products', icon: <InventoryIcon /> },
 ] as const
 
 const ADMIN_ITEMS = [
-  { label: 'Users', path: '/users', icon: <PeopleIcon /> },
+  { label: 'Users', path: '/admin/users', icon: <PeopleIcon /> },
+  { label: 'Search Configs', path: '/admin/search-configs', icon: <ManageSearchIcon /> },
+  { label: 'Source Websites', path: '/admin/source-websites', icon: <PublicIcon /> },
 ] as const
 
 export function Sidebar({ open }: SidebarProps) {
@@ -38,7 +46,7 @@ export function Sidebar({ open }: SidebarProps) {
   const location = useLocation()
   const { isStaff, isSuperuser } = useAuth()
   const width = open ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED
-  const canManageUsers = isStaff || isSuperuser
+  const isAdmin = isStaff || isSuperuser
 
   function renderItem(label: string, path: string, icon: React.ReactNode) {
     const active = location.pathname.startsWith(path)
@@ -81,24 +89,26 @@ export function Sidebar({ open }: SidebarProps) {
       }}
     >
       <List>
-        {NAV_ITEMS.map(({ label, path, icon }) => renderItem(label, path, icon))}
+        {USER_ITEMS.map(({ label, path, icon }) => renderItem(label, path, icon))}
       </List>
 
-      {canManageUsers && (
-        <List sx={{ position: 'absolute', bottom: 8, width: '100%' }}>
-          {ADMIN_ITEMS.map(({ label, path, icon }) => renderItem(label, path, icon))}
-          <Tooltip title={open ? '' : 'Admin'} placement="right">
-            <ListItemButton
-              onClick={() => navigate('/admin')}
-              sx={{ justifyContent: open ? 'initial' : 'center', px: 2 }}
-            >
-              <ListItemIcon sx={{ minWidth: 0, mr: open ? 2 : 'auto', justifyContent: 'center' }}>
-                <CategoryIcon />
-              </ListItemIcon>
-              {open && <ListItemText primary="Admin" />}
-            </ListItemButton>
-          </Tooltip>
-        </List>
+      {isAdmin && (
+        <>
+          <Divider />
+          <List
+            subheader={
+              open ? (
+                <ListSubheader component="div" sx={{ lineHeight: '36px' }}>
+                  Admin
+                </ListSubheader>
+              ) : undefined
+            }
+          >
+            {ADMIN_ITEMS.map(({ label, path, icon }) =>
+              renderItem(label, path, icon),
+            )}
+          </List>
+        </>
       )}
     </Drawer>
   )

@@ -1,73 +1,143 @@
-# Mercado Livre Scraper — Investigation Notes
+# Mercado Livre Scraper — Technical Notes# Mercado Livre Scraper — Investigation Notes
 
-> **Last updated:** 2026-04-09
+
+
+> **Status:** ✅ Working — rate-limited scraping validated at scale (492/492 products, zero blocks)> **Last updated:** 2026-04-09
+
 > **Status:** ✅ WORKING — Rate-limited scraping validated (492/492 products, zero blocks)
-> **Decision:** Gentle scraping with 15s search delay + 10s product delay + shuffle + context rotation works at scale
 
----
+---> **Decision:** Gentle scraping with 15s search delay + 10s product delay + shuffle + context rotation works at scale
 
-## Table of Contents
 
-1. [Problem Summary](#problem-summary)
-2. [What We Tested](#what-we-tested)
+
+## How It Works---
+
+
+
+ML blocks scrapers via **server-side IP reputation** (`x-is-search-bot: true`## Table of Contents
+
+header). The block is **temporary** (expires in hours) and is triggered by
+
+request frequency, not request count. Our solution: slow down enough to stay1. [Problem Summary](#problem-summary)
+
+under the detection threshold.2. [What We Tested](#what-we-tested)
+
 3. [Confirmed Dead Ends](#confirmed-dead-ends-do-not-retry)
-4. [How ML's Anti-Bot Works](#how-mls-anti-bot-works)
+
+### Production Configuration4. [How ML's Anti-Bot Works](#how-mls-anti-bot-works)
+
 5. [Viable Solution: Residential Proxy](#viable-solution-residential-proxy)
-6. [Implementation Plan](#implementation-plan)
-7. [Key Discovery: The Block is Temporary](#key-discovery-the-block-is-temporary)
-8. [Execution Plan: Gentle Rate-Limited Scraping](#execution-plan-gentle-rate-limited-scraping)
-9. [Current Implementation Status](#current-implementation-status)
 
----
+```python6. [Implementation Plan](#implementation-plan)
 
-## Problem Summary
+# MercadoLivreScraper class attributes7. [Key Discovery: The Block is Temporary](#key-discovery-the-block-is-temporary)
+
+_MAX_SEARCH_PAGES = 20           # Up to 20 pages (~1000 URLs)8. [Execution Plan: Gentle Rate-Limited Scraping](#execution-plan-gentle-rate-limited-scraping)
+
+_SEARCH_PAGE_DELAY = 15.0        # Seconds between search result pages9. [Current Implementation Status](#current-implementation-status)
+
+_PRODUCT_SCRAPE_DELAY = 10.0     # Seconds between product page scrapes
+
+_JITTER_FACTOR = 0.2             # ±20% randomness on all delays---
+
+_CONTEXT_ROTATION_INTERVAL = 5   # Fresh browser context every 5 requests
+
+_SHUFFLE_URLS = True             # Randomize URL scraping order## Problem Summary
+
+```
 
 The `MercadoLivreScraper` code is **fully functional** — selectors, pagination,
-product extraction all work correctly. The problem is **100% network-level**:
+
+### Validation Resultsproduct extraction all work correctly. The problem is **100% network-level**:
+
 Mercado Livre blocks our requests **before any page content is served**.
 
-- **Search pages** (`lista.mercadolivre.com.br/{term}`) → HTTP 302 redirect to
-  `account-verification` (login required)
-- **Product pages** (`mercadolivre.com.br/.../p/MLB...`) → same 302 redirect
-- **Homepage** (`www.mercadolivre.com.br/`) → HTTP 200 ✅ (only page that works)
-- **ML Public API** (`api.mercadolibre.com/sites/MLB/search`) → HTTP 403
+| Test | Products | Result | Time |
 
-ML's server returns the header `x-is-search-bot: true` — our IP is flagged as a
-bot at the **server level** before any JavaScript or browser fingerprinting runs.
+|------|----------|--------|------|- **Search pages** (`lista.mercadolivre.com.br/{term}`) → HTTP 302 redirect to
+
+| "kindle" (48 URLs) | 48/48 | ✅ Zero blocks | 11 min |  `account-verification` (login required)
+
+| "iphone 15" (492 URLs) | 492/492 | ✅ Zero blocks | 94 min |- **Product pages** (`mercadolivre.com.br/.../p/MLB...`) → same 302 redirect
+
+- **Homepage** (`www.mercadolivre.com.br/`) → HTTP 200 ✅ (only page that works)
+
+### Scaling Estimate- **ML Public API** (`api.mercadolibre.com/sites/MLB/search`) → HTTP 403
+
+
+
+- ~10s per product + 15s per search pageML's server returns the header `x-is-search-bot: true` — our IP is flagged as a
+
+- 1 search config with 500 products ≈ 90 minbot at the **server level** before any JavaScript or browser fingerprinting runs.
+
+- Multiple search configs run sequentially (same IP)
+
+---
 
 ---
 
 ## What We Tested
 
-### Test 1: Direct Playwright (current scraper)
-```
-URL:    https://lista.mercadolivre.com.br/kindle
-Result: 302 → account-verification (login page)
-Items:  0
-```
+## Dead Ends (Do Not Retry)
 
-### Test 2: Playwright with enhanced stealth scripts
-Injected: `navigator.webdriver`, `navigator.plugins`, `navigator.languages`,
+### Test 1: Direct Playwright (current scraper)
+
+| Approach | Result |```
+
+|----------|--------|URL:    https://lista.mercadolivre.com.br/kindle
+
+| Playwright stealth scripts | Block is server-side (HTTP 302 before JS runs) |Result: 302 → account-verification (login page)
+
+| Client Hints headers | Still flagged as bot |Items:  0
+
+| Homepage cookie warming | Cookies don't carry search permission |```
+
+| Tor network | Hard 403 — exit nodes are blocklisted |
+
+| ML Public API (authenticated) | 403 on search; prices not in response |### Test 2: Playwright with enhanced stealth scripts
+
+| Free SOCKS5 proxies | 0/50 worked against ML (datacenter IPs) |Injected: `navigator.webdriver`, `navigator.plugins`, `navigator.languages`,
+
 `window.chrome`, `permissions.query`, canvas fingerprint, WebGL vendor/renderer.
-```
+
+### What Would Make It Faster```
+
 Result: Same 302 → account-verification
-```
-**Conclusion:** Stealth scripts don't help — the block is server-side, not
-client-side fingerprinting.
+
+Paid residential proxies (~$20/month) would allow parallel scraping by```
+
+splitting URLs across multiple IPs. The proxy infrastructure is already**Conclusion:** Stealth scripts don't help — the block is server-side, not
+
+implemented (`_USE_PROXY`, `ProxyConfig`, `FreeProxyRotator`,client-side fingerprinting.
+
+`PaidProxyRotator`) — just needs `PROXY_ENABLED=true` + credentials.
 
 ### Test 3: Homepage first → search via search box
-Visited homepage (works), typed search term, pressed Enter.
-```
-Result: Still redirected to account-verification
-```
-**Conclusion:** Even human-like navigation flow doesn't help.
 
-### Test 4: curl with full Client Hints headers
-Sent all `Sec-CH-UA-*`, `Device-Memory`, `DPR`, `Viewport-Width`, `RTT`,
-`Downlink`, `ECT` headers matching a real Chrome browser.
+---Visited homepage (works), typed search term, pressed Enter.
+
 ```
-Result: HTTP 302, x-is-search-bot: true
+
+## Key FilesResult: Still redirected to account-verification
+
 ```
+
+| File | Purpose |**Conclusion:** Even human-like navigation flow doesn't help.
+
+|------|---------|
+
+| `src/scrapers/mercado_livre.py` | Scraper with rate-limiting |### Test 4: curl with full Client Hints headers
+
+| `src/scrapers/base/playwright_scraper.py` | Base class with proxy support |Sent all `Sec-CH-UA-*`, `Device-Memory`, `DPR`, `Viewport-Width`, `RTT`,
+
+| `src/config/proxy.py` | Paid proxy config |`Downlink`, `ECT` headers matching a real Chrome browser.
+
+| `src/config/proxy_rotator.py` | Proxy rotation (paid + free) |```
+
+| `src/config/free_proxy.py` | Free SOCKS5 proxy pool |Result: HTTP 302, x-is-search-bot: true
+
+| `src/tests/scrapers/test_mercado_livre.py` | ML scraper tests |```
+
 **Conclusion:** Missing Client Hints is not the trigger.
 
 ### Test 5: Homepage cookies + Referer

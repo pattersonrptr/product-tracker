@@ -1,65 +1,127 @@
-# 🏗️ Product Tracker — Monorepo Reorganization Plan
+# Product Tracker — Project Status# 🏗️ Product Tracker — Monorepo Reorganization Plan
 
-## Overview
 
-This document describes the plan to consolidate the **Product Tracker** project
+
+## Architecture (Completed)## Overview
+
+
+
+Monorepo with 3 independent services orchestrated by Docker Compose:This document describes the plan to consolidate the **Product Tracker** project
+
 into a single monorepo with three top-level service directories (`backend/`,
-`frontend/`, `scrapers/`) plus shared infrastructure at the root.
 
-Previously the backend and frontend lived in separate Git repositories
-(`product-tracker-backend` and `product-tracker-front`). The scraper workers
-were embedded inside the backend under `src/product_scrapers/`.
+````frontend/`, `scrapers/`) plus shared infrastructure at the root.
 
-### Goals
+product-tracker/
 
-1. **Single repository** — one `.git`, one CI pipeline, unified tooling.
-2. **Three independent services** — each with its own `Dockerfile`,
+├── backend/    → FastAPI + SQLAlchemy + Alembic + PostgreSQLPreviously the backend and frontend lived in separate Git repositories
+
+├── scrapers/   → Celery + Playwright + BeautifulSoup + Redis(`product-tracker-backend` and `product-tracker-front`). The scraper workers
+
+├── frontend/   → React 19 + Vite + MUI + TypeScriptwere embedded inside the backend under `src/product_scrapers/`.
+
+└── docker-compose.yml
+
+```### Goals
+
+
+
+**Key rule:** Scrapers communicate with the backend **exclusively via HTTP**1. **Single repository** — one `.git`, one CI pipeline, unified tooling.
+
+(no direct database access). All communication flows through the JSON:API.2. **Three independent services** — each with its own `Dockerfile`,
+
    dependencies, and README.
-3. **Decoupled scrapers** — the Celery workers communicate with the backend
+
+## Current Capabilities3. **Decoupled scrapers** — the Celery workers communicate with the backend
+
    exclusively via HTTP (no direct database imports).
-4. **Root-level orchestration** — a single `docker-compose.yml` that brings up
-   the entire stack (backend + scrapers + frontend + PostgreSQL + Redis).
-5. **Shared config at the root** — `.gitignore`, `.pre-commit-config.yaml`,
-   `.github/`, `Makefile`, and `.env.example`.
 
----
+### Backend (FastAPI)4. **Root-level orchestration** — a single `docker-compose.yml` that brings up
 
-## Target Directory Structure
+- JWT authentication with token refresh   the entire stack (backend + scrapers + frontend + PostgreSQL + Redis).
 
-```
-product-tracker/                  ← Git root
-├── .git/
-├── .github/
-│   └── workflows/
+- User roles (admin, staff, regular)5. **Shared config at the root** — `.gitignore`, `.pre-commit-config.yaml`,
+
+- CRUD for: Products, Price History, Source Websites, Search Configs, Search Execution Logs   `.github/`, `Makefile`, and `.env.example`.
+
+- JSON:API compliant responses
+
+- 486 tests passing---
+
+
+
+### Scrapers (Celery)## Target Directory Structure
+
+- 4 platforms: OLX, Mercado Livre, Enjoei, Estante Virtual
+
+- Celery Beat dynamic scheduler (syncs search configs from API)```
+
+- Playwright-based scraping (all 4 scrapers)product-tracker/                  ← Git root
+
+- ML rate-limiting: 15s search delay, 10s product delay, shuffle, context rotation├── .git/
+
+- Proxy infrastructure ready (paid + free rotation)├── .github/
+
+- 291 tests passing│   └── workflows/
+
 │       └── ci.yml                ← unified CI (backend + scrapers + frontend)
-├── .gitignore                    ← merged from both projects
-├── .pre-commit-config.yaml       ← adapted for monorepo paths
-├── .env.example                  ← combined env vars for all services
-├── docker-compose.yml            ← full-stack orchestration
-├── Makefile                      ← dev convenience commands
-├── README.md                     ← project overview
-├── LICENSE
+
+### Frontend (React)├── .gitignore                    ← merged from both projects
+
+- Product listing with pagination├── .pre-commit-config.yaml       ← adapted for monorepo paths
+
+- Price history charts (Recharts)├── .env.example                  ← combined env vars for all services
+
+- Search config management├── docker-compose.yml            ← full-stack orchestration
+
+- Source website management├── Makefile                      ← dev convenience commands
+
+- User management├── README.md                     ← project overview
+
+- JWT auth with interceptors├── LICENSE
+
 ├── PLAN.md                       ← this file
-│
-├── backend/                      ← FastAPI + SQLAlchemy + Alembic
-│   ├── Dockerfile
-│   ├── README.md
+
+## Infrastructure│
+
+- Docker Compose: web, scraper, celery-beat, flower, db, redis, frontend├── backend/                      ← FastAPI + SQLAlchemy + Alembic
+
+- GitHub Actions CI: lint + format + tests for all 3 services│   ├── Dockerfile
+
+- Pre-commit hooks configured│   ├── README.md
+
 │   ├── pyproject.toml            ← no scraper deps (bs4, cloudscraper, celery…)
-│   ├── poetry.lock
+
+## Quick Reference│   ├── poetry.lock
+
 │   ├── requirements.txt
-│   ├── alembic.ini
-│   ├── pytest.ini
-│   ├── start.sh
-│   ├── install_system_requirements.sh
-│   ├── alembic/
-│   └── src/
+
+```bash│   ├── alembic.ini
+
+make up          # Start all services│   ├── pytest.ini
+
+make down        # Stop everything│   ├── start.sh
+
+make test        # Run all tests│   ├── install_system_requirements.sh
+
+make lint        # Lint all services│   ├── alembic/
+
+```│   └── src/
+
 │       ├── __init__.py
-│       ├── main.py
-│       ├── app/                  ← domain, entities, use_cases, infra, interfaces
-│       ├── common/
-│       ├── config/
-│       ├── scripts/
-│       └── tests/                ← unit, integration, e2e (backend only)
+
+| Service  | URL                        |│       ├── main.py
+
+|----------|----------------------------|│       ├── app/                  ← domain, entities, use_cases, infra, interfaces
+
+| API      | http://localhost:8000       |│       ├── common/
+
+| Frontend | http://localhost            |│       ├── config/
+
+| Flower   | http://localhost:5555       |│       ├── scripts/
+
+| Swagger  | http://localhost:8000/docs  |│       └── tests/                ← unit, integration, e2e (backend only)
+
 │
 ├── scrapers/                     ← Celery workers + scraper engines
 │   ├── Dockerfile

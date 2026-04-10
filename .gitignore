@@ -81,9 +81,15 @@ pnpm-debug.log*
 *.db
 *.ipynb
 notes.txt
-scrapers/scraper_test_report.json
 .openclaude-profile.json
 .qwen/
+
+# ── Scrapers experiment/temp artifacts ───────────────────────────────────────
 scrapers/asyncio
 scrapers/logging
 scrapers/ml_experiment_results.json
+scrapers/scraper_test_report.json
+scrapers/ml_threshold_experiment.py
+scrapers/ml_ip_monitor.py
+scrapers/test_scrapers_live.py
+conversa*.txt

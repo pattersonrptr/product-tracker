@@ -1,13 +1,17 @@
-# 🛒 Product Tracker
+# 🏴‍☠️ Garimpei — Opportunity Hunter
 
-A price monitoring system that automatically tracks product prices across
-multiple Brazilian e-commerce platforms (OLX, Mercado Livre, Enjoei, Estante
-Virtual).
+> Development name: `product-tracker`
+
+A price monitoring and opportunity detection system for Brazilian marketplace
+resellers. Automatically tracks product prices across multiple e-commerce
+platforms (OLX, Mercado Livre, Enjoei, Estante Virtual), sends email alerts
+when products drop below target prices, and provides a dashboard to manage
+alerts and discover opportunities.
 
 | Service | Tech | Directory |
 |---|---|---|
 | **Backend** | FastAPI · SQLAlchemy · Alembic · PostgreSQL | [`backend/`](backend/README.md) |
-| **Scrapers** | Celery · BeautifulSoup · Cloudscraper · Redis | [`scrapers/`](scrapers/README.md) |
+| **Scrapers** | Celery · Playwright · BeautifulSoup · Redis | [`scrapers/`](scrapers/README.md) |
 | **Frontend** | React 19 · Vite · MUI · TypeScript | [`frontend/`](frontend/README.md) |
 
 ---
@@ -86,6 +90,9 @@ See the [`Makefile`](Makefile) for all available commands.
 - **Scrapers** are Celery workers that communicate with the backend
   exclusively via HTTP — no shared database access.
 - **Backend** owns the database and exposes all data through the API.
+- **Alert flow:** User creates PriceAlert → system schedules scraping →
+  scraper finds products → backend evaluates prices → sends email notification
+  if price ≤ target → user sees opportunity on dashboard.
 
 ---
 

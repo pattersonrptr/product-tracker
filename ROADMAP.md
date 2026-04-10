@@ -17,25 +17,32 @@
 - JWT auth with refresh tokens
 - Roles: admin, staff, regular
 - Full CRUD: Products, Price History, Source Websites, Search Configs, Execution Logs
+- **PriceAlert entity** with full CRUD (`/price-alerts`) — keyword + max price + source websites (#34)
+- **SearchConfig ↔ PriceAlert linking** — auto-create/reuse, orphan cleanup (#35)
+- **NotificationLog entity** + SendGrid email notifications with rate limiting (#36)
+- `GET /price-alerts/{id}/products` — products matching alert term + sources + max_price
 - JSON:API compliant
-- 486+ tests
+- 568+ tests
 
 ### ✅ Scrapers (Celery + Playwright)
 
 - 4 platforms: OLX, Mercado Livre, Enjoei, Estante Virtual
 - Celery Beat with dynamic scheduler (syncs configs via API)
+- **Post-scrape notification trigger** — `send_price_alert_notifications` task (#36)
 - ML rate-limiting validated (492/492, zero blocks)
 - Proxy infrastructure ready (paid + free rotation with fallback)
-- 291+ tests
+- 336+ tests
 
 ### ✅ Frontend (React 19 + Vite + MUI)
 
-- Product listing with pagination, filters, sorting
+- **Dashboard page** with Active Alerts, Recent Opportunities, Next Checks cards (#37)
+- **My Alerts page** — full PriceAlert CRUD with DataGrid, create/edit modal, pause/resume (#37)
+- Product listing with pagination, filters, sorting + **🎯 Opportunity tag** (#37)
 - Price history charts (Recharts)
-- Search config CRUD
-- Source website CRUD
-- User management
+- **Sidebar reorganized** — User section + Admin section with route guards (#37)
+- Search config CRUD, Source website CRUD, User management (admin routes)
 - JWT auth with interceptors
+- 61+ tests
 
 ### ✅ Infrastructure
 
@@ -45,14 +52,14 @@
 
 ### ❌ What Does NOT Exist Yet
 
-- "Price Alert" / "Watch" concept (keyword + max price → notification)
-- Notifications (email, push, WhatsApp)
-- Smart dashboard ("Your Searches" + "Opportunities")
-- Admin area
+- ~~"Price Alert" / "Watch" concept (keyword + max price → notification)~~ ✅ Done (#34)
+- ~~Notifications (email, push, WhatsApp)~~ ✅ Email done (#36); push/WhatsApp planned Phase 3
+- ~~Smart dashboard ("Your Searches" + "Opportunities")~~ ✅ Done (#37)
+- ~~Admin area~~ ✅ Basic admin routing done (#37); full admin dashboard planned Phase 2
 - More scrapers (Shopee, Amazon BR)
 - Landing page / onboarding
 - Freemium model (plans, limits)
-- Link between SearchConfig and results (currently disconnected entities)
+- ~~Link between SearchConfig and results (currently disconnected entities)~~ ✅ Done (#35)
 
 ---
 
@@ -95,14 +102,14 @@
 | **Alert Detail** | `/alerts/:id` | Products found by this alert, sorted by price | `DataGrid`, price chart from ProductDetailPage |
 | **Landing Page** | `/` | Public page explaining Garimpei (Phase 2) | Theme, MUI components |
 
-### 🆕 New Service Files Needed
+### ✅ New Service Files Created (Phase 1)
 
-| File | Purpose |
-|------|---------|
-| `services/priceAlertService.ts` | CRUD for `/price-alerts` endpoint |
-| `services/dashboardService.ts` | Fetch `GET /dashboard/summary` |
-| `types/priceAlert.ts` | `PriceAlert`, `PriceAlertCreatePayload`, `PriceAlertUpdatePayload` |
-| `hooks/useDashboardSummary.ts` | Fetch and cache dashboard data |
+| File | Purpose | Status |
+|------|---------|--------|
+| `services/priceAlertService.ts` | CRUD for `/price-alerts` endpoint | ✅ Done (#37) |
+| `services/dashboardService.ts` | Aggregate dashboard data client-side | ✅ Done (#37) |
+| `types/priceAlert.ts` | `PriceAlert`, `PriceAlertCreatePayload`, `PriceAlertUpdatePayload` | ✅ Done (#37) |
+| `hooks/useDashboardSummary.ts` | Fetch and cache dashboard data | ✅ Done (#37) |
 
 ### 📊 Effort Estimate
 
@@ -130,16 +137,18 @@
 
 ---
 
-## Phase 1 — Core "Opportunity Hunter" (4–5 weeks)
+## Phase 1 — Core "Opportunity Hunter" ✅ COMPLETE
 
 **Goal:** transform product-tracker into a product that delivers real value —
 alert when a product appears below the target price.
 
-### 1.1 — Price Alert / Watch (backend)
+> **All 5 sub-items completed** (PRs #41, #46, #50, #52 — Issues #34, #35, #36, #37)
 
-> **The core feature of Garimpei.**
+### 1.1 — Price Alert / Watch (backend) ✅
 
-- [ ] New entity `PriceAlert`
+> **The core feature of Garimpei.** — Completed in PR #41 (Issue #34)
+
+- [x] New entity `PriceAlert`
 
   ```text
   id, user_id, search_term, max_price, source_website_ids[],
@@ -147,59 +156,58 @@ alert when a product appears below the target price.
   created_at, updated_at
   ```
 
-- [ ] Relationship: `PriceAlert` 1↔N `Product` (products found by this alert)
-- [ ] Full CRUD: `POST/GET/PATCH/DELETE /price-alerts`
-- [ ] Use case: `EvaluatePriceAlertUseCase` — when a scraper saves a product with
+- [x] Relationship: `PriceAlert` 1↔N `Product` (products found by this alert)
+- [x] Full CRUD: `POST/GET/PATCH/DELETE /price-alerts`
+- [x] Use case: `EvaluatePriceAlertUseCase` — when a scraper saves a product with
   price ≤ max_price, mark as "opportunity" and fire notification
-- [ ] Alembic migration for new table
-- [ ] Unit + integration tests
+- [x] Alembic migration for new table
+- [x] Unit + integration tests (37 tests)
 
-### 1.2 — Link SearchConfig → PriceAlert
+### 1.2 — Link SearchConfig → PriceAlert ✅
 
-> Today SearchConfig is generic. It needs a clear link.
+> Today SearchConfig is generic. It needs a clear link. — Completed in PR #46 (Issue #35)
 
-- [ ] Each `PriceAlert` automatically creates/reuses a `SearchConfig`
+- [x] Each `PriceAlert` automatically creates/reuses a `SearchConfig`
   (matching `search_term` + `source_website_ids`)
-- [ ] When the scraper finds products, the system checks all active
+- [x] When the scraper finds products, the system checks all active
   `PriceAlerts` matching that search_term
-- [ ] Endpoint: `GET /price-alerts/{id}/products` — products found by
+- [x] Endpoint: `GET /price-alerts/{id}/products` — products found by
   that alert, sorted by price
 
-### 1.3 — Email Notifications
+### 1.3 — Email Notifications ✅
 
-> SendGrid free tier = 100 emails/day (enough for MVP).
+> SendGrid free tier = 100 emails/day (enough for MVP). — Completed in PR #50 (Issue #36)
 
-- [ ] Email service (`EmailNotificationService`)
-- [ ] Simple HTML template: "🎯 Opportunity! {product} for R${price} on {site}"
-- [ ] Celery task integration: `send_price_alert_notification`
-- [ ] Backend config: `SENDGRID_API_KEY`, `FROM_EMAIL`
-- [ ] Rate limiting: max 1 email per alert per hour (avoid spam)
-- [ ] Tests with SendGrid mock
+- [x] Email service (`SendGridEmailService` with `EmailServiceInterface` ABC)
+- [x] Simple HTML template: "🎯 Opportunity! {product} for R${price} on {site}"
+- [x] Celery task integration: `send_price_alert_notifications`
+- [x] Backend config: `SENDGRID_API_KEY`, `NOTIFICATION_FROM_EMAIL`
+- [x] Rate limiting: max 1 email per alert per hour (configurable via `NOTIFICATION_RATE_LIMIT_MINUTES`)
+- [x] Tests with SendGrid mock (28 unit tests for notification use cases)
 
-### 1.4 — "My Opportunities" Dashboard (frontend)
+### 1.4 — "My Opportunities" Dashboard (frontend) ✅
 
-> Replace the dumb listing with something that delivers value.
+> Replace the dumb listing with something that delivers value. — Completed in PR #52 (Issue #37)
 
-- [ ] New page: **Dashboard** (`/dashboard`) — landing page after login
+- [x] New page: **Dashboard** (`/dashboard`) — landing page after login
   - "Active Alerts" card with count and quick link
   - "Recent Opportunities" card (latest products below target price)
   - "Next Checks" card (when each alert is scheduled to run)
-- [ ] New page: **My Alerts** (`/alerts`)
+- [x] New page: **My Alerts** (`/alerts`)
   - Price Alert CRUD (create/edit/pause/delete)
   - Form: keyword + max price + select sources
   - Status: active/paused, last check, products found
-- [ ] Update `/products` to show "🎯 Opportunity" tag when price ≤ alert threshold
-- [ ] Keep `/products/:id` with price chart (already exists)
+- [x] Update `/products` to show "🎯 Opportunity" tag when price ≤ alert threshold
+- [x] Keep `/products/:id` with price chart (already exists)
 
-### 1.5 — Refine the Scraper Flow
+### 1.5 — Refine the Scraper Flow ✅
 
-> The scraper needs to "close the loop" with alerts.
+> The scraper needs to "close the loop" with alerts. — Completed as part of #36
 
-- [ ] After `save_product` in the scraper, call new endpoint:
-  `POST /products/{id}/evaluate-alerts` (or the backend does it automatically
-  on product create/update)
-- [ ] Backend checks if any active PriceAlert matches that product
-- [ ] If yes: mark product as opportunity + enqueue email
+- [x] After `save_product` in the scraper, call new endpoint:
+  `POST /price-alerts/{id}/notify` (backend evaluates and sends notifications)
+- [x] Backend checks if any active PriceAlert matches that product
+- [x] If yes: mark product as opportunity + enqueue email via Celery task
 
 ---
 
@@ -312,7 +320,7 @@ Assumptions: ~10h/week, with AI accelerating development.
 
 | Phase | Duration | Outcome |
 |-------|----------|---------|
-| **Phase 1** — Core | 4–5 weeks | Working product: alerts + email + dashboard |
+| **Phase 1** — Core | ~~4–5 weeks~~ ✅ **Complete** | Working product: alerts + email + dashboard |
 | **Phase 2** — Polish | 5–6 weeks | Presentable product: landing, admin, +scrapers |
 | **Phase 3** — Launch | 3–4 weeks | Live with freemium and first users |
 | **Phase 4** — Growth | Ongoing | Evolution based on feedback |

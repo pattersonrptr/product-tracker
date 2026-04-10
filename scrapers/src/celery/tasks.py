@@ -1,6 +1,6 @@
 import logging
 import os
-import time
+import random
 from datetime import datetime, timedelta
 
 import requests
@@ -166,28 +166,28 @@ def scrape_batch(
     This avoids the memory cost of launching a separate Chromium process
     for every single URL (the old ``scrape_product_page`` approach).
 
-    A configurable delay (``SCRAPE_BATCH_DELAY``, default 3 s) is
-    applied between requests to stay under rate-limit thresholds on
-    aggressive anti-bot sites like Mercado Livre.
+    Rate-limiting is handled by each scraper internally (e.g.
+    ``MercadoLivreScraper`` applies its own delays between requests).
     """
     scraper_instance = ScraperFactory().create_scraper(scraper_name)
     scraper = ScraperManager(scraper_instance)
     results = []
-    batch_delay = float(os.getenv("SCRAPE_BATCH_DELAY", "3"))
+
+    # Shuffle URLs if the scraper requests it (anti-sequential pattern
+    # to avoid behavioural detection — e.g. MercadoLivreScraper).
+    if getattr(scraper_instance, "_SHUFFLE_URLS", False):
+        urls = list(urls)  # copy so we don't mutate the original
+        random.shuffle(urls)
+        logger.info("🔀 URLs shuffled for %s (%d URLs)", scraper_name, len(urls))
 
     try:
-        for idx, url in enumerate(urls):
+        for url in urls:
             try:
                 product_data = scraper.scrape_product(url)
                 results.append({"status": "success", "data": product_data})
             except Exception as e:
                 logger.warning("Failed to scrape %s: %s", url, e)
                 results.append({"status": "error", "url": url, "message": str(e)})
-
-            # Throttle between requests to avoid triggering anti-bot
-            # detection.  Skip delay after the last URL.
-            if idx < len(urls) - 1 and batch_delay > 0:
-                time.sleep(batch_delay)
     finally:
         # Ensure browser is closed and loop is torn down after the batch
         if hasattr(scraper_instance, "stop_sync"):

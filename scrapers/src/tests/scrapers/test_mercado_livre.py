@@ -837,3 +837,123 @@ async def test_search_detects_block_via_url(scraper):
         pytest.raises(_ProxyBlockedError),
     ):
         await scraper._search_with_current_proxy("livros", max_pages=1)
+
+
+# ---------------------------------------------------------------------------
+# Rate-limiting / anti-detection
+# ---------------------------------------------------------------------------
+
+
+def test_search_caps_max_pages(scraper):
+    """search() should silently cap max_pages to _MAX_SEARCH_PAGES."""
+    with patch.object(scraper, "_run_async", return_value=["url1"]) as mock_run:
+        scraper.search("kindle", max_pages=50)
+
+    # _run_async was called (search didn't crash)
+    assert mock_run.call_count == 1
+    # The scraper attribute ensures the cap:
+    assert scraper._MAX_SEARCH_PAGES == 20
+
+
+def test_max_search_pages(scraper):
+    """_MAX_SEARCH_PAGES should be 20 (validated: 11 pages, 492 URLs, zero blocks)."""
+    assert scraper._MAX_SEARCH_PAGES == 20
+
+
+def test_search_page_delay_configured(scraper):
+    """Search page delay should be 15s (validated: 11 pages with zero blocks)."""
+    assert scraper._SEARCH_PAGE_DELAY == 15.0
+
+
+def test_product_scrape_delay_configured(scraper):
+    """Rate-limiting delay should be set to 10s (experiment-validated)."""
+    assert scraper._PRODUCT_SCRAPE_DELAY == 10.0
+
+
+def test_context_rotation_interval(scraper):
+    """Context rotation every 5 requests (experiment-validated)."""
+    assert scraper._CONTEXT_ROTATION_INTERVAL == 5
+
+
+def test_shuffle_urls_enabled(scraper):
+    """URL shuffling should be enabled for anti-sequential detection."""
+    assert scraper._SHUFFLE_URLS is True
+
+
+def test_jitter_factor(scraper):
+    """Jitter factor should be 20%."""
+    assert scraper._JITTER_FACTOR == 0.2
+
+
+def test_jittered_delay_within_range(scraper):
+    """_jittered_delay should return a value within ±JITTER_FACTOR of base."""
+    base = 10.0
+    results = [scraper._jittered_delay(base) for _ in range(100)]
+    min_expected = base * (1 - scraper._JITTER_FACTOR)
+    max_expected = base * (1 + scraper._JITTER_FACTOR)
+    for r in results:
+        assert (
+            min_expected <= r <= max_expected
+        ), f"{r} not in [{min_expected}, {max_expected}]"
+
+
+@pytest.mark.asyncio
+async def test_scrape_data_async_applies_delay_after_first(scraper):
+    """_scrape_data_async should apply delay starting from the 2nd call."""
+    scraper._scrape_count = 1  # simulate previous scrape
+
+    async def fake_scrape(url):
+        return {"url": url, "title": "OK"}
+
+    with (
+        patch.object(scraper, "_scrape_with_current_proxy", side_effect=fake_scrape),
+        patch(
+            "src.scrapers.mercado_livre.asyncio.sleep", new_callable=AsyncMock
+        ) as mock_sleep,
+    ):
+        await scraper._scrape_data_async("https://ml.com/p/MLB1")
+
+    # Should have slept once (the rate-limit delay)
+    assert mock_sleep.call_count == 1
+    delay_arg = mock_sleep.call_args[0][0]
+    # Delay should be within jitter range of _PRODUCT_SCRAPE_DELAY
+    assert 8.0 <= delay_arg <= 12.0
+
+
+@pytest.mark.asyncio
+async def test_scrape_data_async_no_delay_on_first(scraper):
+    """_scrape_data_async should NOT delay on the very first scrape."""
+    scraper._scrape_count = 0  # first scrape
+
+    async def fake_scrape(url):
+        return {"url": url, "title": "OK"}
+
+    with (
+        patch.object(scraper, "_scrape_with_current_proxy", side_effect=fake_scrape),
+        patch(
+            "src.scrapers.mercado_livre.asyncio.sleep", new_callable=AsyncMock
+        ) as mock_sleep,
+    ):
+        await scraper._scrape_data_async("https://ml.com/p/MLB1")
+
+    # No sleep on first request
+    mock_sleep.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_scrape_count_increments(scraper):
+    """_scrape_count should increment with each _scrape_data_async call."""
+    scraper._scrape_count = 0
+
+    async def fake_scrape(url):
+        return {"url": url, "title": "OK"}
+
+    with (
+        patch.object(scraper, "_scrape_with_current_proxy", side_effect=fake_scrape),
+        patch("src.scrapers.mercado_livre.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        await scraper._scrape_data_async("https://ml.com/p/MLB1")
+        await scraper._scrape_data_async("https://ml.com/p/MLB2")
+        await scraper._scrape_data_async("https://ml.com/p/MLB3")
+
+    assert scraper._scrape_count == 3

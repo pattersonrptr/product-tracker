@@ -37,6 +37,10 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-7s | %(message)s",
     datefmt="%H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("ml_experiment_latest.log", mode="w"),
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -107,10 +111,11 @@ async def check_ip_status():
 # Test A: Search pages (pagination)
 # ------------------------------------------------------------------
 
-async def test_search_pages(delay: float, max_pages: int = 20):
+async def test_search_pages(delay: float, max_pages: int = 20, term: str = "kindle"):
     """Load successive search result pages with a delay between each."""
     results = {
         "test": "search_pages",
+        "term": term,
         "delay_seconds": delay,
         "pages_loaded": 0,
         "total_links": 0,
@@ -130,9 +135,9 @@ async def test_search_pages(delay: float, max_pages: int = 20):
         for page_num in range(1, max_pages + 1):
             offset = all_links
             if offset == 0:
-                url = "https://lista.mercadolivre.com.br/kindle"
+                url = f"https://lista.mercadolivre.com.br/{term}"
             else:
-                url = f"https://lista.mercadolivre.com.br/kindle_Desde_{offset + 1}_NoIndex_True"
+                url = f"https://lista.mercadolivre.com.br/{term}_Desde_{offset + 1}_NoIndex_True"
 
             logger.info(
                 "Search page %d (delay=%.1fs, total_links=%d) → %s",
@@ -194,6 +199,7 @@ async def test_product_pages(
     max_products: int = 50,
     shuffle: bool = False,
     rotate_every: int = 0,
+    term: str = "kindle",
 ):
     """Scrape product pages one by one with configurable strategies.
 
@@ -218,6 +224,7 @@ async def test_product_pages(
 
     results = {
         "test": "product_pages",
+        "term": term,
         "strategy": strategy_label,
         "delay_seconds": delay,
         "shuffle": shuffle,
@@ -235,57 +242,94 @@ async def test_product_pages(
         browser = await pw.chromium.launch(headless=True)
 
         # ----------------------------------------------------------
-        # Step 1: Collect product URLs from search (1 page)
-        # This is the FIRST request — ML usually allows it.
+        # Step 1: Collect product URLs from search (ALL pages)
+        # Uses 15s delay between search pages (proven safe).
         # ----------------------------------------------------------
+        SEARCH_PAGE_DELAY = 15.0
         ctx = await create_context(browser)
         page = await ctx.new_page()
         page.set_default_timeout(20_000)
 
-        logger.info("Collecting product URLs from search (1st request)...")
-        try:
-            await page.goto(
-                "https://lista.mercadolivre.com.br/kindle",
-                wait_until="domcontentloaded",
+        urls: list[str] = []
+        search_page = 0
+
+        while True:
+            search_page += 1
+            offset = len(urls)
+            if offset == 0:
+                search_url = f"https://lista.mercadolivre.com.br/{term}"
+            else:
+                search_url = f"https://lista.mercadolivre.com.br/{term}_Desde_{offset + 1}_NoIndex_True"
+
+            logger.info(
+                "Search page %d (collected %d URLs so far) → %s",
+                search_page, len(urls), search_url[:80],
             )
-        except Exception as e:
-            logger.warning("Search page failed to load: %s", e)
-            results["blocked_at"] = 0
-            results["error"] = str(e)
-            await ctx.close()
-            await browser.close()
-            results["elapsed_seconds"] = round(time.time() - t0, 1)
-            return results
 
-        if is_blocked(page.url):
-            logger.warning("🔴 BLOCKED on search page — IP is still flagged.")
-            results["blocked_at"] = 0
-            results["error"] = "Blocked on search page"
-            await ctx.close()
-            await browser.close()
-            results["elapsed_seconds"] = round(time.time() - t0, 1)
-            return results
+            try:
+                await page.goto(search_url, wait_until="domcontentloaded")
+            except Exception as e:
+                logger.warning("Search page %d failed to load: %s", search_page, e)
+                if not urls:
+                    results["blocked_at"] = 0
+                    results["error"] = str(e)
+                    await ctx.close()
+                    await browser.close()
+                    results["elapsed_seconds"] = round(time.time() - t0, 1)
+                    return results
+                break
 
-        try:
-            await page.wait_for_selector(".ui-search-layout__item", timeout=10_000)
-        except Exception:
-            logger.warning("Search items did not render")
-            await ctx.close()
-            await browser.close()
-            results["elapsed_seconds"] = round(time.time() - t0, 1)
-            return results
+            if is_blocked(page.url):
+                if not urls:
+                    logger.warning("🔴 BLOCKED on search page 1 — IP is still flagged.")
+                    results["blocked_at"] = 0
+                    results["error"] = "Blocked on search page"
+                    await ctx.close()
+                    await browser.close()
+                    results["elapsed_seconds"] = round(time.time() - t0, 1)
+                    return results
+                logger.warning("🔴 BLOCKED on search page %d — stopping search, will scrape %d URLs collected so far", search_page, len(urls))
+                break
 
-        link_elements = await page.query_selector_all(".poly-component__title")
-        urls = []
-        for el in link_elements:
-            href = await el.get_attribute("href")
-            if href and "click1.mercadolivre" not in href:
-                urls.append(href)
+            try:
+                await page.wait_for_selector(".ui-search-layout__item", timeout=10_000)
+            except Exception:
+                logger.info("No items rendered on search page %d — end of results", search_page)
+                break
+
+            link_elements = await page.query_selector_all(".poly-component__title")
+            page_urls = []
+            for el in link_elements:
+                href = await el.get_attribute("href")
+                if href and "click1.mercadolivre" not in href:
+                    page_urls.append(href)
+
+            if not page_urls:
+                logger.info("No links on search page %d — end of results", search_page)
+                break
+
+            urls.extend(page_urls)
+            logger.info("  ✅ Search page %d: %d URLs (total: %d)", search_page, len(page_urls), len(urls))
+
+            # Check if we already have enough
+            if max_products > 0 and len(urls) >= max_products:
+                logger.info("Reached max_products (%d) — stopping search", max_products)
+                break
+
+            # Check for next page
+            next_btn = await page.query_selector("a.andes-pagination__link[title='Seguinte']")
+            if not next_btn:
+                logger.info("No next page button — end of results")
+                break
+
+            # Delay between search pages
+            await asyncio.sleep(SEARCH_PAGE_DELAY)
 
         await ctx.close()
         results["search_time"] = round(time.time() - t0, 1)
         results["urls_collected"] = len(urls)
-        logger.info("Collected %d product URLs in %.1fs", len(urls), results["search_time"])
+        results["search_pages"] = search_page
+        logger.info("Collected %d product URLs from %d search pages in %.1fs", len(urls), search_page, results["search_time"])
 
         if not urls:
             logger.warning("No URLs collected — cannot test product pages")
@@ -294,7 +338,8 @@ async def test_product_pages(
             return results
 
         # Trim to max
-        urls = urls[:max_products]
+        if max_products > 0:
+            urls = urls[:max_products]
 
         # ----------------------------------------------------------
         # Step 2: Apply strategies
@@ -445,12 +490,16 @@ Examples:
         help="Create new browser context every N product requests (0=never)",
     )
     parser.add_argument(
-        "--max-products", type=int, default=50,
-        help="Max product pages to scrape (default: 50)",
+        "--max-products", type=int, default=0,
+        help="Max product pages to scrape (default: 0 = no limit)",
     )
     parser.add_argument(
         "--max-search-pages", type=int, default=20,
         help="Max search pages to load (default: 20)",
+    )
+    parser.add_argument(
+        "--term", type=str, default="kindle",
+        help="Search term to use (default: kindle)",
     )
     args = parser.parse_args()
 
@@ -464,6 +513,7 @@ Examples:
     print("║    ML RATE-LIMIT THRESHOLD EXPERIMENT v2                ║")
     print("╠══════════════════════════════════════════════════════════╣")
     print(f"║  Test:     {args.test:<46s}║")
+    print(f"║  Term:     {args.term:<46s}║")
     print(f"║  Delay:    {args.delay}s{' ' * (44 - len(str(args.delay)))}║")
     print(f"║  Shuffle:  {str(args.shuffle):<46s}║")
     print(f"║  Rotate:   every {args.rotate} reqs{' ' * (37 - len(str(args.rotate)))}║")
@@ -474,7 +524,7 @@ Examples:
 
     if args.test in ("search", "both"):
         result = await test_search_pages(
-            delay=args.delay, max_pages=args.max_search_pages,
+            delay=args.delay, max_pages=args.max_search_pages, term=args.term,
         )
         print_result(result)
         all_results.append(result)
@@ -496,6 +546,7 @@ Examples:
             max_products=args.max_products,
             shuffle=args.shuffle,
             rotate_every=args.rotate,
+            term=args.term,
         )
         print_result(result)
         all_results.append(result)

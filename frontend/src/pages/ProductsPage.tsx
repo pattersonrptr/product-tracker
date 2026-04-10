@@ -27,17 +27,20 @@ import {
   type GridPaginationModel,
   type GridRowSelectionModel,
 } from '@mui/x-data-grid'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog'
 import { GenericFormModal } from '@/components/common/GenericFormModal'
 import { PageHeader } from '@/components/common/PageHeader'
+import { useAuth } from '@/context/AuthContext'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
 import { formatCurrency } from '@/lib/formatters'
 import { logger } from '@/lib/logger'
 import { deleteProduct, getProducts, updateProduct } from '@/services/productService'
+import { getPriceAlertsByUser } from '@/services/priceAlertService'
 import type { Product, ProductCondition, ProductUpdatePayload } from '@/types/product'
+import type { PriceAlert } from '@/types/priceAlert'
 
 // ---------------------------------------------------------------------------
 // Filter state
@@ -73,6 +76,7 @@ const CONDITIONS: ProductCondition[] = ['new', 'used', 'refurbished', 'undetermi
 export function ProductsPage() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
+  const { userId } = useAuth()
 
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
@@ -85,6 +89,9 @@ export function ProductsPage() {
     type: 'include',
     ids: new Set(),
   })
+
+  // Active price alerts for opportunity tagging
+  const [activeAlerts, setActiveAlerts] = useState<PriceAlert[]>([])
 
   // Single delete
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -102,6 +109,17 @@ export function ProductsPage() {
     sellerName: '',
   })
   const [saving, setSaving] = useState(false)
+
+  // ---------------------------------------------------------------------------
+  // Load active price alerts for opportunity tagging
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (userId == null) return
+    getPriceAlertsByUser(userId)
+      .then((alerts) => setActiveAlerts(alerts.filter((a) => a.isActive)))
+      .catch((err) => logger.error('Failed to load price alerts', {}, err))
+  }, [userId])
 
   // ---------------------------------------------------------------------------
   // Data fetching
@@ -216,7 +234,29 @@ export function ProductsPage() {
   // ---------------------------------------------------------------------------
 
   const columns: GridColDef<Product>[] = [
-    { field: 'title', headerName: 'Title', flex: 2, minWidth: 200 },
+    {
+      field: 'title',
+      headerName: 'Title',
+      flex: 2,
+      minWidth: 200,
+      renderCell: ({ row }) => {
+        const isOpportunity =
+          row.currentPrice != null &&
+          activeAlerts.some(
+            (a) =>
+              row.currentPrice! <= a.maxPrice &&
+              row.title.toLowerCase().includes(a.searchTerm.toLowerCase()),
+          )
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <span>{row.title}</span>
+            {isOpportunity && (
+              <Chip label="🎯 Opportunity" color="success" size="small" />
+            )}
+          </Box>
+        )
+      },
+    },
     {
       field: 'currentPrice',
       headerName: 'Current Price',

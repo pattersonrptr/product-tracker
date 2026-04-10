@@ -6,6 +6,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useAuth } from '@/context/AuthContext'
+import { AlertsPage } from '@/pages/AlertsPage'
+import { DashboardPage } from '@/pages/DashboardPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ProductDetailPage } from '@/pages/ProductDetailPage'
@@ -20,6 +22,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
 }
 
+/** Wraps admin-only routes — redirects to /dashboard if not staff/superuser. */
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { isStaff, isSuperuser } = useAuth()
+  return isStaff || isSuperuser ? <>{children}</> : <Navigate to="/dashboard" replace />
+}
+
 export function AppRouter() {
   const { isAuthenticated } = useAuth()
 
@@ -29,13 +37,13 @@ export function AppRouter() {
       <Route
         path="/login"
         element={
-          isAuthenticated ? <Navigate to="/products" replace /> : <LoginPage />
+          isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
         }
       />
       <Route
         path="/register"
         element={
-          isAuthenticated ? <Navigate to="/products" replace /> : <RegisterPage />
+          isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />
         }
       />
 
@@ -47,16 +55,49 @@ export function AppRouter() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to="/products" replace />} />
+        {/* Default redirect → dashboard */}
+        <Route index element={<Navigate to="/dashboard" replace />} />
+
+        {/* User section */}
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/:id" element={<ProductDetailPage />} />
-        <Route path="/search-configs" element={<SearchConfigsPage />} />
-        <Route path="/source-websites" element={<SourceWebsitesPage />} />
-        <Route path="/users" element={<UsersPage />} />
+
+        {/* Admin section */}
+        <Route
+          path="/admin/users"
+          element={
+            <RequireAdmin>
+              <UsersPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/search-configs"
+          element={
+            <RequireAdmin>
+              <SearchConfigsPage />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/source-websites"
+          element={
+            <RequireAdmin>
+              <SourceWebsitesPage />
+            </RequireAdmin>
+          }
+        />
+
+        {/* Legacy redirects — old paths → new admin paths */}
+        <Route path="/search-configs" element={<Navigate to="/admin/search-configs" replace />} />
+        <Route path="/source-websites" element={<Navigate to="/admin/source-websites" replace />} />
+        <Route path="/users" element={<Navigate to="/admin/users" replace />} />
       </Route>
 
       {/* Catch-all */}
-      <Route path="*" element={<Navigate to="/products" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }

@@ -3,16 +3,20 @@
  */
 
 import CategoryIcon from '@mui/icons-material/Category'
-import HomeIcon from '@mui/icons-material/Home'
+import DashboardIcon from '@mui/icons-material/Dashboard'
 import ManageSearchIcon from '@mui/icons-material/ManageSearch'
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import PeopleIcon from '@mui/icons-material/People'
 import PublicIcon from '@mui/icons-material/Public'
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
+import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
 import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Tooltip from '@mui/material/Tooltip'
+import Typography from '@mui/material/Typography'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
@@ -23,14 +27,18 @@ interface SidebarProps {
   open: boolean
 }
 
-const NAV_ITEMS = [
-  { label: 'Products', path: '/products', icon: <HomeIcon /> },
-  { label: 'Search Configs', path: '/search-configs', icon: <ManageSearchIcon /> },
-  { label: 'Source Websites', path: '/source-websites', icon: <PublicIcon /> },
+/** User-facing nav items */
+const USER_ITEMS = [
+  { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
+  { label: 'My Alerts', path: '/alerts', icon: <NotificationsActiveIcon /> },
+  { label: 'Products', path: '/products', icon: <ShoppingCartIcon /> },
 ] as const
 
+/** Admin-only nav items */
 const ADMIN_ITEMS = [
-  { label: 'Users', path: '/users', icon: <PeopleIcon /> },
+  { label: 'Users', path: '/admin/users', icon: <PeopleIcon /> },
+  { label: 'Search Configs', path: '/admin/search-configs', icon: <ManageSearchIcon /> },
+  { label: 'Source Websites', path: '/admin/source-websites', icon: <PublicIcon /> },
 ] as const
 
 export function Sidebar({ open }: SidebarProps) {
@@ -38,10 +46,10 @@ export function Sidebar({ open }: SidebarProps) {
   const location = useLocation()
   const { isStaff, isSuperuser } = useAuth()
   const width = open ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED
-  const canManageUsers = isStaff || isSuperuser
+  const canViewAdmin = isStaff || isSuperuser
 
   function renderItem(label: string, path: string, icon: React.ReactNode) {
-    const active = location.pathname.startsWith(path)
+    const active = location.pathname === path || location.pathname.startsWith(path + '/')
     return (
       <Tooltip key={path} title={open ? '' : label} placement="right">
         <ListItemButton
@@ -80,25 +88,40 @@ export function Sidebar({ open }: SidebarProps) {
         },
       }}
     >
+      {/* User section */}
       <List>
-        {NAV_ITEMS.map(({ label, path, icon }) => renderItem(label, path, icon))}
+        {USER_ITEMS.map(({ label, path, icon }) => renderItem(label, path, icon))}
       </List>
 
-      {canManageUsers && (
-        <List sx={{ position: 'absolute', bottom: 8, width: '100%' }}>
-          {ADMIN_ITEMS.map(({ label, path, icon }) => renderItem(label, path, icon))}
-          <Tooltip title={open ? '' : 'Admin'} placement="right">
-            <ListItemButton
-              onClick={() => navigate('/admin')}
-              sx={{ justifyContent: open ? 'initial' : 'center', px: 2 }}
+      {/* Admin section */}
+      {canViewAdmin && (
+        <>
+          <Divider />
+          {open && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ px: 2, pt: 1, display: 'block' }}
             >
-              <ListItemIcon sx={{ minWidth: 0, mr: open ? 2 : 'auto', justifyContent: 'center' }}>
-                <CategoryIcon />
-              </ListItemIcon>
-              {open && <ListItemText primary="Admin" />}
-            </ListItemButton>
-          </Tooltip>
-        </List>
+              Admin
+            </Typography>
+          )}
+          {!open && (
+            <Tooltip title="Admin" placement="right">
+              <ListItemButton
+                sx={{ justifyContent: 'center', px: 2 }}
+                onClick={() => navigate('/admin/users')}
+              >
+                <ListItemIcon sx={{ minWidth: 0, justifyContent: 'center' }}>
+                  <CategoryIcon />
+                </ListItemIcon>
+              </ListItemButton>
+            </Tooltip>
+          )}
+          <List>
+            {ADMIN_ITEMS.map(({ label, path, icon }) => renderItem(label, path, icon))}
+          </List>
+        </>
       )}
     </Drawer>
   )

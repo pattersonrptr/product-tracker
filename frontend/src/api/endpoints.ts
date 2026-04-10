@@ -40,4 +40,10 @@ export const ENDPOINTS = {
     list: `${BASE}/source-websites/`,
     byId: (id: string) => `${BASE}/source-websites/${id}`,
   },
+  priceAlerts: {
+    list: `${BASE}/price-alerts/`,
+    byId: (id: string) => `${BASE}/price-alerts/${id}`,
+    byUser: (userId: number) => `${BASE}/price-alerts/user/${userId}`,
+    products: (id: string) => `${BASE}/price-alerts/${id}/products`,
+  },
 } as const

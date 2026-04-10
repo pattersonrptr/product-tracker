@@ -5,6 +5,9 @@ HTTP Controllers (Adapters for HTTP requests/responses).
 from src.app.interfaces.http.controllers.auth_controller import (
     auth_router as auth_controller,
 )
+from src.app.interfaces.http.controllers.price_alert_controller import (
+    router as price_alert_controller,
+)
 from src.app.interfaces.http.controllers.price_history_controller import (
     router as price_history_controller,
 )
@@ -30,6 +33,7 @@ __all__ = [
     "product_controller",
     "source_website_controller",
     "price_history_controller",
+    "price_alert_controller",
     "search_config_controller",
     "search_execution_log_controller",
 ]

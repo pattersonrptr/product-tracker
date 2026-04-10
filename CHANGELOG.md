@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **PriceAlert entity + full CRUD** (#34): domain entity, SQLAlchemy model, M2M association table (alert↔source_websites), repository interface + implementation, use cases (Create, GetById, GetByUserId, List, Update, Delete), JSON:API schemas, presenter, validator, controller with all REST endpoints (`/price-alerts`)
+- Alembic migration for `price_alerts` and `price_alert_source_website` tables
+- 37 unit tests (use cases, presenter, validator)
 - Product roadmap for Garimpei — `ROADMAP.md` with 4 phases
 - Frontend assessment documenting keep-and-evolve strategy
 - GitHub milestones (Phase 1–3) and issues (#34–#46) with checklists

@@ -28,26 +28,34 @@ product-tracker/
 - JWT authentication with token refresh
 - User roles (admin, staff, regular)
 - CRUD for: Products, Price History, Source Websites, Search Configs, Search Execution Logs
+- **PriceAlert CRUD** (`/price-alerts`) — keyword + max price + source websites, M2M association
+- **SearchConfig ↔ PriceAlert linking** — auto-create/reuse on alert creation, orphan cleanup
+- **NotificationLog + SendGrid email notifications** — rate-limited (1/alert/hour), HTML templates
+- `GET /price-alerts/{id}/products` — products matching alert term + sources + max_price
+- `POST /price-alerts/{id}/notify` — trigger notification check for a specific alert
 - JSON:API compliant responses
-- 486+ tests passing
+- 568+ tests passing
 
 ### Scrapers (Celery)
 
 - 4 platforms: OLX, Mercado Livre, Enjoei, Estante Virtual
 - Celery Beat dynamic scheduler (syncs search configs from API)
 - Playwright-based scraping (all 4 scrapers)
+- **Post-scrape notification trigger** — `send_price_alert_notifications` Celery task
 - ML rate-limiting: 15s search delay, 10s product delay, shuffle, context rotation
 - Proxy infrastructure ready (paid + free rotation with fallback)
-- 291+ tests passing
+- 336+ tests passing
 
 ### Frontend (React)
 
-- Product listing with pagination, sorting, filters
+- **Dashboard page** (`/dashboard`) — Active Alerts, Recent Opportunities, Next Checks cards
+- **My Alerts page** (`/alerts`) — PriceAlert CRUD with DataGrid, create/edit modal, pause/resume
+- Product listing with pagination, sorting, filters + **🎯 Opportunity tag**
 - Price history charts (Recharts)
-- Search config management (CRUD)
-- Source website management
-- User management
+- **Sidebar reorganized** — User section + Admin section with RequireAdmin route guard
+- Search config management (admin), Source website management (admin), User management (admin)
 - JWT auth with interceptors
+- 61+ tests passing
 
 ### Infrastructure
 
@@ -82,4 +90,6 @@ make lint        # Lint all services
 
 See **[ROADMAP.md](./ROADMAP.md)** for the full Garimpei product roadmap.
 
-**Immediate priority:** Fase 1 — Price Alerts + Email Notifications + Dashboard.
+**Phase 1 — Core is COMPLETE** ✅ (Issues #34, #35, #36, #37)
+
+**Next priority:** Phase 2 — Polish (landing page, new scrapers, admin dashboard).

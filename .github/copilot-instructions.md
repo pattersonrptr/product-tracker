@@ -91,3 +91,17 @@ to the versioned section.
 - Reference issues in PR body: `Closes #34`
 - Milestones: Phase 1 — Core, Phase 2 — Polish, Phase 3 — Launch
 - Labels: `backend`, `frontend`, `scrapers`, `infra`, `enhancement`, `bug`
+
+## Mandatory Post-Merge Documentation Updates
+
+**After every issue is merged to `main`, the following docs MUST be updated
+before considering the issue done:**
+
+1. **`CHANGELOG.md`** — add entries to `[Unreleased]` section (Added/Changed/Fixed/Removed)
+2. **`ROADMAP.md`** — check off completed items (`- [x]`), update phase status, mark sections as ✅ when all sub-items are done
+3. **`PLAN.md`** — update "Current Capabilities" section with new features, update test counts, update "Next Steps"
+4. **`README.md`** — update if the change affects the project description, architecture, or Quick Start
+
+**This is NOT optional.** Outdated docs create confusion and waste time.
+Include these updates in the same PR as the feature, or in a follow-up
+`docs:` commit immediately after merge.

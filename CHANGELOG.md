@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Dashboard + Alerts pages** (#37): user-facing frontend with dashboard summary and full PriceAlert CRUD
+- `DashboardPage` with 3 summary cards — Active Alerts, Recent Opportunities, Next Checks
+- `AlertsPage` with MUI DataGrid, create/edit modal, pause/resume toggle, single + bulk delete
+- `priceAlertService` — full CRUD service for price alerts with JSON:API snake↔camelCase conversion
+- `dashboardService` — client-side aggregation of alerts + matching products for dashboard summary
+- `useDashboardSummary` React hook with loading/error state
+- `types/priceAlert.ts` — PriceAlert, PriceAlertCreatePayload, PriceAlertUpdatePayload types
+- `priceAlerts` endpoints in centralized endpoint definitions
+- 🎯 Opportunity tag on ProductsPage — highlights products matching user's active alert max prices
+- 12 unit tests for priceAlertService, 10 unit tests for dashboardService
+
+### Changed
+
+- Sidebar reorganized into User section (Dashboard, My Alerts, Products) and Admin section (Users, Search Configs, Source Websites) with divider
+- Router rewritten — `/dashboard` as default landing, `/alerts` for alert management, admin routes under `/admin/*` with RequireAdmin guard
+- Legacy routes (`/users`, `/search-configs`, `/source-websites`) redirect to `/admin/*` equivalents
+
 - **Email notifications via SendGrid** (#36): send email alerts when products matching a PriceAlert are found below the target price
 - `NotificationLog` entity, SQLAlchemy model, repository interface + implementation
 - `SendPriceAlertNotificationUseCase` with configurable rate limiting (default 1 email/alert/hour)

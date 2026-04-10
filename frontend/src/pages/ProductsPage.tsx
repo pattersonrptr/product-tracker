@@ -27,16 +27,19 @@ import {
   type GridPaginationModel,
   type GridRowSelectionModel,
 } from '@mui/x-data-grid'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog'
 import { GenericFormModal } from '@/components/common/GenericFormModal'
 import { PageHeader } from '@/components/common/PageHeader'
+import { useAuth } from '@/context/AuthContext'
 import { usePaginatedResource } from '@/hooks/usePaginatedResource'
 import { formatCurrency } from '@/lib/formatters'
 import { logger } from '@/lib/logger'
 import { deleteProduct, getProducts, updateProduct } from '@/services/productService'
+import { getPriceAlertsByUser } from '@/services/priceAlertService'
+import type { PriceAlert } from '@/types/priceAlert'
 import type { Product, ProductCondition, ProductUpdatePayload } from '@/types/product'
 
 // ---------------------------------------------------------------------------
@@ -73,6 +76,26 @@ const CONDITIONS: ProductCondition[] = ['new', 'used', 'refurbished', 'undetermi
 export function ProductsPage() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
+  const { userId } = useAuth()
+
+  // Price alerts for opportunity tagging
+  const [alerts, setAlerts] = useState<PriceAlert[]>([])
+  useEffect(() => {
+    if (userId) {
+      getPriceAlertsByUser(userId)
+        .then((a) => setAlerts(a.filter((x) => x.isActive)))
+        .catch(() => {})
+    }
+  }, [userId])
+
+  /** Check if a product is an opportunity (price ≤ any active alert's max) */
+  const isOpportunity = useCallback(
+    (product: Product): boolean => {
+      if (product.currentPrice == null) return false
+      return alerts.some((a) => product.currentPrice! <= a.maxPrice)
+    },
+    [alerts],
+  )
 
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
@@ -216,7 +239,26 @@ export function ProductsPage() {
   // ---------------------------------------------------------------------------
 
   const columns: GridColDef<Product>[] = [
-    { field: 'title', headerName: 'Title', flex: 2, minWidth: 200 },
+    {
+      field: 'title',
+      headerName: 'Title',
+      flex: 2,
+      minWidth: 200,
+      renderCell: ({ row }) => (
+        <Stack direction="row" spacing={1} alignItems="center">
+          <span>{row.title}</span>
+          {isOpportunity(row) && (
+            <Chip
+              size="small"
+              label="🎯 Opportunity"
+              color="success"
+              variant="outlined"
+              sx={{ height: 22, fontSize: '0.7rem' }}
+            />
+          )}
+        </Stack>
+      ),
+    },
     {
       field: 'currentPrice',
       headerName: 'Current Price',

@@ -257,7 +257,7 @@ class TestPriceAlertNotifyEndpoint:
         assert data["notifications_sent"] == 0
         mock_email_service.send_price_alert_email.assert_not_called()
 
-    def test_notify_requires_staff_access(self, client, user_token, price_alert):
+    def test_notify_requires_staff_or_superuser_access(self, client, user_token, price_alert):
         """Regular users cannot trigger notifications — requires staff/superuser."""
         response = client.post(
             f"/price-alerts/{price_alert.id}/notify",

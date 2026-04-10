@@ -29,6 +29,7 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
             frequency_minutes=model.frequency_minutes,
             last_triggered_at=model.last_triggered_at,
             user_id=model.user_id,
+            search_config_id=model.search_config_id,
             source_website_ids=[sw.id for sw in model.source_websites],
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -56,6 +57,7 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
             frequency_minutes=price_alert.frequency_minutes,
             last_triggered_at=price_alert.last_triggered_at,
             user_id=price_alert.user_id,
+            search_config_id=price_alert.search_config_id,
         )
         self.db.add(db_price_alert)
         self.db.flush()  # get the id before syncing M2M
@@ -142,6 +144,7 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
         db_record.frequency_minutes = price_alert.frequency_minutes
         db_record.last_triggered_at = price_alert.last_triggered_at
         db_record.user_id = price_alert.user_id
+        db_record.search_config_id = price_alert.search_config_id
 
         self._sync_source_websites(db_record, price_alert.source_website_ids)
 
@@ -161,3 +164,14 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
         self.db.delete(db_record)
         self.db.commit()
         return True
+
+    def count_active_by_search_config_id(self, search_config_id: int) -> int:
+        """Count active price alerts that reference a given SearchConfig."""
+        return (
+            self.db.query(PriceAlertModel)
+            .filter(
+                PriceAlertModel.search_config_id == search_config_id,
+                PriceAlertModel.is_active.is_(True),
+            )
+            .count()
+        )

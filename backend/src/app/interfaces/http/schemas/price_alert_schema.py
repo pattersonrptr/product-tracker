@@ -20,6 +20,7 @@ class PriceAlertAttributes(BaseModel):
     frequency_minutes: int
     last_triggered_at: datetime | None = None
     user_id: int | None = None
+    search_config_id: int | None = None
     source_website_ids: list[int] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None

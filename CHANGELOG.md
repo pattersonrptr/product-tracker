@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Close the loop with alerts** (#38): scraper now triggers alert evaluation after every product update, with per-product+alert dedup to prevent duplicate notifications
+- `exists_for_product_and_alert(product_id, price_alert_id)` method on `NotificationLogRepositoryInterface` and `NotificationLogRepository` — returns `True` if a successful notification was already sent for this exact product+alert pair
+- `SendPriceAlertNotificationUseCase` now skips already-notified product+alert pairs to avoid duplicates
+- `update_products` Celery task now triggers `send_price_alert_notifications` after updating products (was missing from the periodic re-scrape flow)
+- 5 e2e integration tests for `POST /price-alerts/{id}/notify`: full flow, dedup, 404, auth, and no-product cases
+- 2 unit tests for per-product+alert dedup logic in `SendPriceAlertNotificationUseCase`
+- 1 unit test for `update_products` triggering notifications
+
+### Changed
+
 - **Dashboard + Alerts pages** (#37): user-facing frontend with dashboard summary and full PriceAlert CRUD
 - `DashboardPage` with 3 summary cards — Active Alerts, Recent Opportunities, Next Checks
 - `AlertsPage` with MUI DataGrid, create/edit modal, pause/resume toggle, single + bulk delete

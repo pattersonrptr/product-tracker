@@ -145,6 +145,15 @@ class SendPriceAlertNotificationUseCase:
 
         best_product = products[0]
 
+        # Dedup: skip if this exact product+alert pair was already notified
+        if (
+            best_product.id is not None
+            and self.notification_log_repo.exists_for_product_and_alert(
+                best_product.id, price_alert_id
+            )
+        ):
+            return [], "Already notified for this product and alert"
+
         # Resolve source website name
         source_website = self.source_website_repo.get_by_id(
             best_product.source_website_id

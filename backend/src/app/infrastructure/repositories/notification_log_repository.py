@@ -96,6 +96,21 @@ class NotificationLogRepository(NotificationLogRepositoryInterface):
             .count()
         )
 
+    def exists_for_product_and_alert(
+        self, product_id: int, price_alert_id: int
+    ) -> bool:
+        """Return True if a successful notification was already sent for this exact product+alert pair."""
+        return (
+            self.db.query(NotificationLogModel)
+            .filter(
+                NotificationLogModel.product_id == product_id,
+                NotificationLogModel.price_alert_id == price_alert_id,
+                NotificationLogModel.status == "sent",
+            )
+            .first()
+            is not None
+        )
+
     def get_all(
         self,
         limit: int = 10,

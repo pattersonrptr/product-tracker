@@ -695,9 +695,12 @@ def test_update_products_all_failed_returns_error(mock_client_cls, mock_token):
     assert result["message"] == "All update attempts failed"
 
 
+@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_update_products_updates_and_records_price_history(mock_client_cls, mock_token):
+def test_update_products_updates_and_records_price_history(
+    mock_client_cls, mock_token, mock_notify
+):
     client = MagicMock()
     client.get_source_website_by_name.return_value = {"id": "2"}
     client.update_product.return_value = {"id": "5"}
@@ -721,9 +724,12 @@ def test_update_products_updates_and_records_price_history(mock_client_cls, mock
     client.create_price_history.assert_called_once_with("5", 45.0)
 
 
+@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_update_products_skips_entry_without_product_id(mock_client_cls, mock_token):
+def test_update_products_skips_entry_without_product_id(
+    mock_client_cls, mock_token, mock_notify
+):
     client = MagicMock()
     client.get_source_website_by_name.return_value = {"id": "2"}
     mock_client_cls.return_value = client
@@ -739,9 +745,12 @@ def test_update_products_skips_entry_without_product_id(mock_client_cls, mock_to
     client.update_product.assert_not_called()
 
 
+@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_update_products_no_price_skips_price_history(mock_client_cls, mock_token):
+def test_update_products_no_price_skips_price_history(
+    mock_client_cls, mock_token, mock_notify
+):
     client = MagicMock()
     client.get_source_website_by_name.return_value = {"id": "2"}
     client.update_product.return_value = {"id": "9"}
@@ -757,3 +766,32 @@ def test_update_products_no_price_skips_price_history(mock_client_cls, mock_toke
     result = update_products(results, "enjoei")
     assert result["updated"] == 1
     client.create_price_history.assert_not_called()
+
+
+@patch("src.celery.tasks.send_price_alert_notifications")
+@patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
+@patch("src.celery.tasks.ApiClient")
+def test_update_products_triggers_price_alert_notifications(
+    mock_client_cls, mock_token, mock_notify
+):
+    """After updating products, send_price_alert_notifications must be dispatched."""
+    client = MagicMock()
+    client.get_source_website_by_name.return_value = {"id": "2"}
+    client.update_product.return_value = {"id": "5"}
+    mock_client_cls.return_value = client
+
+    results = [
+        {
+            "status": "success",
+            "data": {
+                "id": "5",
+                "title": "Item",
+                "current_price": 45.0,
+                "source_website_id": "2",
+            },
+        }
+    ]
+    result = update_products(results, "enjoei")
+
+    assert result["status"] == "success"
+    mock_notify.apply_async.assert_called_once_with(countdown=5)

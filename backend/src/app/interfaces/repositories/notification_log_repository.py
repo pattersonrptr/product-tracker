@@ -35,6 +35,13 @@ class NotificationLogRepositoryInterface(ABC):
         ...
 
     @abstractmethod
+    def exists_for_product_and_alert(
+        self, product_id: int, price_alert_id: int
+    ) -> bool:
+        """Return True if a successful notification was already sent for this exact product+alert pair."""
+        ...
+
+    @abstractmethod
     def get_all(
         self,
         limit: int = 10,

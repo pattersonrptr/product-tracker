@@ -325,6 +325,7 @@ class TestSendPriceAlertNotificationUseCase:
 
         nl_repo = MagicMock()
         nl_repo.count_since.return_value = 0
+        nl_repo.exists_for_product_and_alert.return_value = False
         nl_repo.create.side_effect = lambda log: log
 
         prod_repo = MagicMock()
@@ -380,6 +381,7 @@ class TestSendPriceAlertNotificationUseCase:
 
         nl_repo = MagicMock()
         nl_repo.count_since.return_value = 0
+        nl_repo.exists_for_product_and_alert.return_value = False
         nl_repo.create.side_effect = lambda log: log
 
         prod_repo = MagicMock()
@@ -454,6 +456,7 @@ class TestSendPriceAlertNotificationUseCase:
 
         nl_repo = MagicMock()
         nl_repo.count_since.return_value = 0
+        nl_repo.exists_for_product_and_alert.return_value = False
         nl_repo.create.side_effect = lambda log: log
 
         prod_repo = MagicMock()
@@ -512,3 +515,82 @@ class TestSendPriceAlertNotificationUseCase:
         since_arg = call_args[0][1]
         assert isinstance(since_arg, datetime)
         assert "120 minutes" in error
+
+    @patch("src.app.use_cases.notification_log_use_cases.settings")
+    def test_skips_notification_when_product_already_notified_for_alert(
+        self, mock_settings
+    ):
+        """Dedup: if this exact product+alert pair was already notified, skip."""
+        mock_settings.NOTIFICATION_RATE_LIMIT_MINUTES = 60
+        pa_repo = MagicMock()
+        pa_repo.get_by_id.return_value = make_price_alert()
+
+        nl_repo = MagicMock()
+        nl_repo.count_since.return_value = 0
+        nl_repo.exists_for_product_and_alert.return_value = True  # Already notified
+
+        prod_repo = MagicMock()
+        product = make_product(id=100)
+        prod_repo.search_by_term_and_sources.return_value = ([product], 1)
+
+        user_repo = MagicMock()
+        user_repo.get_by_id.return_value = make_user()
+
+        email_svc = MagicMock()
+
+        uc = self._build_use_case(
+            price_alert_repo=pa_repo,
+            product_repo=prod_repo,
+            user_repo=user_repo,
+            notification_log_repo=nl_repo,
+            email_service=email_svc,
+        )
+        logs, error = uc.execute(10)
+
+        assert logs == []
+        assert "Already notified" in error
+        email_svc.send_price_alert_email.assert_not_called()
+        nl_repo.exists_for_product_and_alert.assert_called_once_with(100, 10)
+
+    @patch("src.app.use_cases.notification_log_use_cases.settings")
+    def test_sends_notification_when_product_not_yet_notified_for_alert(
+        self, mock_settings
+    ):
+        """Dedup: proceed with notification if product+alert pair is new."""
+        mock_settings.NOTIFICATION_RATE_LIMIT_MINUTES = 60
+        pa_repo = MagicMock()
+        pa_repo.get_by_id.return_value = make_price_alert()
+
+        nl_repo = MagicMock()
+        nl_repo.count_since.return_value = 0
+        nl_repo.exists_for_product_and_alert.return_value = False  # Not yet notified
+        nl_repo.create.side_effect = lambda log: log
+
+        prod_repo = MagicMock()
+        product = make_product(id=100, current_price=2000.00)
+        prod_repo.search_by_term_and_sources.return_value = ([product], 1)
+
+        user_repo = MagicMock()
+        user_repo.get_by_id.return_value = make_user()
+
+        sw_repo = MagicMock()
+        sw_repo.get_by_id.return_value = make_source_website()
+
+        email_svc = MagicMock()
+        email_svc.send_price_alert_email.return_value = EmailResult(
+            success=True, status_code=202
+        )
+
+        uc = self._build_use_case(
+            price_alert_repo=pa_repo,
+            product_repo=prod_repo,
+            user_repo=user_repo,
+            source_website_repo=sw_repo,
+            notification_log_repo=nl_repo,
+            email_service=email_svc,
+        )
+        logs, error = uc.execute(10)
+
+        assert error is None
+        assert len(logs) == 1
+        email_svc.send_price_alert_email.assert_called_once()

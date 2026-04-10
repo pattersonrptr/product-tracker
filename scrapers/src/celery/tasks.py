@@ -338,6 +338,9 @@ def update_products(results: list, scraper_name: str):
                 client.create_price_history(product_id, current_price)
             updated += 1
 
+    # Trigger notification checks for all active price alerts after updating products
+    send_price_alert_notifications.apply_async(countdown=5)
+
     return {"status": "success", "updated": updated}
 
 

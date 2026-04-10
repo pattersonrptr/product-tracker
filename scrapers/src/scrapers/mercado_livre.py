@@ -241,7 +241,9 @@ class MercadoLivreScraper(ScraperInterface, PlaywrightScraper, RotatingUserAgent
 
                 # Throttle between search pages (15 s proved safe for 11+)
                 delay = self._jittered_delay(self._SEARCH_PAGE_DELAY)
-                logger.debug("ML: search delay %.1fs before page %d", delay, page_number + 1)
+                logger.debug(
+                    "ML: search delay %.1fs before page %d", delay, page_number + 1
+                )
                 await asyncio.sleep(delay)
         finally:
             await context.close()

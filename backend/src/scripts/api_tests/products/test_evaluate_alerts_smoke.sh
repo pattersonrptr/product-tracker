@@ -12,6 +12,7 @@
 # Usage:
 #   ./test_evaluate_alerts_smoke.sh [API_BASE_URL]
 #   API_BASE_URL=http://localhost:8000 ./test_evaluate_alerts_smoke.sh
+#   ADMIN_USERNAME=admin ADMIN_PASSWORD=admin ./test_evaluate_alerts_smoke.sh
 #
 # Note: SENDGRID_API_KEY does not need to be valid; we check the log
 # was created (email send will fail gracefully but log should exist).
@@ -43,9 +44,12 @@ echo ""
 # ---------------------------------------------------------------------------
 info "Authenticating as superuser..."
 
+ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin}"
+
 AUTH_RESPONSE=$(curl -sf -X POST "$API_BASE_URL/auth/login" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=Admin@1234&grant_type=password" \
+  -d "username=${ADMIN_USERNAME}&password=${ADMIN_PASSWORD}&grant_type=password" \
   2>/dev/null) || fail "Login request failed — is the API running?"
 
 TOKEN=$(echo "$AUTH_RESPONSE" | python3 -c "
@@ -106,16 +110,16 @@ pass "Price history created"
 info "Creating price alert (search_term='iPhone 13', max_price=2500)..."
 
 # We need a user_id. Fetch current user info.
-ME_RESPONSE=$(curl -sf -X GET "$API_BASE_URL/auth/me" \
+ME_RESPONSE=$(curl -sf -X GET "$API_BASE_URL/users/username/${ADMIN_USERNAME}" \
   -H "$AUTH_HEADER" \
   2>/dev/null) || fail "Failed to get current user"
 
 USER_ID=$(echo "$ME_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
-[ -n "$USER_ID" ] || fail "No user ID in /auth/me response"
+[ -n "$USER_ID" ] || fail "No user ID in response"
 
 ALERT_RESPONSE=$(curl -sf -X POST "$API_BASE_URL/price-alerts/" \
   -H "$AUTH_HEADER" -H "$CONTENT_TYPE" \
-  -d "{\"data\":{\"type\":\"price_alert\",\"attributes\":{\"search_term\":\"iPhone 13\",\"max_price\":2500.00,\"is_active\":true,\"frequency_minutes\":60,\"source_website_ids\":[$SW_ID]}}}" \
+  -d "{\"data\":{\"type\":\"price_alert\",\"attributes\":{\"search_term\":\"iPhone 13\",\"max_price\":2500.00,\"is_active\":true,\"frequency_minutes\":60,\"user_id\":$USER_ID,\"source_website_ids\":[$SW_ID]}}}" \
   2>/dev/null) || fail "Failed to create price alert"
 
 ALERT_ID=$(echo "$ALERT_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")

@@ -26,3 +26,4 @@ class User(Base):
     # Relationships
     search_configs = relationship("SearchConfig", back_populates="user")
     price_alerts = relationship("PriceAlert", back_populates="user")
+    notification_logs = relationship("NotificationLog", back_populates="user")

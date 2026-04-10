@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
 
 from src.app.domain.validators.price_alert_validator import PriceAlertValidator
 from src.app.entities.price_alert import PriceAlert as PriceAlertEntity
 from src.app.entities.user import User as UserEntity
 from src.app.infrastructure.database_config import get_db
+from src.app.infrastructure.repositories.notification_log_repository import (
+    NotificationLogRepository,
+)
 from src.app.infrastructure.repositories.price_alert_repository import (
     PriceAlertRepository,
 )
@@ -14,6 +18,8 @@ from src.app.infrastructure.repositories.search_config_repository import (
 from src.app.infrastructure.repositories.source_website_repository import (
     SourceWebsiteRepository,
 )
+from src.app.infrastructure.repositories.user_repository import UserRepository
+from src.app.infrastructure.services.email_service import SendGridEmailService
 from src.app.interfaces.http.presenters.price_alert_presenter import (
     PriceAlertPresenter,
 )
@@ -26,6 +32,9 @@ from src.app.interfaces.http.schemas.price_alert_schema import (
 )
 from src.app.interfaces.http.schemas.product_schema import ProductsCollectionResponse
 from src.app.security.auth import get_current_staff_user
+from src.app.use_cases.notification_log_use_cases import (
+    SendPriceAlertNotificationUseCase,
+)
 from src.app.use_cases.price_alert_use_cases import (
     CreatePriceAlertUseCase,
     DeletePriceAlertUseCase,
@@ -35,6 +44,7 @@ from src.app.use_cases.price_alert_use_cases import (
     ListPriceAlertsUseCase,
     UpdatePriceAlertUseCase,
 )
+from src.common.jsonapi import JsonApiError, JsonApiErrorResponse
 from src.config.logging_config import get_logger
 
 router = APIRouter(tags=["price_alerts"], prefix="/price-alerts")
@@ -60,6 +70,23 @@ def get_product_repository(db=Depends(get_db)) -> ProductRepository:
 def get_source_website_repository(db=Depends(get_db)) -> SourceWebsiteRepository:
     """Dependency injection for SourceWebsiteRepository (used by validator)."""
     return SourceWebsiteRepository(db)
+
+
+def get_user_repository(db=Depends(get_db)) -> UserRepository:
+    """Dependency injection for UserRepository."""
+    return UserRepository(db)
+
+
+def get_notification_log_repository(
+    db=Depends(get_db),
+) -> NotificationLogRepository:
+    """Dependency injection for NotificationLogRepository."""
+    return NotificationLogRepository(db)
+
+
+def get_email_service() -> SendGridEmailService:
+    """Dependency injection for SendGridEmailService."""
+    return SendGridEmailService()
 
 
 def get_price_alert_validator(
@@ -411,3 +438,91 @@ def delete_price_alert(
         },
     )
     return None
+
+
+@router.post("/{price_alert_id}/notify", status_code=200)
+def trigger_price_alert_notification(
+    price_alert_id: int,
+    price_alert_repo: PriceAlertRepository = Depends(get_price_alert_repository),
+    product_repo: ProductRepository = Depends(get_product_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+    source_website_repo: SourceWebsiteRepository = Depends(
+        get_source_website_repository
+    ),
+    notification_log_repo: NotificationLogRepository = Depends(
+        get_notification_log_repository
+    ),
+    email_service: SendGridEmailService = Depends(get_email_service),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Trigger email notification for a price alert. Requires staff or superuser access.
+
+    Searches for matching products below the alert's max_price and sends
+    an email to the alert's owner with the best match.
+
+    Rate limiting: max 1 email per alert per NOTIFICATION_RATE_LIMIT_MINUTES (default 60).
+
+    Returns:
+        - 200: Notification result (sent, skipped, or failed)
+        - 403: Permission denied
+        - 404: Price alert not found
+    """
+    logger.info(
+        f"Triggering notification for price alert ID: {price_alert_id}",
+        extra={
+            "action": "trigger_notification",
+            "price_alert_id": price_alert_id,
+            "user_id": current_user.id,
+        },
+    )
+
+    use_case = SendPriceAlertNotificationUseCase(
+        price_alert_repo=price_alert_repo,
+        product_repo=product_repo,
+        user_repo=user_repo,
+        source_website_repo=source_website_repo,
+        notification_log_repo=notification_log_repo,
+        email_service=email_service,
+    )
+    logs, error = use_case.execute(price_alert_id)
+
+    if error and not logs:
+        if "not found" in error.lower():
+            return JSONResponse(
+                status_code=404,
+                content=JsonApiErrorResponse(
+                    errors=[
+                        JsonApiError(
+                            status="404",
+                            code="NOT_FOUND",
+                            title="Price alert not found",
+                            detail=error,
+                            source={"pointer": "/data/id"},
+                        )
+                    ]
+                ).model_dump(),
+                media_type="application/vnd.api+json",
+            )
+        return {
+            "data": {
+                "type": "notification_results",
+                "attributes": {
+                    "status": "skipped",
+                    "message": error,
+                    "notifications_sent": 0,
+                },
+            }
+        }
+
+    sent_count = sum(1 for log in logs if log.status == "sent")
+    return {
+        "data": {
+            "type": "notification_results",
+            "attributes": {
+                "status": "sent" if sent_count > 0 else "failed",
+                "message": error if error else f"{sent_count} notification(s) sent",
+                "notifications_sent": sent_count,
+            },
+        }
+    }

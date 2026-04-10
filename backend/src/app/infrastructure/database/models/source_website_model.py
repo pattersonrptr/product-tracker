@@ -30,3 +30,8 @@ class SourceWebsite(Base):
         secondary="search_config_source_website",
         back_populates="source_websites",
     )
+    price_alerts = relationship(
+        "PriceAlert",
+        secondary="price_alert_source_website",
+        back_populates="source_websites",
+    )

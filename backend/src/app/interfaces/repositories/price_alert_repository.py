@@ -1,0 +1,52 @@
+from abc import ABC, abstractmethod
+
+from src.app.entities.price_alert import PriceAlert as PriceAlertEntity
+
+
+class PriceAlertRepositoryInterface(ABC):
+    """Abstract interface for PriceAlert data access."""
+
+    @abstractmethod
+    def create(self, price_alert: PriceAlertEntity) -> PriceAlertEntity:
+        """Persist a new price alert and return it with assigned id."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_by_id(self, price_alert_id: int) -> PriceAlertEntity | None:
+        """Retrieve a price alert by its primary key."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_by_user_id(self, user_id: int) -> list[PriceAlertEntity]:
+        """Return all price alerts for a given user."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_by_search_term_and_user_id(
+        self, search_term: str, user_id: int
+    ) -> PriceAlertEntity | None:
+        """Return a price alert matching term + user (for uniqueness check)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_all(
+        self,
+        limit: int = 10,
+        offset: int = 0,
+        sort_by: str | None = None,
+        sort_order: str | None = None,
+    ) -> tuple[list[PriceAlertEntity], int]:
+        """Return a paginated list of all price alerts and the total count."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def update(
+        self, price_alert_id: int, price_alert: PriceAlertEntity
+    ) -> PriceAlertEntity | None:
+        """Update a price alert. Returns updated entity or None if not found."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, price_alert_id: int) -> bool:
+        """Delete a price alert by id. Returns True if deleted, False if not found."""
+        raise NotImplementedError

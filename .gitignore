@@ -39,8 +39,8 @@ dmypy.json
 celerybeat-schedule
 celerybeat.pid
 
-# Alembic auto-generated migrations
-backend/alembic/versions/
+# Alembic
+backend/alembic/versions/__pycache__/
 
 # ── Node.js / Frontend ──────────────────────────────────────────────────────
 node_modules/

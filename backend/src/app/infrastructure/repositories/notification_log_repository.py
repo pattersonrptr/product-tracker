@@ -131,3 +131,18 @@ class NotificationLogRepository(NotificationLogRepositoryInterface):
         self.db.delete(db_log)
         self.db.commit()
         return True
+
+    def exists_for_alert_and_product(
+        self, price_alert_id: int, product_id: int
+    ) -> bool:
+        """Check if a successful notification was already sent for alert + product."""
+        return (
+            self.db.query(NotificationLogModel)
+            .filter(
+                NotificationLogModel.price_alert_id == price_alert_id,
+                NotificationLogModel.product_id == product_id,
+                NotificationLogModel.status == "sent",
+            )
+            .count()
+            > 0
+        )

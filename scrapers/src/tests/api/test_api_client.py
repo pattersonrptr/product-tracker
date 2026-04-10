@@ -389,3 +389,48 @@ def test_create_search_execution_log_failure_returns_empty(mock_req, client):
     assert (
         client.create_search_execution_log(search_config_id=1, status="running") == {}
     )
+
+
+# ---------------------------------------------------------------------------
+# evaluate_product_alerts
+# ---------------------------------------------------------------------------
+
+
+@patch("requests.request")
+def test_evaluate_product_alerts_success(mock_req, client):
+    mock_req.return_value = _mock_response(
+        200,
+        {
+            "data": {
+                "type": "evaluate_alerts_results",
+                "attributes": {
+                    "status": "sent",
+                    "message": "1 notification(s) sent, 0 skipped (dedup)",
+                    "notifications_sent": 1,
+                    "skipped": 0,
+                },
+            }
+        },
+    )
+    result = client.evaluate_product_alerts(42)
+    assert result["data"]["attributes"]["notifications_sent"] == 1
+    # Verify a POST was made to the correct endpoint
+    call_args = mock_req.call_args
+    method_arg = call_args[0][0] if call_args[0] else call_args[1].get("method")
+    assert method_arg == "POST"
+    url_arg = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("url")
+    assert "/products/42/evaluate-alerts" in url_arg
+
+
+@patch("requests.request")
+def test_evaluate_product_alerts_failure_returns_empty(mock_req, client):
+    mock_req.return_value = _mock_response(500)
+    result = client.evaluate_product_alerts(42)
+    assert result == {}
+
+
+@patch("requests.request")
+def test_evaluate_product_alerts_not_found(mock_req, client):
+    mock_req.return_value = _mock_response(404)
+    result = client.evaluate_product_alerts(9999)
+    assert result == {}

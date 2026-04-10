@@ -253,3 +253,20 @@ class ApiClient:
             response.status_code,
         )
         return {}
+
+    def evaluate_product_alerts(self, product_id: int | str) -> dict[str, Any]:
+        """Evaluate all active price alerts against a specific product.
+
+        Calls POST /products/{product_id}/evaluate-alerts on the backend.
+        Returns the evaluation result dict or empty dict on failure.
+        """
+        logger.debug("Evaluating alerts for product ID %s", product_id)
+        response = self._make_request("POST", f"/products/{product_id}/evaluate-alerts")
+        if response.status_code == 200:
+            return response.json()
+        logger.warning(
+            "Failed to evaluate alerts for product %s: %s",
+            product_id,
+            response.status_code,
+        )
+        return {}

@@ -170,10 +170,9 @@ def _scrape_result(url: str, price: float = 99.0):
     }
 
 
-@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_save_products_creates_new_products(mock_client_cls, mock_token, mock_notify):
+def test_save_products_creates_new_products(mock_client_cls, mock_token):
     client = _make_client_mock()
     client.get_product_by_url.return_value = {}  # product does not exist yet
     client.create_product.return_value = {"id": "10"}
@@ -190,15 +189,13 @@ def test_save_products_creates_new_products(mock_client_cls, mock_token, mock_no
     assert outcome["processed"] == 2
     assert client.create_product.call_count == 2
     assert client.create_price_history.call_count == 2
-    mock_notify.apply_async.assert_called_once_with(args=[1], countdown=5)
+    # evaluate_product_alerts called once per new product with price
+    assert client.evaluate_product_alerts.call_count == 2
 
 
-@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_save_products_updates_existing_products(
-    mock_client_cls, mock_token, mock_notify
-):
+def test_save_products_updates_existing_products(mock_client_cls, mock_token):
     client = _make_client_mock()
     client.get_product_by_url.return_value = {"id": "5"}  # product exists
     mock_client_cls.return_value = client
@@ -209,6 +206,8 @@ def test_save_products_updates_existing_products(
     assert outcome["created"] == 0
     client.update_product.assert_called_once()
     client.create_price_history.assert_called_once_with("5", 120.0)
+    # evaluate_product_alerts called for the updated product
+    client.evaluate_product_alerts.assert_called_once_with("5")
 
 
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
@@ -237,12 +236,9 @@ def test_save_products_all_failed_scrapes(mock_client_cls, mock_token):
     assert outcome["message"] == "All scraping attempts failed"
 
 
-@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_save_products_skips_result_without_url(
-    mock_client_cls, mock_token, mock_notify
-):
+def test_save_products_skips_result_without_url(mock_client_cls, mock_token):
     client = _make_client_mock()
     mock_client_cls.return_value = client
 
@@ -260,12 +256,9 @@ def test_save_products_skips_result_without_url(
     assert outcome["created"] == 0
 
 
-@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_save_products_no_price_skips_price_history(
-    mock_client_cls, mock_token, mock_notify
-):
+def test_save_products_no_price_skips_price_history(mock_client_cls, mock_token):
     client = _make_client_mock()
     client.get_product_by_url.return_value = {}
     client.create_product.return_value = {"id": "11"}
@@ -281,6 +274,28 @@ def test_save_products_no_price_skips_price_history(
     outcome = save_products(results, "enjoei", search_config_id=1)
     assert outcome["created"] == 1
     client.create_price_history.assert_not_called()
+    # No price → no evaluate call for new product
+    client.evaluate_product_alerts.assert_not_called()
+
+
+@patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
+@patch("src.celery.tasks.ApiClient")
+def test_save_products_evaluate_alerts_failure_does_not_break(
+    mock_client_cls, mock_token
+):
+    """evaluate_product_alerts failure should be caught and not break save_products."""
+    client = _make_client_mock()
+    client.get_product_by_url.return_value = {"id": "5"}
+    client.evaluate_product_alerts.side_effect = Exception("connection timeout")
+    mock_client_cls.return_value = client
+
+    results = [_scrape_result("http://a.com", 120.0)]
+    outcome = save_products(results, "enjoei", search_config_id=1)
+
+    # Should succeed despite evaluate failure
+    assert outcome["status"] == "success"
+    assert outcome["processed"] == 1
+    client.evaluate_product_alerts.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

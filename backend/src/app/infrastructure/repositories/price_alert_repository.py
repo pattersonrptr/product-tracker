@@ -5,6 +5,9 @@ from src.app.entities.price_alert import PriceAlert as PriceAlertEntity
 from src.app.infrastructure.database.models.price_alert_model import (
     PriceAlert as PriceAlertModel,
 )
+from src.app.infrastructure.database.models.price_alert_source_website_model import (
+    price_alert_source_website,
+)
 from src.app.infrastructure.database.models.source_website_model import (
     SourceWebsite as SourceWebsiteModel,
 )
@@ -175,3 +178,44 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
             )
             .count()
         )
+
+    def find_matching_alerts_for_product(
+        self,
+        product_title: str,
+        source_website_id: int,
+        current_price: float,
+    ) -> list[PriceAlertEntity]:
+        """Find all active alerts matching a product's title, source and price.
+
+        Matches when:
+        - alert.is_active is True
+        - alert.search_term appears in product_title (case-insensitive)
+        - source_website_id is in alert.source_website_ids (M2M)
+        - current_price <= alert.max_price
+        """
+        # SQL-level filter: active, price fits, source website matches
+        records = (
+            self.db.query(PriceAlertModel)
+            .options(joinedload(PriceAlertModel.source_websites))
+            .join(
+                price_alert_source_website,
+                PriceAlertModel.id == price_alert_source_website.c.price_alert_id,
+            )
+            .filter(
+                PriceAlertModel.is_active.is_(True),
+                PriceAlertModel.max_price >= current_price,
+                price_alert_source_website.c.source_website_id == source_website_id,
+            )
+            .all()
+        )
+        # Post-filter: search_term must appear in product_title (case-insensitive)
+        matched = []
+        seen_ids: set[int] = set()
+        title_lower = product_title.lower()
+        for record in records:
+            if record.id in seen_ids:
+                continue
+            seen_ids.add(record.id)
+            if record.search_term.lower() in title_lower:
+                matched.append(self._to_entity(record))
+        return matched

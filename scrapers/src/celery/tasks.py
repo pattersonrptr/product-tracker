@@ -251,6 +251,14 @@ def save_products(
             if product_id and current_price is not None:
                 client.create_price_history(product_id, current_price)
             client.update_product(product_id, product_data)
+            # Evaluate alerts for the updated product
+            if product_id:
+                try:
+                    client.evaluate_product_alerts(product_id)
+                except Exception as e:
+                    logger.warning(
+                        "Alert evaluation failed for product %s: %s", product_id, e
+                    )
         else:
             created_product = client.create_product(product_data)
             if created_product:
@@ -258,6 +266,15 @@ def save_products(
                 current_price = product_data.get("current_price")
                 if product_id and current_price is not None:
                     client.create_price_history(product_id, current_price)
+                    # Evaluate alerts for the newly created product
+                    try:
+                        client.evaluate_product_alerts(product_id)
+                    except Exception as e:
+                        logger.warning(
+                            "Alert evaluation failed for product %s: %s",
+                            product_id,
+                            e,
+                        )
                 created += 1
 
     _finish_log(
@@ -267,13 +284,6 @@ def save_products(
         status="success",
         results_count=len(successful),
     )
-
-    # Trigger notification checks for price alerts linked to this search config
-    if search_config_id:
-        send_price_alert_notifications.apply_async(
-            args=[search_config_id],
-            countdown=5,
-        )
 
     return {"status": "success", "created": created, "processed": len(successful)}
 

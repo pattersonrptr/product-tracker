@@ -15,6 +15,7 @@ class PriceAlert(BaseModel):
     frequency_minutes: int = 60
     last_triggered_at: datetime | None = None
     user_id: int | None = None
+    search_config_id: int | None = None
     source_website_ids: list[int] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

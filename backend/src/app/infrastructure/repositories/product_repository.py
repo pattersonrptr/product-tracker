@@ -1,9 +1,12 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import asc, desc
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session, joinedload
 
 from src.app.entities.product import Product as ProductEntity
+from src.app.infrastructure.database.models.price_history_model import (
+    PriceHistory as PriceHistoryModel,
+)
 from src.app.infrastructure.database.models.product_model import Product as ProductModel
 from src.app.interfaces.repositories.product_repository import (
     ProductRepositoryInterface,
@@ -142,3 +145,68 @@ class ProductRepository(ProductRepositoryInterface):
             "current_price": None,  # Will be populated from price_history later
         }
         return ProductEntity(**product_dict)
+
+    def search_by_term_and_sources(
+        self,
+        search_term: str,
+        source_website_ids: list[int],
+        max_price: float | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[ProductEntity], int]:
+        """Search products by title (ILIKE) + source_website_ids, with latest price."""
+        # Subquery: latest price per product
+        latest_price_sq = (
+            self.db.query(
+                PriceHistoryModel.product_id,
+                func.max(PriceHistoryModel.id).label("max_id"),
+            )
+            .group_by(PriceHistoryModel.product_id)
+            .subquery()
+        )
+
+        price_sq = (
+            self.db.query(
+                PriceHistoryModel.product_id,
+                PriceHistoryModel.price,
+            )
+            .join(
+                latest_price_sq,
+                (PriceHistoryModel.product_id == latest_price_sq.c.product_id)
+                & (PriceHistoryModel.id == latest_price_sq.c.max_id),
+            )
+            .subquery()
+        )
+
+        # Base query: products matching search_term + source_website_ids
+        query = (
+            self.db.query(ProductModel, price_sq.c.price)
+            .outerjoin(price_sq, ProductModel.id == price_sq.c.product_id)
+            .filter(
+                ProductModel.title.ilike(f"%{search_term}%"),
+                ProductModel.source_website_id.in_(source_website_ids),
+                ProductModel.is_available.is_(True),
+            )
+        )
+
+        # Optional max_price filter
+        if max_price is not None:
+            query = query.filter(price_sq.c.price <= max_price)
+
+        total = query.count()
+
+        # Sort by price ascending (cheapest first), nulls last
+        query = query.order_by(
+            asc(price_sq.c.price).nulls_last(),
+            desc(ProductModel.updated_at),
+        )
+
+        results = query.offset(offset).limit(limit).all()
+
+        entities = []
+        for product_model, price in results:
+            entity = self._to_entity(product_model)
+            entity.current_price = float(price) if price is not None else None
+            entities.append(entity)
+
+        return entities, total

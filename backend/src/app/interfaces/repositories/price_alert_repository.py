@@ -50,3 +50,8 @@ class PriceAlertRepositoryInterface(ABC):
     def delete(self, price_alert_id: int) -> bool:
         """Delete a price alert by id. Returns True if deleted, False if not found."""
         raise NotImplementedError
+
+    @abstractmethod
+    def count_active_by_search_config_id(self, search_config_id: int) -> int:
+        """Count active price alerts that reference a given SearchConfig."""
+        raise NotImplementedError

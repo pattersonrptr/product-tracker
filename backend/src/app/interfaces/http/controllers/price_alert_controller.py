@@ -7,24 +7,31 @@ from src.app.infrastructure.database_config import get_db
 from src.app.infrastructure.repositories.price_alert_repository import (
     PriceAlertRepository,
 )
+from src.app.infrastructure.repositories.product_repository import ProductRepository
+from src.app.infrastructure.repositories.search_config_repository import (
+    SearchConfigRepository,
+)
 from src.app.infrastructure.repositories.source_website_repository import (
     SourceWebsiteRepository,
 )
 from src.app.interfaces.http.presenters.price_alert_presenter import (
     PriceAlertPresenter,
 )
+from src.app.interfaces.http.presenters.product_presenter import ProductPresenter
 from src.app.interfaces.http.schemas.price_alert_schema import (
     PriceAlertCreateRequest,
     PriceAlertReadResponse,
     PriceAlertsCollectionResponse,
     PriceAlertUpdateRequest,
 )
+from src.app.interfaces.http.schemas.product_schema import ProductsCollectionResponse
 from src.app.security.auth import get_current_staff_user
 from src.app.use_cases.price_alert_use_cases import (
     CreatePriceAlertUseCase,
     DeletePriceAlertUseCase,
     GetPriceAlertByIdUseCase,
     GetPriceAlertsByUserIdUseCase,
+    GetProductsByPriceAlertUseCase,
     ListPriceAlertsUseCase,
     UpdatePriceAlertUseCase,
 )
@@ -38,6 +45,16 @@ logger = get_logger(__name__)
 def get_price_alert_repository(db=Depends(get_db)) -> PriceAlertRepository:
     """Dependency injection for PriceAlertRepository."""
     return PriceAlertRepository(db)
+
+
+def get_search_config_repository(db=Depends(get_db)) -> SearchConfigRepository:
+    """Dependency injection for SearchConfigRepository."""
+    return SearchConfigRepository(db)
+
+
+def get_product_repository(db=Depends(get_db)) -> ProductRepository:
+    """Dependency injection for ProductRepository."""
+    return ProductRepository(db)
 
 
 def get_source_website_repository(db=Depends(get_db)) -> SourceWebsiteRepository:
@@ -59,11 +76,15 @@ def get_price_alert_validator(
 def create_price_alert(
     price_alert_in: PriceAlertCreateRequest,
     price_alert_repo: PriceAlertRepository = Depends(get_price_alert_repository),
+    search_config_repo: SearchConfigRepository = Depends(get_search_config_repository),
     price_alert_validator: PriceAlertValidator = Depends(get_price_alert_validator),
     current_user: UserEntity = Depends(get_current_staff_user),
 ):
     """
     Create a new price alert. Requires staff or superuser access.
+
+    Automatically creates or reuses a SearchConfig matching the alert's
+    search_term and source_website_ids for the same user.
 
     Returns:
         - 201: Price alert created successfully
@@ -99,7 +120,7 @@ def create_price_alert(
         source_website_ids=attrs.source_website_ids,
     )
 
-    use_case = CreatePriceAlertUseCase(price_alert_repo)
+    use_case = CreatePriceAlertUseCase(price_alert_repo, search_config_repo)
     created = use_case.execute(price_alert_entity)
 
     logger.info(
@@ -205,16 +226,69 @@ def get_price_alert(
     return PriceAlertPresenter.handle_success(price_alert)
 
 
+@router.get("/{price_alert_id}/products", response_model=ProductsCollectionResponse)
+def get_products_by_price_alert(
+    price_alert_id: int,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    filter_by_max_price: bool = Query(
+        default=True,
+        description="When true, only return products at or below the alert's max_price",
+    ),
+    price_alert_repo: PriceAlertRepository = Depends(get_price_alert_repository),
+    product_repo: ProductRepository = Depends(get_product_repository),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Get products matching a price alert's criteria, sorted by price ascending.
+
+    Searches products whose title matches the alert's search_term and
+    belong to one of the alert's source websites. By default, only
+    products at or below the alert's max_price are returned.
+
+    Returns:
+        - 200: Collection of matching products with pagination meta
+        - 403: Permission denied
+        - 404: Price alert not found
+    """
+    logger.debug(
+        f"Getting products for price alert ID: {price_alert_id}",
+        extra={
+            "action": "get_products_by_price_alert",
+            "price_alert_id": price_alert_id,
+            "user_id": current_user.id,
+        },
+    )
+
+    use_case = GetProductsByPriceAlertUseCase(price_alert_repo, product_repo)
+    alert, products, total = use_case.execute(
+        price_alert_id,
+        limit=limit,
+        offset=offset,
+        filter_by_max_price=filter_by_max_price,
+    )
+
+    if not alert:
+        return PriceAlertPresenter.handle_not_found(f"id {price_alert_id}", "/data/id")
+
+    return ProductPresenter.handle_collection_success(products, total)
+
+
 @router.put("/{price_alert_id}", response_model=PriceAlertReadResponse)
 def update_price_alert(
     price_alert_id: int,
     price_alert_in: PriceAlertUpdateRequest,
     price_alert_repo: PriceAlertRepository = Depends(get_price_alert_repository),
+    search_config_repo: SearchConfigRepository = Depends(get_search_config_repository),
     price_alert_validator: PriceAlertValidator = Depends(get_price_alert_validator),
     current_user: UserEntity = Depends(get_current_staff_user),
 ):
     """
     Update an existing price alert. Requires staff or superuser access.
+
+    If search_term or source_website_ids change, the linked SearchConfig is
+    updated accordingly.  Deactivating an alert will deactivate its
+    SearchConfig if no other active alert references it.
 
     Returns:
         - 200: Price alert updated successfully
@@ -269,12 +343,13 @@ def update_price_alert(
         else existing.frequency_minutes,
         last_triggered_at=existing.last_triggered_at,
         user_id=existing.user_id,
+        search_config_id=existing.search_config_id,
         source_website_ids=attrs.source_website_ids
         if attrs.source_website_ids is not None
         else existing.source_website_ids,
     )
 
-    update_uc = UpdatePriceAlertUseCase(price_alert_repo)
+    update_uc = UpdatePriceAlertUseCase(price_alert_repo, search_config_repo)
     updated = update_uc.execute(price_alert_id, updated_entity)
 
     logger.info(
@@ -292,10 +367,14 @@ def update_price_alert(
 def delete_price_alert(
     price_alert_id: int,
     price_alert_repo: PriceAlertRepository = Depends(get_price_alert_repository),
+    search_config_repo: SearchConfigRepository = Depends(get_search_config_repository),
     current_user: UserEntity = Depends(get_current_staff_user),
 ):
     """
     Delete a price alert. Requires staff or superuser access.
+
+    If the associated SearchConfig is no longer used by any other active
+    alert, it will be deactivated automatically.
 
     Returns:
         - 204: Deleted successfully (no content)
@@ -317,7 +396,7 @@ def delete_price_alert(
     if not price_alert:
         return PriceAlertPresenter.handle_not_found(f"id {price_alert_id}", "/data/id")
 
-    delete_uc = DeletePriceAlertUseCase(price_alert_repo)
+    delete_uc = DeletePriceAlertUseCase(price_alert_repo, search_config_repo)
     deleted = delete_uc.execute(price_alert_id)
 
     if not deleted:

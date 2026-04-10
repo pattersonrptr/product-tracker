@@ -30,6 +30,7 @@ class PriceAlert(Base):
     frequency_minutes = Column(Integer, default=60, nullable=False)
     last_triggered_at = Column(DateTime, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    search_config_id = Column(Integer, ForeignKey("search_configs.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
     updated_at = Column(
         DateTime,
@@ -40,6 +41,7 @@ class PriceAlert(Base):
 
     # Relationships
     user = relationship("User", back_populates="price_alerts")
+    search_config = relationship("SearchConfig", back_populates="price_alerts")
     source_websites = relationship(
         "SourceWebsite",
         secondary=price_alert_source_website,
@@ -50,4 +52,5 @@ class PriceAlert(Base):
         Index("ix_price_alert_term", search_term),
         Index("ix_price_alert_active", is_active),
         Index("ix_price_alert_user_id", user_id),
+        Index("ix_price_alert_search_config_id", search_config_id),
     )

@@ -104,3 +104,31 @@ class ProductRepositoryInterface(ABC):
             True if product was deleted, False if product not found
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def search_by_term_and_sources(
+        self,
+        search_term: str,
+        source_website_ids: list[int],
+        max_price: float | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list["ProductEntity"], int]:
+        """
+        Search products whose title matches a search term (case-insensitive)
+        and belong to one of the given source websites.
+
+        Optionally filters by max_price (latest price from price_history).
+        Results are sorted by latest price ascending.
+
+        Args:
+            search_term: Keyword to match against product title
+            source_website_ids: List of source website IDs to filter by
+            max_price: Optional maximum price filter
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            Tuple of (list of ProductEntity with current_price populated, total count)
+        """
+        raise NotImplementedError

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Link SearchConfig → PriceAlert** (#35): auto-create/reuse SearchConfig when a PriceAlert is created, cleanup orphaned SearchConfigs on deactivation/deletion
+- `search_config_id` FK column on `price_alerts` table (nullable) with index
+- `GET /price-alerts/{id}/products` endpoint — search products matching an alert's term, sources, and optional max_price filter
+- `search_by_term_and_sources` method on ProductRepository (ILIKE + latest price subquery)
+- `count_active_by_search_config_id` method on PriceAlertRepository
+- `GetProductsByPriceAlertUseCase` with pagination support
+- Alembic migration `002_add_search_config_id_to_price_alerts`
+- 32 unit tests for SearchConfig linking, orphan cleanup, and product search use cases
 - **PriceAlert entity + full CRUD** (#34): domain entity, SQLAlchemy model, M2M association table (alert↔source_websites), repository interface + implementation, use cases (Create, GetById, GetByUserId, List, Update, Delete), JSON:API schemas, presenter, validator, controller with all REST endpoints (`/price-alerts`)
 - Alembic migration for `price_alerts` and `price_alert_source_website` tables
 - 37 unit tests (use cases, presenter, validator)

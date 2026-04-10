@@ -23,18 +23,19 @@ export function useDashboardSummary(userId: number | null): UseDashboardSummaryR
   const reload = useCallback(() => setReloadTrigger((n) => n + 1), [])
 
   useEffect(() => {
-    if (userId == null) {
+    if (userId === null) {
       setLoading(false)
       return
     }
 
+    const currentUserId = userId
     let cancelled = false
 
     async function fetch() {
       setLoading(true)
       setError(null)
       try {
-        const data = await getDashboardSummary(userId!)
+        const data = await getDashboardSummary(currentUserId)
         if (!cancelled) setSummary(data)
       } catch (err) {
         if (!cancelled) {

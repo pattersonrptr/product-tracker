@@ -244,7 +244,7 @@ export function ProductsPage() {
           row.currentPrice != null &&
           activeAlerts.some(
             (a) =>
-              row.currentPrice! <= a.maxPrice &&
+              (row.currentPrice as number) <= a.maxPrice &&
               row.title.toLowerCase().includes(a.searchTerm.toLowerCase()),
           )
         return (

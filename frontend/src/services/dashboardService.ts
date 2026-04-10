@@ -56,7 +56,7 @@ export async function getDashboardSummary(userId: number): Promise<DashboardSumm
 
   const recentOpportunities: RecentOpportunity[] = []
   for (const product of products) {
-    if (product.currentPrice == null) continue
+    if (product.currentPrice === null || product.currentPrice === undefined) continue
     for (const alert of activeAlerts) {
       if (
         product.currentPrice <= alert.maxPrice &&

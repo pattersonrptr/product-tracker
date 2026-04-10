@@ -49,7 +49,13 @@ export function Sidebar({ open }: SidebarProps) {
   const canViewAdmin = isStaff || isSuperuser
 
   function renderItem(label: string, path: string, icon: React.ReactNode) {
-    const active = location.pathname === path || location.pathname.startsWith(path + '/')
+    const normalizedPathname = location.pathname.endsWith('/')
+      ? location.pathname.slice(0, -1)
+      : location.pathname
+    const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path
+    const active =
+      normalizedPathname === normalizedPath ||
+      normalizedPathname.startsWith(normalizedPath + '/')
     return (
       <Tooltip key={path} title={open ? '' : label} placement="right">
         <ListItemButton

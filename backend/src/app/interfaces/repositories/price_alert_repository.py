@@ -55,3 +55,28 @@ class PriceAlertRepositoryInterface(ABC):
     def count_active_by_search_config_id(self, search_config_id: int) -> int:
         """Count active price alerts that reference a given SearchConfig."""
         raise NotImplementedError
+
+    @abstractmethod
+    def find_matching_alerts_for_product(
+        self,
+        product_title: str,
+        source_website_id: int,
+        current_price: float,
+    ) -> list[PriceAlertEntity]:
+        """Find all active price alerts that match a given product.
+
+        A match occurs when:
+        - alert.is_active is True
+        - alert.search_term appears in product_title (case-insensitive)
+        - source_website_id is in alert.source_website_ids
+        - current_price <= alert.max_price
+
+        Args:
+            product_title: The product title to match against alert search terms.
+            source_website_id: The product's source website ID.
+            current_price: The product's current price.
+
+        Returns:
+            List of matching PriceAlert entities.
+        """
+        raise NotImplementedError

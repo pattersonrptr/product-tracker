@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Scraper closes the loop with alerts** (#38): per-product alert evaluation triggered immediately after each product is saved by the scraper
+- `EvaluateProductAlertsUseCase` — evaluates all active `PriceAlert`s against a specific product, sends email notifications for matches and records `NotificationLog` entries
+- `POST /products/{id}/evaluate-alerts` endpoint — replaces the old batch `send_price_alert_notifications` approach with per-product evaluation
+- `PriceAlertRepository.find_matching_alerts_for_product()` — SQL JOIN on M2M source-website table + Python post-filter for case-insensitive keyword matching
+- `NotificationLogRepository.exists_for_alert_and_product()` — dedup guard: skips notification if alert+product pair already has a successful log
+- `ApiClient.evaluate_product_alerts(product_id)` — scraper-side HTTP call that triggers per-product evaluation after save
+- Docker smoke test: `backend/src/scripts/api_tests/products/test_evaluate_alerts_smoke.sh`
+
+### Changed
+
+- `save_products` Celery task: calls `evaluate_product_alerts` per product immediately after create/update; removed the old batch `send_price_alert_notifications.apply_async` call
+
 - **Dashboard + Alerts pages** (#37): user-facing frontend with dashboard summary and full PriceAlert CRUD
 - `DashboardPage` with 3 summary cards — Active Alerts, Recent Opportunities, Next Checks
 - `AlertsPage` with MUI DataGrid, create/edit modal, pause/resume toggle, single + bulk delete

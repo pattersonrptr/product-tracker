@@ -33,18 +33,20 @@ product-tracker/
 - **NotificationLog + SendGrid email notifications** — rate-limited (1/alert/hour), HTML templates
 - `GET /price-alerts/{id}/products` — products matching alert term + sources + max_price
 - `POST /price-alerts/{id}/notify` — trigger notification check for a specific alert
+- **`POST /products/{id}/evaluate-alerts`** — per-product alert evaluation with dedup guard
+- `EvaluateProductAlertsUseCase` — matches active alerts by keyword + source + price, sends emails, prevents duplicate notifications via `NotificationLog`
 - JSON:API compliant responses
-- 568+ tests passing
+- 585+ tests passing
 
 ### Scrapers (Celery)
 
 - 4 platforms: OLX, Mercado Livre, Enjoei, Estante Virtual
 - Celery Beat dynamic scheduler (syncs search configs from API)
 - Playwright-based scraping (all 4 scrapers)
-- **Post-scrape notification trigger** — `send_price_alert_notifications` Celery task
+- **Per-product notification trigger** — `evaluate_product_alerts` called after each product save (replaces old batch approach)
 - ML rate-limiting: 15s search delay, 10s product delay, shuffle, context rotation
 - Proxy infrastructure ready (paid + free rotation with fallback)
-- 336+ tests passing
+- 340+ tests passing
 
 ### Frontend (React)
 

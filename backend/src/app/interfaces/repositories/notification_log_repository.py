@@ -49,3 +49,20 @@ class NotificationLogRepositoryInterface(ABC):
     def delete(self, notification_log_id: int) -> bool:
         """Delete a log by id. Returns True if deleted, False if not found."""
         ...
+
+    @abstractmethod
+    def exists_for_alert_and_product(
+        self, price_alert_id: int, product_id: int
+    ) -> bool:
+        """Check if a successful notification was already sent for a given alert + product pair.
+
+        Used to prevent duplicate notifications when a product is re-evaluated.
+
+        Args:
+            price_alert_id: The price alert ID.
+            product_id: The product ID.
+
+        Returns:
+            True if a 'sent' notification log exists for this pair, False otherwise.
+        """
+        ...

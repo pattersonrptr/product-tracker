@@ -1,10 +1,25 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
 
 from src.app.domain.validators.product_validator import ProductValidator
 from src.app.entities.product import Product as ProductEntity
 from src.app.entities.user import User as UserEntity
 from src.app.infrastructure.database_config import get_db
+from src.app.infrastructure.repositories.notification_log_repository import (
+    NotificationLogRepository,
+)
+from src.app.infrastructure.repositories.price_alert_repository import (
+    PriceAlertRepository,
+)
+from src.app.infrastructure.repositories.price_history_repository import (
+    PriceHistoryRepository,
+)
 from src.app.infrastructure.repositories.product_repository import ProductRepository
+from src.app.infrastructure.repositories.source_website_repository import (
+    SourceWebsiteRepository,
+)
+from src.app.infrastructure.repositories.user_repository import UserRepository
+from src.app.infrastructure.services.email_service import SendGridEmailService
 from src.app.interfaces.http.presenters.product_presenter import ProductPresenter
 from src.app.interfaces.http.schemas.product_schema import (
     ProductCreateRequest,
@@ -13,6 +28,9 @@ from src.app.interfaces.http.schemas.product_schema import (
     ProductUpdateRequest,
 )
 from src.app.security.auth import get_current_staff_user
+from src.app.use_cases.evaluate_product_alerts_use_case import (
+    EvaluateProductAlertsUseCase,
+)
 from src.app.use_cases.product_use_cases import (
     CreateProductUseCase,
     DeleteProductUseCase,
@@ -21,6 +39,7 @@ from src.app.use_cases.product_use_cases import (
     ListProductsUseCase,
     UpdateProductUseCase,
 )
+from src.common.jsonapi import JsonApiError, JsonApiErrorResponse
 from src.config.logging_config import get_logger
 
 router = APIRouter(tags=["products"], prefix="/products")
@@ -38,6 +57,30 @@ def get_product_validator(
 ) -> ProductValidator:
     """Dependency injection for ProductValidator."""
     return ProductValidator(product_repo)
+
+
+def get_price_alert_repository(db=Depends(get_db)) -> PriceAlertRepository:
+    return PriceAlertRepository(db)
+
+
+def get_price_history_repository(db=Depends(get_db)) -> PriceHistoryRepository:
+    return PriceHistoryRepository(db)
+
+
+def get_notification_log_repository(db=Depends(get_db)) -> NotificationLogRepository:
+    return NotificationLogRepository(db)
+
+
+def get_user_repository(db=Depends(get_db)) -> UserRepository:
+    return UserRepository(db)
+
+
+def get_source_website_repository(db=Depends(get_db)) -> SourceWebsiteRepository:
+    return SourceWebsiteRepository(db)
+
+
+def get_email_service() -> SendGridEmailService:
+    return SendGridEmailService()
 
 
 @router.post("/", response_model=ProductReadResponse, status_code=201)
@@ -349,3 +392,100 @@ def delete_product(
     )
 
     return None
+
+
+@router.post("/{product_id}/evaluate-alerts", status_code=200)
+def evaluate_product_alerts(
+    product_id: int,
+    product_repo: ProductRepository = Depends(get_product_repository),
+    price_history_repo: PriceHistoryRepository = Depends(get_price_history_repository),
+    price_alert_repo: PriceAlertRepository = Depends(get_price_alert_repository),
+    notification_log_repo: NotificationLogRepository = Depends(
+        get_notification_log_repository
+    ),
+    user_repo: UserRepository = Depends(get_user_repository),
+    source_website_repo: SourceWebsiteRepository = Depends(
+        get_source_website_repository
+    ),
+    email_service: SendGridEmailService = Depends(get_email_service),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Evaluate all active price alerts against a specific product.
+
+    After a product is created/updated, call this endpoint to automatically
+    find matching PriceAlerts and trigger email notifications.
+
+    Dedup: if a notification was already sent for the same product + alert
+    pair, it will be skipped.
+
+    Requires staff or superuser access.
+
+    Returns:
+        - 200: Evaluation result with counts
+        - 404: Product not found
+    """
+    logger.info(
+        f"Evaluating alerts for product ID: {product_id}",
+        extra={
+            "action": "evaluate_product_alerts",
+            "product_id": product_id,
+            "user_id": current_user.id,
+        },
+    )
+
+    use_case = EvaluateProductAlertsUseCase(
+        product_repo=product_repo,
+        price_history_repo=price_history_repo,
+        price_alert_repo=price_alert_repo,
+        notification_log_repo=notification_log_repo,
+        user_repo=user_repo,
+        source_website_repo=source_website_repo,
+        email_service=email_service,
+    )
+    sent_logs, skipped, error = use_case.execute(product_id)
+
+    if error:
+        if "not found" in error.lower():
+            return JSONResponse(
+                status_code=404,
+                content=JsonApiErrorResponse(
+                    errors=[
+                        JsonApiError(
+                            status="404",
+                            code="NOT_FOUND",
+                            title="Product not found",
+                            detail=error,
+                            source={"pointer": "/data/id"},
+                        )
+                    ]
+                ).model_dump(),
+                media_type="application/vnd.api+json",
+            )
+        # Non-error skip reasons (no price, no matching alerts)
+        return {
+            "data": {
+                "type": "evaluate_alerts_results",
+                "attributes": {
+                    "status": "skipped",
+                    "message": error,
+                    "notifications_sent": 0,
+                    "skipped": 0,
+                },
+            }
+        }
+
+    sent_count = len(sent_logs)
+    return {
+        "data": {
+            "type": "evaluate_alerts_results",
+            "attributes": {
+                "status": "sent" if sent_count > 0 else "no_matches",
+                "message": (
+                    f"{sent_count} notification(s) sent, {skipped} skipped (dedup)"
+                ),
+                "notifications_sent": sent_count,
+                "skipped": skipped,
+            },
+        }
+    }

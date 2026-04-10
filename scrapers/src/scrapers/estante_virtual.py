@@ -188,7 +188,7 @@ class EstanteVirtualScraper(
         return {
             "url": url,
             "title": (
-                f"{product_info.get('name', '')} | " f"{product_info.get('author', '')}"
+                f"{product_info.get('name', '')} | {product_info.get('author', '')}"
             ),
             "price": f"{price:.2f}" if price else "",
             "description": description,

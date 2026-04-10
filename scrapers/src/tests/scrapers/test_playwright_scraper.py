@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.config.proxy import ProxyConfig
+from src.config.proxy_rotator import FreeProxyRotator, PaidProxyRotator
 from src.scrapers.base.playwright_scraper import PlaywrightScraper
 
 # ---------------------------------------------------------------------------
@@ -306,12 +306,12 @@ def test_use_proxy_default_is_false():
 
 
 class TestProxyIntegration:
-    """Verify that proxy config is wired into context creation."""
+    """Verify that proxy rotator is wired into context creation."""
 
     def test_no_proxy_when_use_proxy_false(self):
-        """Scrapers without _USE_PROXY should have no proxy config."""
+        """Scrapers without _USE_PROXY should have no proxy rotator."""
         scraper = ConcretePlaywrightScraper()
-        assert scraper._proxy_config is None
+        assert scraper._proxy_rotator is None
 
     @patch.dict(
         "os.environ",
@@ -325,7 +325,7 @@ class TestProxyIntegration:
     def test_no_proxy_when_use_proxy_false_even_if_env_set(self):
         """Even with env vars set, _USE_PROXY=False means no proxy."""
         scraper = ConcretePlaywrightScraper()
-        assert scraper._proxy_config is None
+        assert scraper._proxy_rotator is None
 
     @patch.dict(
         "os.environ",
@@ -336,18 +336,18 @@ class TestProxyIntegration:
             "PROXY_PASSWORD": "pass",
         },
     )
-    def test_proxy_loaded_when_use_proxy_true(self):
-        """Scrapers with _USE_PROXY=True should load proxy from env."""
+    def test_paid_proxy_loaded_when_use_proxy_true(self):
+        """Scrapers with _USE_PROXY=True + env vars get PaidProxyRotator."""
         scraper = ProxiedPlaywrightScraper()
-        assert scraper._proxy_config is not None
-        assert scraper._proxy_config.server == "http://proxy:8080"
-        assert scraper._proxy_config.username == "user"
+        assert scraper._proxy_rotator is not None
+        assert isinstance(scraper._proxy_rotator, PaidProxyRotator)
 
     @patch.dict("os.environ", {}, clear=True)
-    def test_proxy_none_when_env_not_set(self):
-        """_USE_PROXY=True but no env vars → proxy is None."""
+    def test_free_proxy_fallback_when_no_env(self):
+        """_USE_PROXY=True but no paid env vars → FreeProxyRotator."""
         scraper = ProxiedPlaywrightScraper()
-        assert scraper._proxy_config is None
+        assert scraper._proxy_rotator is not None
+        assert isinstance(scraper._proxy_rotator, FreeProxyRotator)
 
     @pytest.mark.asyncio
     @patch.dict(
@@ -359,8 +359,8 @@ class TestProxyIntegration:
             "PROXY_PASSWORD": "pass",
         },
     )
-    async def test_build_context_passes_proxy(self):
-        """_build_context() should pass proxy kwarg when configured."""
+    async def test_build_context_passes_paid_proxy(self):
+        """_build_context() should pass proxy kwarg from paid rotator."""
         browser, context, page = _make_mock_browser()
         scraper = ProxiedPlaywrightScraper()
         scraper._browser = browser
@@ -386,20 +386,14 @@ class TestProxyIntegration:
         assert "proxy" not in call_kwargs
 
     @pytest.mark.asyncio
-    async def test_build_context_proxy_injected_manually(self):
-        """Verify proxy kwarg via direct _proxy_config assignment."""
+    async def test_build_context_accepts_explicit_proxy(self):
+        """_build_context(proxy=...) should use the explicit proxy dict."""
         browser, context, page = _make_mock_browser()
         scraper = ConcretePlaywrightScraper()
         scraper._browser = browser
-        scraper._proxy_config = ProxyConfig(
-            server="socks5://my-proxy:1080", username="a", password="b"
-        )
 
-        await scraper._build_context()
+        explicit_proxy = {"server": "socks5://my-proxy:1080"}
+        await scraper._build_context(proxy=explicit_proxy)
 
         call_kwargs = browser.new_context.call_args.kwargs
-        assert call_kwargs["proxy"] == {
-            "server": "socks5://my-proxy:1080",
-            "username": "a",
-            "password": "b",
-        }
+        assert call_kwargs["proxy"] == {"server": "socks5://my-proxy:1080"}

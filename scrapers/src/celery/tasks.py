@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 from datetime import datetime, timedelta
 
 import requests
@@ -164,10 +165,20 @@ def scrape_batch(
 
     This avoids the memory cost of launching a separate Chromium process
     for every single URL (the old ``scrape_product_page`` approach).
+
+    Rate-limiting is handled by each scraper internally (e.g.
+    ``MercadoLivreScraper`` applies its own delays between requests).
     """
     scraper_instance = ScraperFactory().create_scraper(scraper_name)
     scraper = ScraperManager(scraper_instance)
     results = []
+
+    # Shuffle URLs if the scraper requests it (anti-sequential pattern
+    # to avoid behavioural detection — e.g. MercadoLivreScraper).
+    if getattr(scraper_instance, "_SHUFFLE_URLS", False):
+        urls = list(urls)  # copy so we don't mutate the original
+        random.shuffle(urls)
+        logger.info("🔀 URLs shuffled for %s (%d URLs)", scraper_name, len(urls))
 
     try:
         for url in urls:

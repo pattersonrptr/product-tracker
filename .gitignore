@@ -84,3 +84,6 @@ notes.txt
 scrapers/scraper_test_report.json
 .openclaude-profile.json
 .qwen/
+scrapers/asyncio
+scrapers/logging
+scrapers/ml_experiment_results.json

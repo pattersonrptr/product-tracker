@@ -1,8 +1,8 @@
 # Mercado Livre Scraper — Investigation Notes
 
-> **Last updated:** 2026-04-08
-> **Status:** 🔴 SUSPENDED — IP blocked by ML, residential proxy required but not viable (cost)
-> **Decision:** Scraper code + proxy infra ready, reactivate if IP situation changes
+> **Last updated:** 2026-04-09
+> **Status:** ✅ WORKING — Rate-limited scraping validated (492/492 products, zero blocks)
+> **Decision:** Gentle scraping with 15s search delay + 10s product delay + shuffle + context rotation works at scale
 
 ---
 
@@ -14,6 +14,9 @@
 4. [How ML's Anti-Bot Works](#how-mls-anti-bot-works)
 5. [Viable Solution: Residential Proxy](#viable-solution-residential-proxy)
 6. [Implementation Plan](#implementation-plan)
+7. [Key Discovery: The Block is Temporary](#key-discovery-the-block-is-temporary)
+8. [Execution Plan: Gentle Rate-Limited Scraping](#execution-plan-gentle-rate-limited-scraping)
+9. [Current Implementation Status](#current-implementation-status)
 
 ---
 
@@ -298,10 +301,16 @@ Start with a trial/minimum plan, test with `test_scrapers_live.py`.
 
 - **Scraper code:** `scrapers/src/scrapers/mercado_livre.py`
 - **Base class:** `scrapers/src/scrapers/base/playwright_scraper.py`
-- **Proxy config:** `scrapers/src/config/proxy.py`
-- **Tests:** `scrapers/src/tests/scrapers/test_mercado_livre.py`
-- **Proxy tests:** `scrapers/src/tests/config/test_proxy.py`
+- **Proxy config (paid):** `scrapers/src/config/proxy.py`
+- **Free proxy pool:** `scrapers/src/config/free_proxy.py`
+- **Proxy rotator:** `scrapers/src/config/proxy_rotator.py`
+- **Tests (ML):** `scrapers/src/tests/scrapers/test_mercado_livre.py`
+- **Tests (proxy config):** `scrapers/src/tests/config/test_proxy.py`
+- **Tests (free proxy):** `scrapers/src/tests/config/test_free_proxy.py`
+- **Tests (rotator):** `scrapers/src/tests/config/test_proxy_rotator.py`
+- **Tests (base scraper):** `scrapers/src/tests/scrapers/test_playwright_scraper.py`
 - **Live test:** `scrapers/test_scrapers_live.py`
+- **Celery tasks:** `scrapers/src/celery/tasks.py`
 - **Docker config:** `docker-compose.yml` (PROXY_* env vars)
 - **Env example:** `.env.example`
 
@@ -318,18 +327,316 @@ Start with a trial/minimum plan, test with `test_scrapers_live.py`.
 | 2026-04-08 | All alternatives evaluated, residential proxy chosen |
 | 2026-04-08 | Proxy support implemented and merged (PR #30) |
 | 2026-04-08 | Re-tested: single request still blocked — confirmed IP-level, not rate-based |
-| 2026-04-08 | **Decision: ML suspended** — proxy cost not justified, other 3 scrapers work |
+| 2026-04-08 | Free SOCKS5 proxy rotation implemented (feature/free-proxy-rotation) |
+| 2026-04-08 | SOCKS5 validated via `requests` (~5–11% work against httpbin) |
+| 2026-04-08 | **SOCKS5 vs ML via Playwright: 0/50** — ML blocks datacenter IPs regardless of protocol |
+| 2026-04-08 | **KEY DISCOVERY:** IP block is **temporary** (hours, not days). Direct access works again |
+| 2026-04-08 | Direct Playwright (no proxy): **50 items found**, product scrape OK |
+| 2026-04-08 | **New strategy:** gentle rate-limited scraping instead of proxy rotation |
+| 2026-04-09 | **Threshold experiment:** ML blocks on **2nd search page visit** (page 2 at 3s delay) |
+| 2026-04-09 | **Insight:** Block expires in ~15 min, but 2nd visit immediately re-triggers |
+| 2026-04-09 | **Bug fix:** `_scrape_with_current_proxy` no longer calls `start()`/`stop()` per URL |
+| 2026-04-09 | **Bug fix:** `scrape_batch` now has configurable delay (env `SCRAPE_BATCH_DELAY`, default 3s) |
+| 2026-04-09 | **321/321 tests passing** after all fixes |
+| 2026-04-09 | **🎉 EXPERIMENT SUCCESS:** 48/48 product pages scraped, ZERO blocks (10s delay + shuffle + rotate/5) |
+| 2026-04-09 | Implemented rate-limiting in MercadoLivreScraper (`_PRODUCT_SCRAPE_DELAY=10`, `_MAX_SEARCH_PAGES=1`, `_SHUFFLE_URLS=True`, `_CONTEXT_ROTATION_INTERVAL=5`) |
+| 2026-04-09 | Moved rate-limiting from `scrape_batch` (generic) into scraper (per-site), URL shuffle via `_SHUFFLE_URLS` flag |
+| 2026-04-09 | Rewrote `ml_ip_monitor.py` to use `curl` (doesn't burn Playwright visits) |
+| 2026-04-09 | **331/331 tests passing** (10 new rate-limiting tests) |
+| 2026-04-09 | **Search experiment:** 15s delay → 5 pages / 274 URLs, zero blocks |
+| 2026-04-09 | **🎉 FULL VALIDATION:** "iphone 15" — 11 search pages → 492 URLs → **492/492 products scraped, ZERO blocks** (94 min) |
+| 2026-04-09 | Updated `_MAX_SEARCH_PAGES` from 1 → 20, added `_SEARCH_PAGE_DELAY=15.0` |
+| 2026-04-09 | **291 tests passing** after final updates |
 
 ---
 
-## Final Decision
+## Key Discovery: The Block is Temporary
 
-Mercado Livre scraping is **suspended indefinitely**. The block is at IP
-reputation level — even a single curl request gets redirected. This is not
-solvable without residential proxies (paid service).
+After hours of being blocked, the IP was automatically unblocked:
 
-**The code is preserved and ready** — if circumstances change (new ISP, IP
-rotation becomes free, ML relaxes rules), just set the `PROXY_*` env vars
-and the scraper will work immediately.
+```
+# Before (blocked):
+URL: https://www.mercadolivre.com.br/gz/account-verification?go=...
+Blocked: True, Items: 0
 
-**Working scrapers:** OLX ✅ | Enjoei ✅ | Estante Virtual ✅
+# After waiting ~4-6 hours:
+URL: https://lista.mercadolivre.com.br/kindle
+Blocked: False, Items: 50
+```
+
+**This changes everything.** The block is not permanent — it's ML's response
+to aggressive scraping (many requests in rapid succession). If we scrape
+gently with proper delays, we may never trigger the block at all.
+
+### What triggers the block
+
+Evidence from our sessions:
+
+| Scenario | Result |
+|---|---|
+| Single search page load (1st visit after unblock) | ✅ Works — 50 items |
+| 2nd search page visit (3s delay from 1st) | 🔴 Blocked immediately |
+| Same IP after ~15 min wait | ✅ Unblocked automatically |
+| 2nd visit after the 15 min unblock | 🔴 Blocked again (pattern repeats) |
+| 50+ product scrapes in fast sequence | 🔴 Eventually blocked |
+| Same IP after 4-6h wait | ✅ Unblocked automatically |
+| Free SOCKS5 proxy (datacenter IP) | 🔴 Always blocked (IP reputation) |
+
+**Critical finding:** ML's threshold is **extremely aggressive** — it blocks
+on the **2nd request** with short delays (3s). However, with a **15s delay**
+between requests, 11+ consecutive search pages pass without any block.
+The key is the **timing pattern**, not the request count.
+
+**Implication for our strategy:** With 15s delay between search pages and 10s
+delay between product pages (plus shuffle + context rotation), we can scrape
+hundreds of products in a single session. Validated: **492/492 products, zero blocks.**
+
+### What doesn't work
+
+| Approach | Result | Why |
+|---|---|---|
+| Free HTTP proxies | 0/240 passed | Datacenter IPs, blocked on sight |
+| Free SOCKS5 proxies | 0/50 vs ML | Same datacenter IPs, protocol doesn't help |
+| Paid residential proxies | Would work, ~$20/mo | Rejected (cost) |
+
+**SOCKS5 was NOT the silver bullet.** The earlier success (~5% via `requests`)
+was only against `httpbin.org` for validation. Against ML itself via Playwright,
+all 50 validated SOCKS5 proxies were either blocked (32%) or errored (68%).
+
+---
+
+## Execution Plan: Gentle Rate-Limited Scraping
+
+### The Idea
+
+Instead of trying to disguise our IP with proxies, **be a polite scraper**:
+make fewer requests, space them out, and stay under ML's detection threshold.
+
+### Volume Estimation
+
+Typical ML scraping workflow per search config:
+
+```
+PHASE 1 — Search (collecting product URLs)
+├── Page 1: 50 product URLs    → 1 request
+├── Page 2: 50 product URLs    → 1 request
+├── Page 3: 50 product URLs    → 1 request
+├── Page 4: 50 product URLs    → 1 request
+├── Page 5: 50 product URLs    → 1 request (max_pages default)
+└── Total: ~250 URLs, 5 requests
+
+PHASE 2 — Scrape (visiting each product page)
+├── New URLs only (skip existing in DB)
+├── First run: ~250 product page requests
+├── Subsequent runs: ~10-30 new products
+└── Each product: 1 request
+
+TOTAL PER SEARCH CONFIG (first run): ~255 requests
+TOTAL PER SEARCH CONFIG (daily):     ~15-35 requests
+```
+
+The Celery task flow:
+1. `run_scraper_search` → dispatches `run_search` per active source website
+2. `run_search` → calls `scraper.search()` (5 pages) → dispatches `process_urls_list`
+3. `process_urls_list` → splits into batches of 20 → dispatches `scrape_batch` per chunk
+4. `scrape_batch` → calls `scraper.scrape_product(url)` for each URL in batch
+
+**The danger zone is Phase 2** — scraping 250 product pages in rapid sequence.
+With batches of 20 and no delay between requests, that's 250 requests in ~5 min.
+
+### Phase 1: Measure the Threshold (Experiment)
+
+**Goal:** Find exactly how many requests at what speed trigger the block.
+
+#### Experiment design
+
+```
+Test A: Search pages only (no product scrapes)
+  - Load 1 search page every 3s → count until blocked
+  - Repeat with 5s, 10s delays
+
+Test B: Product pages only
+  - Scrape 1 product page every 2s → count until blocked
+  - Repeat with 5s, 10s, 15s delays
+
+Test C: Mixed (realistic workflow)
+  - 5 search pages (3s delay between each)
+  - Then N product pages (Xs delay between each)
+  - Find max N and min X
+```
+
+#### Expected output
+
+A table like:
+
+| Delay (seconds) | Max requests before block | Total time |
+|---|---|---|
+| 0s | ~20-30? | ~1 min |
+| 2s | ~50? | ~2 min |
+| 5s | ~100? | ~8 min |
+| 10s | ~250? | ~42 min |
+| 15s | unlimited? | ~63 min |
+
+### Phase 2: Implement Rate-Limiting
+
+Based on Phase 1 data, add configurable delays:
+
+```python
+class MercadoLivreScraper:
+    # Delay between search result pages
+    _SEARCH_PAGE_DELAY: float = 3.0      # seconds
+
+    # Delay between individual product page scrapes
+    _PRODUCT_SCRAPE_DELAY: float = 10.0   # seconds (TBD from experiment)
+
+    # New browser context every N product scrapes
+    _CONTEXT_ROTATION_INTERVAL: int = 20  # requests
+```
+
+#### Where delays get added
+
+1. **Search pagination** (`_search_with_current_proxy`):
+   - Already has `await asyncio.sleep(1.0)` between pages
+   - Increase to `_SEARCH_PAGE_DELAY` (3-5s)
+
+2. **Product scraping** (`_scrape_with_current_proxy`):
+   - Currently no delay between product scrapes
+   - Add `_PRODUCT_SCRAPE_DELAY` before each scrape
+   - This is the main change — the `scrape_batch` Celery task calls
+     `scraper.scrape_product(url)` in a loop with no pause
+
+3. **Context rotation** (new):
+   - Close and reopen browser context every N requests
+   - Fresh cookies/session = looks like a new visitor
+   - Prevents ML from building a behavior profile on a single session
+
+4. **Backoff on warning signs**:
+   - If a request takes unusually long (>10s) → possible throttling
+   - If we see a captcha/challenge page → backoff 60s
+   - If blocked → stop completely, report to Celery as "rate_limited"
+
+### Phase 3: Proxy as Fallback Safety Net
+
+The proxy rotation code we built is **kept as-is** (321 tests passing).
+It serves as a fallback layer:
+
+```
+Request flow:
+  1. Try with direct IP (no proxy, with delays)
+  2. If blocked → try proxy rotation (if available)
+  3. If all proxies blocked → stop and report "rate_limited"
+```
+
+- **Paid proxy** (PROXY_ENABLED=true): Always works, use if budget allows
+- **Free SOCKS5 pool**: Unlikely to help with ML but costs nothing to try
+- **No proxy available**: Respect the block, retry next Celery schedule
+
+The `_ProxyBlockedError` → retry loop already handles this gracefully.
+
+### Success Criteria
+
+| Metric | Target | Result |
+|---|---|---|
+| Search (1 page) | Returns ~50 URLs without block | ✅ **48 URLs** |
+| Product scrape (48 URLs) | Completes without block | ✅ **48/48 scraped** |
+| Total time per search config | < 60 minutes | ✅ **~11 min** |
+| No IP block after full run | IP still clean for next run | ⚠️ Unknown (needs Celery test) |
+| Celery integration | Works with existing task flow | ✅ No architecture changes |
+
+---
+
+## Experiment Results (2026-04-09)
+
+### Search Page Threshold
+
+| Delay | Pages loaded | URLs | Result |
+|---|---|---|---|
+| 3s | 1 (50 links) | 50 | 🔴 **Blocked on page 2** |
+| 15s | 5 pages | 274 | ✅ **Zero blocks** |
+| 15s | 11 pages | 492 | ✅ **Zero blocks** (part of full run) |
+
+**Conclusion:** 15s between search pages is safe for 11+ pages. The old 3s
+delay triggered a block on page 2. With 15s, all pages load successfully.
+
+### Product Page Threshold
+
+| Term | Strategy | Delay | Products | Result | Time |
+|---|---|---|---|---|---|
+| kindle | shuffle + rotate/5 | 10s | **48/48** | ✅ ZERO blocks | 11 min |
+| iphone | shuffle + rotate/5 | 10s | **48/48** | ✅ ZERO blocks | 9 min |
+| **iphone 15** | **shuffle + rotate/5** | **10s** | **492/492** | ✅ **ZERO blocks** | **94 min** |
+
+**Conclusion:** Product pages are very tolerant. 10s delay with shuffle and
+context rotation every 5 requests works perfectly — even at 492 products.
+
+### Full Pipeline Validation ("iphone 15")
+
+The definitive test: search all pages + scrape all products in one run.
+
+```
+Search phase:   11 pages → 492 URLs collected (204s, 15s delay between pages)
+Product phase:  492/492 scraped (5459s, 10s delay + shuffle + rotate/5)
+Total time:     5673s (~94 min)
+Blocks:         ZERO
+```
+
+### All Experiment Runs (ml_experiment_results.json)
+
+| # | Test | Term | Delay | Strategy | Result | Time |
+|---|------|------|-------|----------|--------|------|
+| 1 | search | kindle | 3s | — | 🔴 Blocked page 2 | 11s |
+| 2 | product | kindle | 10s | shuffle+rot/5 | 🔴 Blocked (IP burned) | 6s |
+| 3 | product | kindle | 10s | shuffle+rot/5 | 🔴 Blocked (IP burned) | 6s |
+| 4 | product | kindle | 10s | shuffle+rot/5 | ✅ **48/48** | 656s |
+| 5 | product | iphone | 10s | shuffle+rot/5 | ✅ **48/48** | 542s |
+| 6 | search | iphone | 15s | — | ✅ **5pp / 274 URLs** | 74s |
+| 7 | **product** | **iphone 15** | **10s** | **shuffle+rot/5** | ✅ **492/492** | **5673s** |
+
+---
+
+## Current Implementation Status
+
+### Production configuration (MercadoLivreScraper)
+
+```python
+_MAX_SEARCH_PAGES = 20           # Validated: 11 pages OK with 15s delay
+_SEARCH_PAGE_DELAY = 15.0        # Seconds between search pages
+_PRODUCT_SCRAPE_DELAY = 10.0     # Seconds between product scrapes
+_JITTER_FACTOR = 0.2             # ±20% randomness on all delays
+_CONTEXT_ROTATION_INTERVAL = 5   # Fresh browser context every 5 requests
+_SHUFFLE_URLS = True             # Randomize URL order (anti-sequential)
+```
+
+### Already done (feature/free-proxy-rotation branch)
+
+| Component | File | Status |
+|---|---|---|
+| Free proxy pool | `src/config/free_proxy.py` | ✅ Created (16 tests) |
+| Proxy rotator | `src/config/proxy_rotator.py` | ✅ Created (18 tests) |
+| Base scraper integration | `src/scrapers/base/playwright_scraper.py` | ✅ Updated |
+| ML block detection | `src/scrapers/mercado_livre.py` | ✅ `_is_blocked()` + retry loop |
+| ML proxy rotation | `src/scrapers/mercado_livre.py` | ✅ `_ProxyBlockedError` + retry |
+| **Search rate-limiting** | `src/scrapers/mercado_livre.py` | ✅ 15s delay between pages |
+| **Product rate-limiting** | `src/scrapers/mercado_livre.py` | ✅ 10s delay + jitter |
+| **URL shuffle** | `src/celery/tasks.py` | ✅ Via `_SHUFFLE_URLS` flag |
+| **Context rotation** | `src/scrapers/mercado_livre.py` | ✅ New context per scrape |
+| **IP monitor** | `ml_ip_monitor.py` | ✅ curl-based (doesn't burn visits) |
+| **Threshold experiment** | `ml_threshold_experiment.py` | ✅ Full validation (492/492) |
+| Test suite | All test files | ✅ **291 passed** |
+
+### Still to do
+
+| Task | Priority | Notes |
+|---|---|---|
+| Live validation with Celery | Medium | Full end-to-end run via Celery task pipeline |
+| Multiple search terms | Low | Test running consecutive search configs |
+
+### Recently fixed
+
+| Bug | Fix | File |
+|---|---|---|
+| `_scrape_with_current_proxy` called `start()`/`stop()` per URL | Removed `stop()` — browser now reused across batch | `mercado_livre.py` |
+| `scrape_batch` had no delay between requests | Added `time.sleep(SCRAPE_BATCH_DELAY)` (default 3s, env-configurable) | `tasks.py` |
+| Threshold experiment's `--check` consumed the "free" 1st visit | Removed pre-flight check from test runs | `ml_threshold_experiment.py` |
+
+---

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Email notifications via SendGrid** (#36): send email alerts when products matching a PriceAlert are found below the target price
+- `NotificationLog` entity, SQLAlchemy model, repository interface + implementation
+- `SendPriceAlertNotificationUseCase` with configurable rate limiting (default 1 email/alert/hour)
+- `EmailServiceInterface` (ABC) + `SendGridEmailService` implementation
+- `build_price_alert_email` helper — HTML email with product listing, prices in R$, source names
+- `POST /price-alerts/{id}/notify` endpoint to trigger notification check for a specific alert
+- `GET /notification-logs` CRUD endpoints (list, get by id, by alert, by user, delete) — staff-only
+- Alembic migration `003_add_notification_logs` with indexes on `price_alert_id`, `user_id`, `sent_at`
+- `send_price_alert_notifications` Celery task — triggered after `save_products` with 5s countdown
+- `trigger_notifications` + `trigger_price_alert_notification` methods on scrapers `ApiClient`
+- `SENDGRID_API_KEY`, `NOTIFICATION_FROM_EMAIL`, `NOTIFICATION_RATE_LIMIT_MINUTES` env vars
+- 28 unit tests for notification use cases (send, rate limit, CRUD)
+- 8 unit tests for notification log presenter
+- 4 unit tests for `send_price_alert_notifications` Celery task
 - **Link SearchConfig → PriceAlert** (#35): auto-create/reuse SearchConfig when a PriceAlert is created, cleanup orphaned SearchConfigs on deactivation/deletion
 - `search_config_id` FK column on `price_alerts` table (nullable) with index
 - `GET /price-alerts/{id}/products` endpoint — search products matching an alert's term, sources, and optional max_price filter

@@ -16,6 +16,10 @@ services:
       - PYTHONPATH=/src
       - CELERY_WORKER_USERNAME=celery_user
       - CELERY_WORKER_PASSWORD=celery_user_password
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - FROM_EMAIL=${FROM_EMAIL:-noreply@garimpei.com}
+      - NOTIFICATION_FROM_NAME=${NOTIFICATION_FROM_NAME:-Garimpei}
+      - NOTIFICATION_RATE_LIMIT_MINUTES=${NOTIFICATION_RATE_LIMIT_MINUTES:-60}
     volumes:
       - ./backend/alembic:/src/alembic
       - ./backend:/src

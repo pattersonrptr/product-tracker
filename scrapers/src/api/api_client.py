@@ -227,3 +227,29 @@ class ApiClient:
             "Failed to create search execution log for config %s", search_config_id
         )
         return {}
+
+    # -------------------------------------------------------------------------
+    # Notifications
+    # -------------------------------------------------------------------------
+
+    def get_active_price_alerts(self) -> list[dict[str, Any]]:
+        """Fetch all active price alerts from the backend."""
+        logger.debug("Getting active price alerts")
+        response = self._make_request("GET", "/price-alerts/", params={"limit": 100})
+        if response.status_code == 200:
+            alerts = self._extract_collection(response.json())
+            return [a for a in alerts if a.get("is_active")]
+        return []
+
+    def trigger_price_alert_notification(self, price_alert_id: int) -> dict[str, Any]:
+        """Trigger notification check for a specific price alert."""
+        logger.debug("Triggering notification for price alert ID %s", price_alert_id)
+        response = self._make_request("POST", f"/price-alerts/{price_alert_id}/notify")
+        if response.status_code == 200:
+            return response.json()
+        logger.warning(
+            "Failed to trigger notification for alert %s: %s",
+            price_alert_id,
+            response.status_code,
+        )
+        return {}

@@ -20,6 +20,7 @@ from src.celery.tasks import (
     run_search,
     save_products,
     scrape_product_page,
+    send_price_alert_notifications,
     update_product,
     update_products,
 )
@@ -169,9 +170,10 @@ def _scrape_result(url: str, price: float = 99.0):
     }
 
 
+@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_save_products_creates_new_products(mock_client_cls, mock_token):
+def test_save_products_creates_new_products(mock_client_cls, mock_token, mock_notify):
     client = _make_client_mock()
     client.get_product_by_url.return_value = {}  # product does not exist yet
     client.create_product.return_value = {"id": "10"}
@@ -188,11 +190,15 @@ def test_save_products_creates_new_products(mock_client_cls, mock_token):
     assert outcome["processed"] == 2
     assert client.create_product.call_count == 2
     assert client.create_price_history.call_count == 2
+    mock_notify.apply_async.assert_called_once_with(args=[1], countdown=5)
 
 
+@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_save_products_updates_existing_products(mock_client_cls, mock_token):
+def test_save_products_updates_existing_products(
+    mock_client_cls, mock_token, mock_notify
+):
     client = _make_client_mock()
     client.get_product_by_url.return_value = {"id": "5"}  # product exists
     mock_client_cls.return_value = client
@@ -231,9 +237,12 @@ def test_save_products_all_failed_scrapes(mock_client_cls, mock_token):
     assert outcome["message"] == "All scraping attempts failed"
 
 
+@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_save_products_skips_result_without_url(mock_client_cls, mock_token):
+def test_save_products_skips_result_without_url(
+    mock_client_cls, mock_token, mock_notify
+):
     client = _make_client_mock()
     mock_client_cls.return_value = client
 
@@ -251,9 +260,12 @@ def test_save_products_skips_result_without_url(mock_client_cls, mock_token):
     assert outcome["created"] == 0
 
 
+@patch("src.celery.tasks.send_price_alert_notifications")
 @patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
 @patch("src.celery.tasks.ApiClient")
-def test_save_products_no_price_skips_price_history(mock_client_cls, mock_token):
+def test_save_products_no_price_skips_price_history(
+    mock_client_cls, mock_token, mock_notify
+):
     client = _make_client_mock()
     client.get_product_by_url.return_value = {}
     client.create_product.return_value = {"id": "11"}
@@ -269,6 +281,87 @@ def test_save_products_no_price_skips_price_history(mock_client_cls, mock_token)
     outcome = save_products(results, "enjoei", search_config_id=1)
     assert outcome["created"] == 1
     client.create_price_history.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# send_price_alert_notifications
+# ---------------------------------------------------------------------------
+
+
+@patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
+@patch("src.celery.tasks.ApiClient")
+def test_send_notifications_triggers_for_matching_alerts(mock_client_cls, mock_token):
+    client = MagicMock()
+    client.get_active_price_alerts.return_value = [
+        {"id": "100", "search_config_id": 1},
+        {"id": "200", "search_config_id": 2},
+    ]
+    client.trigger_price_alert_notification.return_value = {
+        "data": {"attributes": {"status": "sent"}}
+    }
+    mock_client_cls.return_value = client
+
+    result = send_price_alert_notifications(search_config_id=1)
+
+    assert result["status"] == "success"
+    assert result["alerts_checked"] == 1
+    assert result["notifications_sent"] == 1
+    client.trigger_price_alert_notification.assert_called_once_with("100")
+
+
+@patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
+@patch("src.celery.tasks.ApiClient")
+def test_send_notifications_skips_when_no_matching_alerts(mock_client_cls, mock_token):
+    client = MagicMock()
+    client.get_active_price_alerts.return_value = [
+        {"id": "100", "search_config_id": 5},
+    ]
+    mock_client_cls.return_value = client
+
+    result = send_price_alert_notifications(search_config_id=99)
+
+    assert result["status"] == "skipped"
+    client.trigger_price_alert_notification.assert_not_called()
+
+
+@patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
+@patch("src.celery.tasks.ApiClient")
+def test_send_notifications_handles_api_error_gracefully(mock_client_cls, mock_token):
+    client = MagicMock()
+    client.get_active_price_alerts.return_value = [
+        {"id": "100", "search_config_id": 1},
+    ]
+    client.trigger_price_alert_notification.side_effect = Exception("API error")
+    mock_client_cls.return_value = client
+
+    result = send_price_alert_notifications(search_config_id=1)
+
+    assert result["status"] == "success"
+    assert result["alerts_checked"] == 1
+    assert result["notifications_sent"] == 0
+
+
+@patch("src.celery.tasks.get_celery_worker_token", return_value="tok")
+@patch("src.celery.tasks.ApiClient")
+def test_send_notifications_checks_all_alerts_when_no_config(
+    mock_client_cls, mock_token
+):
+    client = MagicMock()
+    client.get_active_price_alerts.return_value = [
+        {"id": "100", "search_config_id": 1},
+        {"id": "200", "search_config_id": 2},
+    ]
+    client.trigger_price_alert_notification.return_value = {
+        "data": {"attributes": {"status": "sent"}}
+    }
+    mock_client_cls.return_value = client
+
+    result = send_price_alert_notifications(search_config_id=None)
+
+    assert result["status"] == "success"
+    assert result["alerts_checked"] == 2
+    assert result["notifications_sent"] == 2
+    assert client.trigger_price_alert_notification.call_count == 2
 
 
 # ---------------------------------------------------------------------------

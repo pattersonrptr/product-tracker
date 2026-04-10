@@ -47,6 +47,7 @@ class PriceAlert(Base):
         secondary=price_alert_source_website,
         back_populates="price_alerts",
     )
+    notification_logs = relationship("NotificationLog", back_populates="price_alert")
 
     __table_args__ = (
         Index("ix_price_alert_term", search_term),

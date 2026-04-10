@@ -1,3 +1,6 @@
+from src.app.infrastructure.database.models.notification_log_model import (
+    NotificationLog,
+)
 from src.app.infrastructure.database.models.price_alert_model import PriceAlert
 from src.app.infrastructure.database.models.price_alert_source_website_model import (  # noqa: F401
     price_alert_source_website,
@@ -20,6 +23,7 @@ __all__ = [
     "SourceWebsite",
     "PriceHistory",
     "PriceAlert",
+    "NotificationLog",
     "SearchConfig",
     "SearchExecutionLog",
 ]

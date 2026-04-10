@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from src.app.interfaces.http.controllers import (
     auth_controller,
+    notification_log_controller,
     price_alert_controller,
     price_history_controller,
     product_controller,
@@ -24,7 +25,8 @@ def setup_routers(app: FastAPI) -> None:
     - /products: Product tracking endpoints (CRUD operations)
     - /source-websites: Source website management endpoints (CRUD operations)
     - /price-histories: Price history tracking endpoints
-    - /price-alerts: Price alert management endpoints (CRUD operations)
+    - /price-alerts: Price alert management endpoints (CRUD + notify)
+    - /notification-logs: Notification log management endpoints
     - /search-configs: Search configuration management
     - /search-execution-logs: Search execution log management
 
@@ -37,5 +39,6 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(source_website_controller)
     app.include_router(price_history_controller)
     app.include_router(price_alert_controller)
+    app.include_router(notification_log_controller)
     app.include_router(search_config_controller)
     app.include_router(search_execution_log_controller)

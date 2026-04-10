@@ -267,6 +267,14 @@ def save_products(
         status="success",
         results_count=len(successful),
     )
+
+    # Trigger notification checks for price alerts linked to this search config
+    if search_config_id:
+        send_price_alert_notifications.apply_async(
+            args=[search_config_id],
+            countdown=5,
+        )
+
     return {"status": "success", "created": created, "processed": len(successful)}
 
 
@@ -361,3 +369,52 @@ def _finish_log(
 
 app.conf.timezone = "America/Sao_Paulo"
 app.conf.beat_scheduler = "src.celery.beat_schedule.DynamicScheduler"
+
+
+# ---------------------------------------------------------------------------
+# Notification tasks
+# ---------------------------------------------------------------------------
+
+
+@app.task(name="src.celery.tasks.send_price_alert_notifications")
+def send_price_alert_notifications(search_config_id: int | None = None):
+    """Check active price alerts and send email notifications for matching products.
+
+    If search_config_id is provided, only check alerts linked to that config.
+    Otherwise, check all active alerts.
+
+    Called automatically after save_products or can be triggered manually.
+    """
+    client = ApiClient(get_celery_worker_token())
+    alerts = client.get_active_price_alerts()
+
+    if search_config_id is not None:
+        alerts = [a for a in alerts if a.get("search_config_id") == search_config_id]
+
+    if not alerts:
+        logger.info("No active price alerts to notify for config=%s", search_config_id)
+        return {"status": "skipped", "message": "No active alerts"}
+
+    results = []
+    for alert in alerts:
+        alert_id = alert.get("id")
+        if not alert_id:
+            continue
+        try:
+            result = client.trigger_price_alert_notification(alert_id)
+            results.append({"alert_id": alert_id, "result": result})
+        except Exception as e:
+            logger.error("Notification failed for alert %s: %s", alert_id, e)
+            results.append({"alert_id": alert_id, "error": str(e)})
+
+    sent = sum(
+        1
+        for r in results
+        if r.get("result", {}).get("data", {}).get("attributes", {}).get("status")
+        == "sent"
+    )
+    return {
+        "status": "success",
+        "alerts_checked": len(alerts),
+        "notifications_sent": sent,
+    }

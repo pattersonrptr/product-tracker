@@ -6,6 +6,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useAuth } from '@/context/AuthContext'
+import { AdminDashboardPage } from '@/pages/AdminDashboardPage'
 import { AlertsPage } from '@/pages/AlertsPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { LandingPage } from '@/pages/LandingPage'
@@ -86,6 +87,14 @@ export function AppRouter() {
         <Route path="/products/:id" element={<ProductDetailPage />} />
 
         {/* Admin pages (staff/superuser only) */}
+        <Route
+          path="/admin"
+          element={
+            <RequireAdmin>
+              <AdminDashboardPage />
+            </RequireAdmin>
+          }
+        />
         <Route
           path="/admin/users"
           element={

@@ -8,6 +8,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { useAuth } from '@/context/AuthContext'
 import { AlertsPage } from '@/pages/AlertsPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ProductDetailPage } from '@/pages/ProductDetailPage'
@@ -38,6 +39,16 @@ export function AppRouter() {
   return (
     <Routes>
       {/* Public routes */}
+      <Route
+        path="/"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <LandingPage />
+          )
+        }
+      />
       <Route
         path="/login"
         element={
@@ -116,7 +127,12 @@ export function AppRouter() {
       </Route>
 
       {/* Catch-all */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="*"
+        element={
+          <Navigate to={isAuthenticated ? '/dashboard' : '/'} replace />
+        }
+      />
     </Routes>
   )
 }

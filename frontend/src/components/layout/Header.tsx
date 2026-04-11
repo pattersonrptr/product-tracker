@@ -35,8 +35,8 @@ export function Header({ onMenuClick }: HeaderProps) {
             <MenuIcon />
           </IconButton>
 
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Product Tracker
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
+            🏴‍☠️ Garimpei
           </Typography>
 
           <Button color="inherit" onClick={() => setConfirmOpen(true)}>

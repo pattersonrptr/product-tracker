@@ -11,7 +11,8 @@ import { AppRouter } from '@/router'
 
 const theme = createTheme({
   palette: {
-    primary: { main: '#1976d2' },
+    primary: { main: '#0d47a1' },
+    secondary: { main: '#ff6f00' },
     background: { default: '#f5f5f5' },
   },
   typography: {

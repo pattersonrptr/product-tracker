@@ -4,6 +4,8 @@
  */
 
 import Box from '@mui/material/Box'
+import useMediaQuery from '@mui/material/useMediaQuery'
+import { useTheme } from '@mui/material/styles'
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Footer } from './Footer'
@@ -12,10 +14,14 @@ import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED } from './Side
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
-  const sidebarWidth = sidebarOpen
-    ? SIDEBAR_WIDTH_EXPANDED
-    : SIDEBAR_WIDTH_COLLAPSED
+  const sidebarWidth = isMobile
+    ? 0
+    : sidebarOpen
+      ? SIDEBAR_WIDTH_EXPANDED
+      : SIDEBAR_WIDTH_COLLAPSED
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -25,7 +31,10 @@ export function AppLayout() {
       />
 
       <Box sx={{ display: 'flex', flex: 1, mt: '64px' }}>
-        <Sidebar open={sidebarOpen} />
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
 
         <Box
           component="main"

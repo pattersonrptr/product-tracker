@@ -56,8 +56,8 @@ export function LoginPage() {
       }}
     >
       <Paper sx={{ p: 4, width: '100%', maxWidth: 400 }}>
-        <Typography variant="h5" fontWeight={600} gutterBottom textAlign="center">
-          Product Tracker
+        <Typography variant="h5" fontWeight={700} gutterBottom textAlign="center">
+          🏴‍☠️ Garimpei
         </Typography>
         <Typography
           variant="body2"
@@ -65,7 +65,7 @@ export function LoginPage() {
           textAlign="center"
           mb={3}
         >
-          Sign in to your account
+          Entrar na sua conta
         </Typography>
 
         <Box component="form" onSubmit={handleSubmit} noValidate>

@@ -6,6 +6,7 @@
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import FilterListIcon from '@mui/icons-material/FilterList'
+import InventoryIcon from '@mui/icons-material/Inventory'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -20,6 +21,7 @@ import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
+import Typography from '@mui/material/Typography'
 import {
   DataGrid,
   type GridColDef,
@@ -408,6 +410,26 @@ export function ProductsPage() {
         onRowSelectionModelChange={setRowSelection}
         disableRowSelectionOnClick
         autoHeight
+        slots={{
+          noRowsOverlay: () => (
+            <Stack
+              alignItems="center"
+              justifyContent="center"
+              sx={{ height: '100%', py: 6 }}
+            >
+              <InventoryIcon
+                sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }}
+              />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Nenhum produto encontrado
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Produtos aparecerão aqui quando seus alertas encontrarem
+                resultados nos marketplaces.
+              </Typography>
+            </Stack>
+          ),
+        }}
       />
 
       {/* ── Edit modal ───────────────────────────────────────────────── */}

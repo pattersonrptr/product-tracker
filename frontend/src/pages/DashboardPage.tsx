@@ -8,12 +8,14 @@
  */
 
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
+import AddAlertIcon from '@mui/icons-material/AddAlert'
 import LocalOfferIcon from '@mui/icons-material/LocalOffer'
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
@@ -25,6 +27,7 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
+import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
@@ -38,6 +41,44 @@ import type { OpportunityProduct, AlertNextCheck } from '@/services/dashboardSer
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function OnboardingCard() {
+  const navigate = useNavigate()
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 4,
+        textAlign: 'center',
+        border: '2px dashed',
+        borderColor: 'primary.main',
+        borderRadius: 2,
+        bgcolor: 'primary.50',
+        gridColumn: { md: '1 / -1' },
+      }}
+    >
+      <AddAlertIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+      <Typography variant="h5" fontWeight={700} gutterBottom>
+        Bem-vindo ao Garimpei! 🎉
+      </Typography>
+      <Typography color="text.secondary" sx={{ mb: 3, maxWidth: 480, mx: 'auto' }}>
+        Crie seu primeiro alerta de preço para começar a monitorar os
+        marketplaces automaticamente. Você será notificado quando encontrarmos
+        produtos abaixo do preço desejado.
+      </Typography>
+      <Button
+        variant="contained"
+        size="large"
+        startIcon={<AddAlertIcon />}
+        onClick={() => navigate('/alerts')}
+        sx={{ fontWeight: 700, px: 4 }}
+      >
+        Criar primeiro alerta
+      </Button>
+    </Paper>
+  )
+}
 
 function ActiveAlertsCard({
   active,
@@ -245,37 +286,45 @@ export function DashboardPage() {
     )
   }
 
+  const isNewUser = summary.totalAlerts === 0
+
   return (
     <Box>
       <PageHeader title="Dashboard" />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: -2 }}>
-        Your price tracking overview
+        Seu painel de monitoramento de preços
       </Typography>
 
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: '1fr',
-            md: '1fr 1fr',
-            lg: '300px 1fr 1fr',
-          },
-          gap: 3,
-          mt: 2,
-        }}
-      >
-        {/* Active Alerts card */}
-        <ActiveAlertsCard
-          active={summary.activeAlerts}
-          total={summary.totalAlerts}
-        />
+      {isNewUser ? (
+        <Box sx={{ mt: 2 }}>
+          <OnboardingCard />
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              md: '1fr 1fr',
+              lg: '300px 1fr 1fr',
+            },
+            gap: 3,
+            mt: 2,
+          }}
+        >
+          {/* Active Alerts card */}
+          <ActiveAlertsCard
+            active={summary.activeAlerts}
+            total={summary.totalAlerts}
+          />
 
-        {/* Recent Opportunities */}
-        <OpportunitiesCard opportunities={summary.recentOpportunities} />
+          {/* Recent Opportunities */}
+          <OpportunitiesCard opportunities={summary.recentOpportunities} />
 
-        {/* Next Checks */}
-        <NextChecksCard checks={summary.nextChecks} />
-      </Box>
+          {/* Next Checks */}
+          <NextChecksCard checks={summary.nextChecks} />
+        </Box>
+      )}
 
       <Divider sx={{ my: 4 }} />
 

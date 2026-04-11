@@ -19,6 +19,8 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import ListSubheader from '@mui/material/ListSubheader'
 import Tooltip from '@mui/material/Tooltip'
+import useMediaQuery from '@mui/material/useMediaQuery'
+import { useTheme } from '@mui/material/styles'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
@@ -27,6 +29,7 @@ export const SIDEBAR_WIDTH_COLLAPSED = 60
 
 interface SidebarProps {
   open: boolean
+  onClose?: () => void
 }
 
 const USER_ITEMS = [
@@ -41,10 +44,12 @@ const ADMIN_ITEMS = [
   { label: 'Source Websites', path: '/admin/source-websites', icon: <PublicIcon /> },
 ] as const
 
-export function Sidebar({ open }: SidebarProps) {
+export function Sidebar({ open, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { isStaff, isSuperuser } = useAuth()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const width = open ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED
   const isAdmin = isStaff || isSuperuser
 
@@ -54,7 +59,10 @@ export function Sidebar({ open }: SidebarProps) {
       <Tooltip key={path} title={open ? '' : label} placement="right">
         <ListItemButton
           selected={active}
-          onClick={() => navigate(path)}
+          onClick={() => {
+            navigate(path)
+            if (isMobile && onClose) onClose()
+          }}
           sx={{ justifyContent: open ? 'initial' : 'center', px: 2 }}
         >
           <ListItemIcon
@@ -73,21 +81,8 @@ export function Sidebar({ open }: SidebarProps) {
     )
   }
 
-  return (
-    <Drawer
-      variant="permanent"
-      sx={{
-        width,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width,
-          boxSizing: 'border-box',
-          overflowX: 'hidden',
-          transition: 'width 0.2s ease',
-          mt: '64px',
-        },
-      }}
-    >
+  const content = (
+    <>
       <List>
         {USER_ITEMS.map(({ label, path, icon }) => renderItem(label, path, icon))}
       </List>
@@ -110,6 +105,46 @@ export function Sidebar({ open }: SidebarProps) {
           </List>
         </>
       )}
+    </>
+  )
+
+  // On mobile: temporary drawer (overlay). On desktop: permanent drawer.
+  if (isMobile) {
+    return (
+      <Drawer
+        variant="temporary"
+        open={open}
+        onClose={onClose}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: SIDEBAR_WIDTH_EXPANDED,
+            boxSizing: 'border-box',
+            mt: '64px',
+          },
+        }}
+      >
+        {content}
+      </Drawer>
+    )
+  }
+
+  return (
+    <Drawer
+      variant="permanent"
+      sx={{
+        width,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width,
+          boxSizing: 'border-box',
+          overflowX: 'hidden',
+          transition: 'width 0.2s ease',
+          mt: '64px',
+        },
+      }}
+    >
+      {content}
     </Drawer>
   )
 }

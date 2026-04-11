@@ -3,7 +3,7 @@ import { test, expect, login } from './fixtures'
 test.describe('Login', () => {
   test('shows the login form', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.getByText('Product Tracker')).toBeVisible()
+    await expect(page.getByText('Garimpei')).toBeVisible()
     await expect(page.getByLabel('Username')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible()
@@ -52,7 +52,7 @@ test.describe('Logout', () => {
 test.describe('Register', () => {
   test('shows the registration form', async ({ page }) => {
     await page.goto('/register')
-    await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Garimpei/ })).toBeVisible()
     await expect(page.getByLabel('Username')).toBeVisible()
     await expect(page.getByLabel('Email')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Password', exact: true })).toBeVisible()

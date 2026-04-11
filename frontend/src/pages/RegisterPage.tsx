@@ -79,8 +79,8 @@ export function RegisterPage() {
       }}
     >
       <Paper sx={{ p: 4, width: '100%', maxWidth: 440 }}>
-        <Typography variant="h5" fontWeight={600} gutterBottom textAlign="center">
-          Create Account
+        <Typography variant="h5" fontWeight={700} gutterBottom textAlign="center">
+          🏴‍☠️ Garimpei
         </Typography>
         <Typography
           variant="body2"
@@ -88,7 +88,7 @@ export function RegisterPage() {
           textAlign="center"
           mb={3}
         >
-          Join Product Tracker to start monitoring prices
+          Crie sua conta e comece a monitorar preços
         </Typography>
 
         <Box component="form" onSubmit={handleSubmit} noValidate>

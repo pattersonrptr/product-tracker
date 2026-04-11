@@ -19,7 +19,7 @@ export function Footer() {
       }}
     >
       <Typography variant="body2" color="text.secondary">
-        Product Tracker © {new Date().getFullYear()}
+        Garimpei © {new Date().getFullYear()}
       </Typography>
     </Box>
   )

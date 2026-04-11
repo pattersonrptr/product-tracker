@@ -5,6 +5,7 @@
 
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import PauseIcon from '@mui/icons-material/Pause'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
@@ -25,6 +26,7 @@ import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
+import Typography from '@mui/material/Typography'
 import {
   DataGrid,
   type GridColDef,
@@ -619,6 +621,29 @@ export function AlertsPage() {
         disableRowSelectionOnClick
         autoHeight
         sx={{ minHeight: 400 }}
+        slots={{
+          noRowsOverlay: () => (
+            <Stack
+              alignItems="center"
+              justifyContent="center"
+              sx={{ height: '100%', py: 6 }}
+            >
+              <NotificationsActiveIcon
+                sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }}
+              />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Nenhum alerta ainda
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mb: 2 }}
+              >
+                Crie seu primeiro alerta clicando em &quot;New Alert&quot; acima.
+              </Typography>
+            </Stack>
+          ),
+        }}
       />
 
       {/* Create modal */}

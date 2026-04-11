@@ -94,7 +94,13 @@ async def login(
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username, "user_id": user.id, "email": user.email},
+        data={
+            "sub": user.username,
+            "user_id": user.id,
+            "email": user.email,
+            "is_staff": user.is_staff,
+            "is_superuser": user.is_superuser,
+        },
         expires_delta=access_token_expires,
     )
 
@@ -174,6 +180,8 @@ async def refresh_token(current_user: UserEntity = Depends(get_current_active_us
             "sub": current_user.username,
             "user_id": current_user.id,
             "email": current_user.email,
+            "is_staff": current_user.is_staff,
+            "is_superuser": current_user.is_superuser,
         },
         expires_delta=access_token_expires,
     )

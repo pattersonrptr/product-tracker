@@ -10,6 +10,7 @@ import { apiClient } from '@/api/client'
 import { ENDPOINTS } from '@/api/endpoints'
 import { unwrapCollection } from '@/api/jsonapi'
 import { logger } from '@/lib/logger'
+import { getExecutionStatus } from '@/services/searchConfigService'
 import type { PriceAlert } from '@/types/priceAlert'
 
 /** Raw attributes from the price-alerts API (snake_case) */
@@ -152,17 +153,40 @@ export async function getDashboardSummary(
       new Date(a.createdAt ?? 0).getTime(),
   )
 
-  // 3. Compute next checks
-  const nextChecks: AlertNextCheck[] = activeAlerts.map((alert) => ({
-    alertId: alert.id,
-    searchTerm: alert.searchTerm,
-    frequencyMinutes: alert.frequencyMinutes,
-    lastTriggeredAt: alert.lastTriggeredAt ?? null,
-    nextCheckAt: computeNextCheck(
-      alert.lastTriggeredAt,
-      alert.frequencyMinutes,
+  // 3. Compute next checks using execution status (not lastTriggeredAt)
+  const uniqueConfigIds = [
+    ...new Set(
+      activeAlerts
+        .map((a) => a.searchConfigId)
+        .filter((id): id is number => id != null),
     ),
-  }))
+  ]
+
+  // Fetch last execution time per search config
+  const executionMap: Record<number, string | null> = {}
+  const statusResults = await Promise.allSettled(
+    uniqueConfigIds.map((id) =>
+      getExecutionStatus(String(id)).then((es) => ({ id, es })),
+    ),
+  )
+  for (const r of statusResults) {
+    if (r.status === 'fulfilled' && r.value.es.startedAt) {
+      executionMap[r.value.id] = r.value.es.startedAt
+    }
+  }
+
+  const nextChecks: AlertNextCheck[] = activeAlerts.map((alert) => {
+    const lastRun = alert.searchConfigId
+      ? executionMap[alert.searchConfigId] ?? null
+      : null
+    return {
+      alertId: alert.id,
+      searchTerm: alert.searchTerm,
+      frequencyMinutes: alert.frequencyMinutes,
+      lastTriggeredAt: lastRun,
+      nextCheckAt: computeNextCheck(lastRun, alert.frequencyMinutes),
+    }
+  })
 
   // Sort by nearest check first
   nextChecks.sort((a, b) => {

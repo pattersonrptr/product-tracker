@@ -22,7 +22,9 @@
 - **NotificationLog entity** + SendGrid email notifications with rate limiting (#36)
 - `GET /price-alerts/{id}/products` — products matching alert term + sources + max_price
 - JSON:API compliant
-- 568+ tests
+- Product repository with latest price JOIN
+- JWT tokens with role claims (`is_staff`, `is_superuser`)
+- 585+ tests
 
 ### ✅ Scrapers (Celery + Playwright)
 
@@ -30,8 +32,9 @@
 - Celery Beat with dynamic scheduler (syncs configs via API)
 - **Post-scrape notification trigger** — `send_price_alert_notifications` task (#36)
 - ML rate-limiting validated (492/492, zero blocks)
+- Price field normalization (accepts `price` and `current_price`)
 - Proxy infrastructure ready (paid + free rotation with fallback)
-- 336+ tests
+- 339+ tests
 
 ### ✅ Frontend (React 19 + Vite + MUI)
 
@@ -42,7 +45,8 @@
 - **Sidebar reorganized** — User section + Admin section with route guards (#37)
 - Search config CRUD, Source website CRUD, User management (admin routes)
 - JWT auth with interceptors
-- 61+ tests
+- Date/currency formatting in pt-BR locale
+- 61 unit tests (Vitest) + 74 E2E tests (Playwright: chromium + firefox)
 
 ### ✅ Infrastructure
 
@@ -56,6 +60,7 @@
 - ~~Notifications (email, push, WhatsApp)~~ ✅ Email done (#36); push/WhatsApp planned Phase 3
 - ~~Smart dashboard ("Your Searches" + "Opportunities")~~ ✅ Done (#37)
 - ~~Admin area~~ ✅ Basic admin routing done (#37); full admin dashboard planned Phase 2
+- ~~E2E tests~~ ✅ 74 Playwright tests (auth, alerts, dashboard, CRUD pages)
 - More scrapers (Shopee, Amazon BR)
 - Landing page / onboarding
 - Freemium model (plans, limits)

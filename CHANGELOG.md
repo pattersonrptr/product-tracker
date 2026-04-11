@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Playwright E2E test suite** — 74 tests (37 per browser × chromium + firefox)
+  - Auth tests (11): login, logout, register, validation, auth guards
+  - Alerts CRUD tests (7): create, edit, pause/resume, delete, modal cancel
+  - Dashboard tests (3): cards display, alert count, navigation
+  - Pages CRUD tests (16): products (edit, delete, filter), source websites CRUD, search configs CRUD, admin page smoke tests
+  - Shared fixtures: `authenticatedPage`, `cleanupTestAlerts`, `cleanupTestWebsites`, `cleanupTestConfigs`
+  - Playwright config with chromium + firefox, 10s timeout
+- Root `package.json` with `@playwright/test` dependency
+
+### Fixed
+
+- **Frontend PATCH→PUT mismatch** — `sourceWebsiteService`, `searchConfigService`, `productService` used `apiClient.patch()` but backend expects `PUT` → 405 errors on edit
+- **Products without prices** — `ProductRepository.get_all()` never joined `price_history`, returning `current_price: None` for all products; added LEFT JOIN to latest price subquery (same pattern as `search_by_term_and_sources`)
+- **Products without prices (scraper side)** — `save_products` and `update_products` Celery tasks checked `product_data.get("current_price")` but scrapers return `price` field; now checks both field names
+- **Dashboard "not yet triggered"** — `nextChecks` section used `alert.lastTriggeredAt` (only set on email notification), now uses `getExecutionStatus()` per search config for accurate last-run times
+- **American date locale** — `formatDate`, `formatChartDateLabel`, `formatDateTime` changed from `en-US` to `pt-BR` locale
+- **JWT token missing role claims** — added `is_staff` and `is_superuser` to JWT token payload in auth controller
+
+### Changed
+
+- `ProductRepository.get_by_id()` and `get_by_url()` now populate `current_price` from latest price history
+- Dashboard service imports and uses `getExecutionStatus` from `searchConfigService` for next check computation
+- Unit tests updated: formatter tests for pt-BR locale, dashboard service tests mock `getExecutionStatus`
+- `.gitignore` updated with Playwright `test-results/` and `playwright-report/`
+- Alerts E2E tests clean up search configs created as side effects (prevents pagination overflow)
+
+---
+
 - **Scraper closes the loop with alerts** (#38): per-product alert evaluation triggered immediately after each product is saved by the scraper
 - `EvaluateProductAlertsUseCase` — evaluates all active `PriceAlert`s against a specific product, sends email notifications for matches and records `NotificationLog` entries
 - `POST /products/{id}/evaluate-alerts` endpoint — replaces the old batch `send_price_alert_notifications` approach with per-product evaluation

@@ -30,6 +30,10 @@ htmlcov/
 coverage.xml
 *.cover
 
+# Playwright
+test-results/
+playwright-report/
+
 # MyPy
 .mypy_cache/
 .dmypy.json

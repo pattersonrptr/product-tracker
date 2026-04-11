@@ -11,12 +11,17 @@ import { getDashboardSummary } from '@/services/dashboardService'
 
 // ---------- mocks ----------
 
-const { mockGet } = vi.hoisted(() => ({
+const { mockGet, mockGetExecutionStatus } = vi.hoisted(() => ({
   mockGet: vi.fn(),
+  mockGetExecutionStatus: vi.fn(),
 }))
 
 vi.mock('@/api/client', () => ({
   apiClient: { get: mockGet },
+}))
+
+vi.mock('@/services/searchConfigService', () => ({
+  getExecutionStatus: mockGetExecutionStatus,
 }))
 
 vi.mock('@/lib/logger', () => ({
@@ -62,7 +67,7 @@ const ALERT_1 = {
   frequency_minutes: 60,
   last_triggered_at: '2025-01-15T10:00:00Z',
   user_id: 1,
-  search_config_id: null,
+  search_config_id: 10,
   source_website_ids: [1],
   created_at: '2025-01-10T08:00:00Z',
   updated_at: '2025-01-15T10:00:00Z',
@@ -105,6 +110,15 @@ const PRODUCT_EXPENSIVE = {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  // Default: execution status returns a successful run matching ALERT_1's last_triggered_at
+  mockGetExecutionStatus.mockResolvedValue({
+    searchConfigId: 10,
+    status: 'success',
+    startedAt: '2025-01-15T10:00:00Z',
+    finishedAt: '2025-01-15T10:05:00Z',
+    resultsCount: 5,
+    errorMessage: null,
+  })
 })
 
 describe('getDashboardSummary', () => {
@@ -172,6 +186,16 @@ describe('getDashboardSummary', () => {
       )
       .mockResolvedValueOnce(productsCollectionResponse([]))
 
+    // Mock execution status for search_config_id=10
+    mockGetExecutionStatus.mockResolvedValueOnce({
+      searchConfigId: 10,
+      status: 'success',
+      startedAt: '2025-01-15T10:00:00Z',
+      finishedAt: '2025-01-15T10:05:00Z',
+      resultsCount: 5,
+      errorMessage: null,
+    })
+
     const summary = await getDashboardSummary(1)
 
     expect(summary.nextChecks).toHaveLength(1)
@@ -179,14 +203,14 @@ describe('getDashboardSummary', () => {
     expect(summary.nextChecks[0].searchTerm).toBe('iPhone 15')
     expect(summary.nextChecks[0].frequencyMinutes).toBe(60)
 
-    // lastTriggeredAt is 2025-01-15T10:00:00Z, frequency is 60min
+    // startedAt is 2025-01-15T10:00:00Z, frequency is 60min
     // so nextCheckAt should be 2025-01-15T11:00:00Z
     const nextCheck = new Date(summary.nextChecks[0].nextCheckAt!)
     expect(nextCheck.getUTCHours()).toBe(11)
     expect(nextCheck.getUTCMinutes()).toBe(0)
   })
 
-  it('sets nextCheckAt to null when lastTriggeredAt is null', async () => {
+  it('sets nextCheckAt to null when execution has no startedAt', async () => {
     const alertNoTrigger = { ...ALERT_1, last_triggered_at: null, is_active: true }
 
     mockGet
@@ -194,6 +218,16 @@ describe('getDashboardSummary', () => {
         alertsCollectionResponse([{ id: '3', attrs: alertNoTrigger }]),
       )
       .mockResolvedValueOnce(productsCollectionResponse([]))
+
+    // Override: execution status has no startedAt
+    mockGetExecutionStatus.mockResolvedValueOnce({
+      searchConfigId: 10,
+      status: 'idle',
+      startedAt: null,
+      finishedAt: null,
+      resultsCount: null,
+      errorMessage: null,
+    })
 
     const summary = await getDashboardSummary(1)
 
@@ -288,12 +322,14 @@ describe('getDashboardSummary', () => {
       ...ALERT_1,
       frequency_minutes: 30,
       last_triggered_at: '2025-01-15T10:00:00Z',
+      search_config_id: 10,
     }
     const alert2 = {
       ...ALERT_1,
       search_term: 'Pixel 9',
       frequency_minutes: 120,
       last_triggered_at: '2025-01-15T08:00:00Z',
+      search_config_id: 20,
     }
 
     mockGet
@@ -307,6 +343,25 @@ describe('getDashboardSummary', () => {
       .mockResolvedValueOnce(productsCollectionResponse([]))
       // Products for alert2
       .mockResolvedValueOnce(productsCollectionResponse([]))
+
+    // Mock execution status for each search config
+    mockGetExecutionStatus
+      .mockResolvedValueOnce({
+        searchConfigId: 10,
+        status: 'success',
+        startedAt: '2025-01-15T10:00:00Z',
+        finishedAt: null,
+        resultsCount: null,
+        errorMessage: null,
+      })
+      .mockResolvedValueOnce({
+        searchConfigId: 20,
+        status: 'success',
+        startedAt: '2025-01-15T08:00:00Z',
+        finishedAt: null,
+        resultsCount: null,
+        errorMessage: null,
+      })
 
     const summary = await getDashboardSummary(1)
 

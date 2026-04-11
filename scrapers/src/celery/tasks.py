@@ -277,9 +277,10 @@ def save_products(
         if not url:
             continue
         existing = client.get_product_by_url(url)
+        raw_price = product_data.get("price") or product_data.get("current_price")
+        current_price = float(raw_price) if raw_price else None
         if existing:
             product_id = existing.get("id")
-            current_price = product_data.get("current_price")
             if product_id and current_price is not None:
                 client.create_price_history(product_id, current_price)
             client.update_product(product_id, product_data)
@@ -295,7 +296,6 @@ def save_products(
             created_product = client.create_product(product_data)
             if created_product:
                 product_id = created_product.get("id")
-                current_price = product_data.get("current_price")
                 if product_id and current_price is not None:
                     client.create_price_history(product_id, current_price)
                     # Evaluate alerts for the newly created product
@@ -375,7 +375,8 @@ def update_products(results: list, scraper_name: str):
             continue
         result = client.update_product(product_id, product_data)
         if result:
-            current_price = product_data.get("current_price")
+            raw_price = product_data.get("price") or product_data.get("current_price")
+            current_price = float(raw_price) if raw_price else None
             if current_price is not None:
                 client.create_price_history(product_id, current_price)
             updated += 1

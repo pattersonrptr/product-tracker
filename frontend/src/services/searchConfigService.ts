@@ -87,7 +87,7 @@ export async function updateSearchConfig(
 ): Promise<SearchConfig> {
   logger.info('Updating search config', { id })
   const body = wrapPayload('search_config', toApiPayload(payload), id)
-  const response = await apiClient.patch(
+  const response = await apiClient.put(
     ENDPOINTS.searchConfigs.byId(id),
     body,
   )

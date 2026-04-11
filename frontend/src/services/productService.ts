@@ -108,7 +108,7 @@ export async function updateProduct(
 ): Promise<Product> {
   logger.info('Updating product', { id })
   const body = wrapPayload('product', toApiPayload(payload), id)
-  const response = await apiClient.patch(ENDPOINTS.products.byId(id), body)
+  const response = await apiClient.put(ENDPOINTS.products.byId(id), body)
   const raw = unwrapSingle<RawProductAttributes>(response.data)
   return toProduct(raw)
 }

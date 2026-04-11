@@ -36,6 +36,8 @@ product-tracker/
 - **`POST /products/{id}/evaluate-alerts`** — per-product alert evaluation with dedup guard
 - `EvaluateProductAlertsUseCase` — matches active alerts by keyword + source + price, sends emails, prevents duplicate notifications via `NotificationLog`
 - JSON:API compliant responses
+- Product repository with latest price JOIN (current_price from price_history)
+- JWT tokens include `is_staff` and `is_superuser` claims
 - 585+ tests passing
 
 ### Scrapers (Celery)
@@ -46,7 +48,8 @@ product-tracker/
 - **Per-product notification trigger** — `evaluate_product_alerts` called after each product save (replaces old batch approach)
 - ML rate-limiting: 15s search delay, 10s product delay, shuffle, context rotation
 - Proxy infrastructure ready (paid + free rotation with fallback)
-- 340+ tests passing
+- Price field normalization: accepts both `price` and `current_price` from scraper data
+- 339+ tests passing
 
 ### Frontend (React)
 
@@ -56,8 +59,10 @@ product-tracker/
 - Price history charts (Recharts)
 - **Sidebar reorganized** — User section + Admin section with RequireAdmin route guard
 - Search config management (admin), Source website management (admin), User management (admin)
+- Date/currency formatting in pt-BR locale
 - JWT auth with interceptors
-- 61+ tests passing
+- 61 unit tests (Vitest) + 74 E2E tests (Playwright: chromium + firefox)
+- E2E coverage: auth flows, alerts CRUD, dashboard, products, source websites CRUD, search configs CRUD
 
 ### Infrastructure
 
@@ -87,6 +92,7 @@ make lint        # Lint all services
 |---|-------|----------|---------|
 | 1 | OLX blocked in Docker | 🟡 Medium | OLX blocks some datacenter IPs. Works locally. Proxy rotation mitigates. |
 | 2 | No health checks in compose | 🟢 Low | Services don't have Docker `healthcheck` directives. |
+| 3 | Frontend not volume-mounted | 🟢 Low | Frontend Docker container requires `docker compose build frontend` after code changes (unlike backend/scrapers which are volume-mounted). |
 
 ## Next Steps
 
@@ -98,27 +104,19 @@ See **[ROADMAP.md](./ROADMAP.md)** for the full Garimpei product roadmap.
 
 ## Planned Improvements
 
-### Selenium E2E Tests (End-to-End)
+### ✅ Playwright E2E Tests (End-to-End) — DONE
 
-Add browser-based end-to-end tests using Selenium WebDriver that simulate a
-real user interacting with the frontend. This is **E2E testing** — it validates
-the full stack: Browser → Frontend → API → Database.
+Browser-based E2E tests using Playwright Test (TypeScript) that validate the
+full stack: Browser → Frontend → API → Database.
 
-**Why:** Unit tests and smoke tests (API-only) missed frontend integration
-bugs (e.g. JSON:API type mismatches). E2E tests catch these by exercising
-the real UI.
+**74 tests** (37 × 2 browsers: chromium + firefox):
 
-**Scope:**
+- Auth: login, logout, register, validation, guards (11 tests)
+- Alerts: full CRUD, pause/resume, modal cancel (7 tests)
+- Dashboard: cards, counts, navigation (3 tests)
+- Pages: products edit/delete, source websites CRUD, search configs CRUD, admin smoke (16 tests)
 
-- Login / logout flow
-- Create, edit, pause, resume, delete price alerts
-- Trigger manual search (Run Now button)
-- View products list, product details, price history
-- Dashboard cards load correctly
-- Admin pages (source websites, search configs, users)
-
-**Tech:** Selenium + pytest (Python) or Playwright Test (TypeScript).
-Run against Docker Compose stack.
+Run with `cd frontend && npx playwright test`.
 
 ### Separate Test Database
 

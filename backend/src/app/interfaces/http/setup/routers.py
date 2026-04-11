@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from src.app.interfaces.http.controllers import (
+    admin_controller,
     auth_controller,
     notification_log_controller,
     price_alert_controller,
@@ -33,6 +34,7 @@ def setup_routers(app: FastAPI) -> None:
     Args:
         app: FastAPI application instance
     """
+    app.include_router(admin_controller)
     app.include_router(auth_controller)
     app.include_router(user_controller)
     app.include_router(product_controller)

@@ -1,4 +1,4 @@
-import { test, expect, login, ADMIN_USER } from './fixtures'
+import { test, expect, login } from './fixtures'
 
 test.describe('Login', () => {
   test('shows the login form', async ({ page }) => {

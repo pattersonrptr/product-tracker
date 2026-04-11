@@ -111,6 +111,7 @@ export async function login(
 export const test = base.extend<{ authenticatedPage: Page }>({
   authenticatedPage: async ({ page }, use) => {
     await login(page)
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page)
   },
 })

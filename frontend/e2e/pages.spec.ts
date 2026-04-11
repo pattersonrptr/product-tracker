@@ -73,9 +73,6 @@ test.describe('Products page', () => {
     // Wait for rows to load
     await page.waitForSelector('[role="row"]', { timeout: 10_000 })
 
-    // Get the count before deletion
-    const countText = await page.locator('.MuiTablePagination-displayedRows').textContent()
-
     // Click the first delete button
     const deleteButton = page.getByRole('button', { name: /delete/i }).first()
     await deleteButton.click()

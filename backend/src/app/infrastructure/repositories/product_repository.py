@@ -27,6 +27,16 @@ class ProductRepository(ProductRepositoryInterface):
         self.db.refresh(db_product)
         return self._to_entity(db_product)
 
+    def _get_latest_price(self, product_id: int) -> float | None:
+        """Get the latest price for a product from price_history."""
+        result = (
+            self.db.query(PriceHistoryModel.price)
+            .filter(PriceHistoryModel.product_id == product_id)
+            .order_by(desc(PriceHistoryModel.id))
+            .first()
+        )
+        return float(result[0]) if result else None
+
     def get_by_id(self, product_id: int) -> ProductEntity | None:
         """Retrieve a product by ID with source_website relationship."""
         product = (
@@ -36,7 +46,9 @@ class ProductRepository(ProductRepositoryInterface):
             .first()
         )
         if product:
-            return self._to_entity(product)
+            entity = self._to_entity(product)
+            entity.current_price = self._get_latest_price(product.id)
+            return entity
         return None
 
     def get_by_url(self, url: str) -> ProductEntity | None:
@@ -48,7 +60,9 @@ class ProductRepository(ProductRepositoryInterface):
             .first()
         )
         if product:
-            return self._to_entity(product)
+            entity = self._to_entity(product)
+            entity.current_price = self._get_latest_price(product.id)
+            return entity
         return None
 
     def get_all(
@@ -58,13 +72,46 @@ class ProductRepository(ProductRepositoryInterface):
         sort_by: str | None = None,
         sort_order: str | None = None,
     ) -> tuple[list[ProductEntity], int]:
-        """Retrieve all products with pagination and sorting."""
-        query = self.db.query(ProductModel).options(
-            joinedload(ProductModel.source_website)
+        """Retrieve all products with pagination, sorting and current price."""
+        # Subquery: latest price per product
+        latest_price_sq = (
+            self.db.query(
+                PriceHistoryModel.product_id,
+                func.max(PriceHistoryModel.id).label("max_id"),
+            )
+            .group_by(PriceHistoryModel.product_id)
+            .subquery()
         )
 
-        # Get total count
-        total = query.count()
+        price_sq = (
+            self.db.query(
+                PriceHistoryModel.product_id,
+                PriceHistoryModel.price,
+            )
+            .join(
+                latest_price_sq,
+                (PriceHistoryModel.product_id == latest_price_sq.c.product_id)
+                & (PriceHistoryModel.id == latest_price_sq.c.max_id),
+            )
+            .subquery()
+        )
+
+        query = (
+            self.db.query(ProductModel, price_sq.c.price)
+            .outerjoin(price_sq, ProductModel.id == price_sq.c.product_id)
+            .options(joinedload(ProductModel.source_website))
+        )
+
+        # Get total count (count on ProductModel.id to avoid issues with outer join)
+        total = (
+            self.db.query(func.count(ProductModel.id))
+            .select_from(
+                ProductModel.__table__.outerjoin(
+                    price_sq, ProductModel.id == price_sq.c.product_id
+                )
+            )
+            .scalar()
+        )
 
         # Apply sorting
         if sort_by and hasattr(ProductModel, sort_by):
@@ -78,9 +125,15 @@ class ProductRepository(ProductRepositoryInterface):
             query = query.order_by(desc(ProductModel.created_at))
 
         # Apply pagination
-        products = query.limit(limit).offset(offset).all()
+        results = query.limit(limit).offset(offset).all()
 
-        return [self._to_entity(product) for product in products], total
+        entities = []
+        for product_model, price in results:
+            entity = self._to_entity(product_model)
+            entity.current_price = float(price) if price is not None else None
+            entities.append(entity)
+
+        return entities, total
 
     def update(self, product_id: int, product: ProductEntity) -> ProductEntity | None:
         """Update an existing product."""

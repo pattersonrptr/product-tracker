@@ -22,7 +22,9 @@ def get_admin_summary(
     current_user: UserEntity = Depends(get_current_superuser),
 ):
     total_users = db.query(func.count(User.id)).scalar()
-    active_users = db.query(func.count(User.id)).filter(User.is_active.is_(True)).scalar()
+    active_users = (
+        db.query(func.count(User.id)).filter(User.is_active.is_(True)).scalar()
+    )
 
     total_products = db.query(func.count(Product.id)).scalar()
     total_alerts = db.query(func.count(PriceAlert.id)).scalar()
@@ -68,8 +70,12 @@ def get_admin_summary(
                         "status": e.status,
                         "results-count": e.results_count,
                         "error-message": e.error_message,
-                        "started-at": e.started_at.isoformat() if e.started_at else None,
-                        "finished-at": e.finished_at.isoformat() if e.finished_at else None,
+                        "started-at": e.started_at.isoformat()
+                        if e.started_at
+                        else None,
+                        "finished-at": e.finished_at.isoformat()
+                        if e.finished_at
+                        else None,
                     }
                     for e in recent_executions
                 ],

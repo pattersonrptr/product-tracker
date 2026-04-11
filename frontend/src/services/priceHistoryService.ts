@@ -65,7 +65,7 @@ export async function createPriceHistory(
   payload: PriceHistoryCreatePayload,
 ): Promise<PriceHistory> {
   logger.info('Creating price history entry', { productId: payload.productId })
-  const body = wrapPayload('price-histories', {
+  const body = wrapPayload('price_history', {
     product_id: payload.productId,
     price: payload.price,
   })

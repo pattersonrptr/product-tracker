@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
 
 from src.app.domain.validators.search_config_validator import SearchConfigValidator
 from src.app.entities.search_config import SearchConfig as SearchConfigEntity
 from src.app.entities.user import User as UserEntity
+from src.app.infrastructure.celery_client import dispatch_scraper_search
 from src.app.infrastructure.database_config import get_db
 from src.app.infrastructure.repositories.search_config_repository import (
     SearchConfigRepository,
+)
+from src.app.infrastructure.repositories.search_execution_log_repository import (
+    SearchExecutionLogRepository,
 )
 from src.app.infrastructure.repositories.source_website_repository import (
     SourceWebsiteRepository,
@@ -38,6 +43,13 @@ logger = get_logger(__name__)
 def get_search_config_repository(db=Depends(get_db)) -> SearchConfigRepository:
     """Dependency injection for SearchConfigRepository."""
     return SearchConfigRepository(db)
+
+
+def get_search_execution_log_repository(
+    db=Depends(get_db),
+) -> SearchExecutionLogRepository:
+    """Dependency injection for SearchExecutionLogRepository."""
+    return SearchExecutionLogRepository(db)
 
 
 def get_source_website_repository(db=Depends(get_db)) -> SourceWebsiteRepository:
@@ -349,3 +361,152 @@ def delete_search_config(
         },
     )
     return None
+
+
+# ---------------------------------------------------------------------------
+# Trigger & execution status
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{search_config_id}/trigger", status_code=202)
+def trigger_search_config(
+    search_config_id: int,
+    search_config_repo: SearchConfigRepository = Depends(get_search_config_repository),
+    log_repo: SearchExecutionLogRepository = Depends(
+        get_search_execution_log_repository
+    ),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Manually trigger a scraper search for a search config.
+
+    Dispatches a Celery task if the config is not already running.
+
+    Returns:
+        - 202: Task dispatched
+        - 404: Search config not found
+        - 409: Already running
+    """
+    from src.app.use_cases.search_config_use_cases import GetSearchConfigByIdUseCase
+
+    get_uc = GetSearchConfigByIdUseCase(search_config_repo)
+    search_config = get_uc.execute(search_config_id)
+
+    if not search_config:
+        return SearchConfigPresenter.handle_not_found(
+            f"id {search_config_id}", "/data/id"
+        )
+
+    # Prevent concurrent runs: check latest log status
+    latest_log = log_repo.get_latest_by_search_config_id(search_config_id)
+    if latest_log and latest_log.status in ("pending", "running"):
+        logger.info(
+            "Search config %s already running, skipping trigger",
+            search_config_id,
+            extra={
+                "action": "trigger_search_config_skipped",
+                "search_config_id": search_config_id,
+            },
+        )
+        return JSONResponse(
+            status_code=409,
+            content={
+                "data": {
+                    "type": "search_config_trigger",
+                    "attributes": {
+                        "status": "already_running",
+                        "search_config_id": search_config_id,
+                        "message": "Search is already running for this config.",
+                    },
+                }
+            },
+        )
+
+    task_id = dispatch_scraper_search(search_config_id)
+
+    logger.info(
+        "Triggered scraper search for config %s (task %s)",
+        search_config_id,
+        task_id,
+        extra={
+            "action": "trigger_search_config",
+            "search_config_id": search_config_id,
+            "task_id": task_id,
+            "user_id": current_user.id,
+        },
+    )
+    return JSONResponse(
+        status_code=202,
+        content={
+            "data": {
+                "type": "search_config_trigger",
+                "attributes": {
+                    "status": "dispatched",
+                    "search_config_id": search_config_id,
+                    "task_id": task_id,
+                },
+            }
+        },
+    )
+
+
+@router.get("/{search_config_id}/execution-status")
+def get_execution_status(
+    search_config_id: int,
+    search_config_repo: SearchConfigRepository = Depends(get_search_config_repository),
+    log_repo: SearchExecutionLogRepository = Depends(
+        get_search_execution_log_repository
+    ),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Get the latest execution status for a search config.
+
+    Returns:
+        - 200: Latest execution status (idle / pending / running / success / failed)
+        - 404: Search config not found
+    """
+    from src.app.use_cases.search_config_use_cases import GetSearchConfigByIdUseCase
+
+    get_uc = GetSearchConfigByIdUseCase(search_config_repo)
+    search_config = get_uc.execute(search_config_id)
+
+    if not search_config:
+        return SearchConfigPresenter.handle_not_found(
+            f"id {search_config_id}", "/data/id"
+        )
+
+    latest_log = log_repo.get_latest_by_search_config_id(search_config_id)
+
+    if not latest_log:
+        return {
+            "data": {
+                "type": "execution_status",
+                "attributes": {
+                    "search_config_id": search_config_id,
+                    "status": "idle",
+                    "started_at": None,
+                    "finished_at": None,
+                    "results_count": None,
+                    "error_message": None,
+                },
+            }
+        }
+
+    return {
+        "data": {
+            "type": "execution_status",
+            "attributes": {
+                "search_config_id": search_config_id,
+                "status": latest_log.status,
+                "started_at": latest_log.started_at.isoformat()
+                if latest_log.started_at
+                else None,
+                "finished_at": latest_log.finished_at.isoformat()
+                if latest_log.finished_at
+                else None,
+                "results_count": latest_log.results_count,
+                "error_message": latest_log.error_message,
+            },
+        }
+    }

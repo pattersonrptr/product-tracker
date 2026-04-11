@@ -7,9 +7,11 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import PauseIcon from '@mui/icons-material/Pause'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
 import FormControl from '@mui/material/FormControl'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
@@ -29,7 +31,7 @@ import {
   type GridPaginationModel,
   type GridRowSelectionModel,
 } from '@mui/x-data-grid'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSnackbar } from 'notistack'
 import { ConfirmationDialog } from '@/components/common/ConfirmationDialog'
 import { GenericFormModal } from '@/components/common/GenericFormModal'
@@ -44,6 +46,10 @@ import {
   getPriceAlerts,
   updatePriceAlert,
 } from '@/services/priceAlertService'
+import {
+  getExecutionStatus,
+  triggerSearchConfig,
+} from '@/services/searchConfigService'
 import { getAllSourceWebsites } from '@/services/sourceWebsiteService'
 import type { PriceAlert, PriceAlertCreatePayload } from '@/types/priceAlert'
 import type { SourceWebsite } from '@/types/sourceWebsite'
@@ -95,6 +101,25 @@ export function AlertsPage() {
   // Source websites for multi-select
   const [sourceWebsites, setSourceWebsites] = useState<SourceWebsite[]>([])
 
+  // Run Now: track which search configs are running  (searchConfigId → status)
+  const [runningConfigs, setRunningConfigs] = useState<
+    Record<string, 'pending' | 'running'>
+  >({})
+  const pollingTimers = useRef<Record<string, ReturnType<typeof setInterval>>>(
+    {},
+  )
+
+  // Last-check timestamps per search config (fetched from execution-status)
+  const [lastCheckMap, setLastCheckMap] = useState<Record<string, string>>({})
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    const timers = pollingTimers.current
+    return () => {
+      Object.values(timers).forEach(clearInterval)
+    }
+  }, [])
+
   useEffect(() => {
     getAllSourceWebsites().then(setSourceWebsites).catch(() => {})
   }, [])
@@ -102,6 +127,33 @@ export function AlertsPage() {
   // Data fetcher
   const { items, total, loading, error, setPagination, reload } =
     usePaginatedResource(getPriceAlerts)
+
+  // Fetch last-check timestamps for every unique searchConfigId in the list
+  useEffect(() => {
+    if (!items.length) return
+
+    const uniqueIds = [
+      ...new Set(
+        items
+          .map((a) => a.searchConfigId)
+          .filter((id): id is number => id != null),
+      ),
+    ]
+
+    Promise.allSettled(
+      uniqueIds.map((id) =>
+        getExecutionStatus(String(id)).then((es) => ({ id, es })),
+      ),
+    ).then((results) => {
+      const map: Record<string, string> = {}
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.es.startedAt) {
+          map[String(r.value.id)] = r.value.es.startedAt
+        }
+      }
+      setLastCheckMap(map)
+    })
+  }, [items])
 
   // Sync pagination model → hook
   useEffect(() => {
@@ -220,6 +272,87 @@ export function AlertsPage() {
       enqueueSnackbar('Some deletions failed', { variant: 'error' })
     }
   }, [rowSelection, enqueueSnackbar, reload])
+
+  // Run Now — trigger scraper search and poll for completion
+  const handleRunNow = useCallback(
+    async (alert: PriceAlert) => {
+      const scId = alert.searchConfigId
+      if (!scId) {
+        enqueueSnackbar('No search config linked to this alert', {
+          variant: 'warning',
+        })
+        return
+      }
+      const scIdStr = String(scId)
+
+      // Mark as running in UI
+      setRunningConfigs((prev) => ({ ...prev, [scIdStr]: 'pending' }))
+
+      try {
+        await triggerSearchConfig(scIdStr)
+        enqueueSnackbar('Search triggered! Scraping in progress…', {
+          variant: 'info',
+        })
+        setRunningConfigs((prev) => ({ ...prev, [scIdStr]: 'running' }))
+
+        // Start polling every 5 seconds
+        const timer = setInterval(async () => {
+          try {
+            const execStatus = await getExecutionStatus(scIdStr)
+            if (
+              execStatus.status === 'success' ||
+              execStatus.status === 'failed'
+            ) {
+              clearInterval(timer)
+              delete pollingTimers.current[scIdStr]
+              setRunningConfigs((prev) => {
+                const next = { ...prev }
+                delete next[scIdStr]
+                return next
+              })
+              // Update last-check timestamp immediately
+              if (execStatus.startedAt) {
+                setLastCheckMap((prev) => ({
+                  ...prev,
+                  [scIdStr]: execStatus.startedAt!,
+                }))
+              }
+              reload()
+              enqueueSnackbar(
+                execStatus.status === 'success'
+                  ? `Search complete — ${execStatus.resultsCount ?? 0} result(s)`
+                  : `Search failed: ${execStatus.errorMessage ?? 'unknown error'}`,
+                {
+                  variant:
+                    execStatus.status === 'success' ? 'success' : 'error',
+                },
+              )
+            }
+          } catch {
+            // ignore polling errors
+          }
+        }, 5000)
+
+        pollingTimers.current[scIdStr] = timer
+      } catch (err) {
+        setRunningConfigs((prev) => {
+          const next = { ...prev }
+          delete next[scIdStr]
+          return next
+        })
+        const is409 =
+          err instanceof Error &&
+          'response' in err &&
+          (err as unknown as { response: { status: number } }).response
+            ?.status === 409
+        enqueueSnackbar(
+          is409 ? 'Search is already running' : 'Failed to trigger search',
+          { variant: is409 ? 'warning' : 'error' },
+        )
+      }
+    },
+    [enqueueSnackbar, reload],
+  )
 
   // Helper: source name by ID
   const sourceName = useCallback(
@@ -365,42 +498,73 @@ export function AlertsPage() {
       field: 'lastTriggeredAt',
       headerName: 'Last Check',
       width: 170,
-      renderCell: ({ value }) =>
-        value ? formatDateTime(value as string) : 'Never',
+      renderCell: ({ row }) => {
+        const scId = row.searchConfigId ? String(row.searchConfigId) : null
+        const ts = scId ? lastCheckMap[scId] : null
+        return ts ? formatDateTime(ts) : 'Never'
+      },
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 150,
+      width: 190,
       sortable: false,
       filterable: false,
-      renderCell: ({ row }) => (
-        <Stack direction="row" spacing={0.5}>
-          <Tooltip title={row.isActive ? 'Pause' : 'Resume'}>
-            <IconButton
-              size="small"
-              onClick={() => handleToggleActive(row)}
-              color={row.isActive ? 'warning' : 'success'}
+      renderCell: ({ row }) => {
+        const scId = row.searchConfigId ? String(row.searchConfigId) : null
+        const isRunning = scId ? scId in runningConfigs : false
+        return (
+          <Stack direction="row" spacing={0.5}>
+            <Tooltip
+              title={
+                isRunning
+                  ? 'Searching…'
+                  : !row.isActive
+                    ? 'Activate alert first'
+                    : 'Run Now'
+              }
             >
-              {row.isActive ? <PauseIcon /> : <PlayArrowIcon />}
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Edit">
-            <IconButton size="small" onClick={() => handleOpenEdit(row)}>
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => setDeleteId(row.id)}
-            >
-              <DeleteIcon />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      ),
+              <span>
+                <IconButton
+                  size="small"
+                  color="primary"
+                  disabled={isRunning || !row.isActive}
+                  onClick={() => handleRunNow(row)}
+                >
+                  {isRunning ? (
+                    <CircularProgress size={18} />
+                  ) : (
+                    <RocketLaunchIcon />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={row.isActive ? 'Pause' : 'Resume'}>
+              <IconButton
+                size="small"
+                onClick={() => handleToggleActive(row)}
+                color={row.isActive ? 'warning' : 'success'}
+              >
+                {row.isActive ? <PauseIcon /> : <PlayArrowIcon />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit">
+              <IconButton size="small" onClick={() => handleOpenEdit(row)}>
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => setDeleteId(row.id)}
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        )
+      },
     },
   ]
 

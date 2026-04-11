@@ -9,6 +9,7 @@ running infrastructure.
 from typing import cast
 from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 
 from src.celery.tasks import (
@@ -24,6 +25,18 @@ from src.celery.tasks import (
     update_product,
     update_products,
 )
+
+
+@pytest.fixture(autouse=True)
+def _mock_redis():
+    """Prevent every test from needing a real Redis connection.
+
+    The module-level ``_redis`` client is used for distributed locks;
+    we replace it with a MagicMock so tests never hit the network.
+    """
+    with patch("src.celery.tasks._redis", new_callable=MagicMock):
+        yield
+
 
 # ---------------------------------------------------------------------------
 # Helpers

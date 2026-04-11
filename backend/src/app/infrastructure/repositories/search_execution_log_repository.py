@@ -69,6 +69,18 @@ class SearchExecutionLogRepository(SearchExecutionLogRepositoryInterface):
         )
         return [self._to_entity(r) for r in records]
 
+    def get_latest_by_search_config_id(
+        self, search_config_id: int
+    ) -> SearchExecutionLogEntity | None:
+        """Return the most recent log for a given search config, or None."""
+        record = (
+            self.db.query(SearchExecutionLogModel)
+            .filter(SearchExecutionLogModel.search_config_id == search_config_id)
+            .order_by(desc(SearchExecutionLogModel.started_at))
+            .first()
+        )
+        return self._to_entity(record) if record else None
+
     def get_all(
         self,
         limit: int = 10,

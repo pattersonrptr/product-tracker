@@ -92,7 +92,7 @@ export async function createPriceAlert(
   payload: PriceAlertCreatePayload,
 ): Promise<PriceAlert> {
   logger.debug('Creating price alert', { payload })
-  const body = wrapPayload('price-alerts', toApiPayload(payload))
+  const body = wrapPayload('price_alert', toApiPayload(payload))
   const response = await apiClient.post(ENDPOINTS.priceAlerts.list, body)
   const raw = unwrapSingle<RawPriceAlertAttributes>(response.data)
   return toPriceAlert(raw)
@@ -103,7 +103,7 @@ export async function updatePriceAlert(
   payload: PriceAlertUpdatePayload,
 ): Promise<PriceAlert> {
   logger.debug('Updating price alert', { id, payload })
-  const body = wrapPayload('price-alerts', toApiPayload(payload), id)
+  const body = wrapPayload('price_alert', toApiPayload(payload), id)
   const response = await apiClient.put(ENDPOINTS.priceAlerts.byId(id), body)
   const raw = unwrapSingle<RawPriceAlertAttributes>(response.data)
   return toPriceAlert(raw)

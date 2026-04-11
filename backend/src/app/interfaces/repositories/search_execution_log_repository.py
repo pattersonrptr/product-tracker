@@ -30,6 +30,13 @@ class SearchExecutionLogRepositoryInterface(ABC):
         ...
 
     @abstractmethod
+    def get_latest_by_search_config_id(
+        self, search_config_id: int
+    ) -> SearchExecutionLogEntity | None:
+        """Return the most recent log for a given search config, or None."""
+        ...
+
+    @abstractmethod
     def get_all(
         self,
         limit: int = 10,

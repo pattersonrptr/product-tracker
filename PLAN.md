@@ -95,3 +95,42 @@ See **[ROADMAP.md](./ROADMAP.md)** for the full Garimpei product roadmap.
 **Phase 1 — Core is COMPLETE** ✅ (Issues #34, #35, #36, #37)
 
 **Next priority:** Phase 2 — Polish (landing page, new scrapers, admin dashboard).
+
+## Planned Improvements
+
+### Selenium E2E Tests (End-to-End)
+
+Add browser-based end-to-end tests using Selenium WebDriver that simulate a
+real user interacting with the frontend. This is **E2E testing** — it validates
+the full stack: Browser → Frontend → API → Database.
+
+**Why:** Unit tests and smoke tests (API-only) missed frontend integration
+bugs (e.g. JSON:API type mismatches). E2E tests catch these by exercising
+the real UI.
+
+**Scope:**
+
+- Login / logout flow
+- Create, edit, pause, resume, delete price alerts
+- Trigger manual search (Run Now button)
+- View products list, product details, price history
+- Dashboard cards load correctly
+- Admin pages (source websites, search configs, users)
+
+**Tech:** Selenium + pytest (Python) or Playwright Test (TypeScript).
+Run against Docker Compose stack.
+
+### Separate Test Database
+
+Use a dedicated test database (`product_tracker_test`) so that:
+
+- Dev/user data in `product_tracker` is never affected by tests
+- Tests that need a database (integration, e2e) use their own isolated DB
+- Works both locally (bare metal) and via Docker Compose
+- Test DB is created/destroyed automatically by the test runner
+
+**Implementation ideas:**
+
+- Backend: override `DATABASE_URL` in test fixtures (pytest `conftest.py`)
+- Docker: add a `db-test` service or use `docker compose --profile test`
+- Alembic migrations run against test DB before test suite

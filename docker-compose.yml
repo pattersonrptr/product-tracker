@@ -14,6 +14,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://user:password@db:5432/price_monitor
       - PYTHONPATH=/src
+      - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_WORKER_USERNAME=celery_user
       - CELERY_WORKER_PASSWORD=celery_user_password
       - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
@@ -31,7 +32,6 @@ services:
       context: ./scrapers
       args:
         BUILD_ENV: dev
-    container_name: scraper
     depends_on:
       - db
       - redis
@@ -50,7 +50,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 16G
+          memory: 2G
     volumes:
       - ./scrapers:/src
     command:
@@ -60,9 +60,9 @@ services:
         "src.celery.tasks",
         "worker",
         "--loglevel=info",
-        "--concurrency=4",
+        "--concurrency=2",
         "--pool=prefork",
-        "--hostname=scraper@%h",
+        "--hostname=scraper-%h",
       ]
 
   # ── Celery Beat (Scheduler) ─────────────────────────────────────────────

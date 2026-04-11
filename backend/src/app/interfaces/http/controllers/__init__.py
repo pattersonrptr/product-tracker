@@ -2,6 +2,9 @@
 HTTP Controllers (Adapters for HTTP requests/responses).
 """
 
+from src.app.interfaces.http.controllers.admin_controller import (
+    router as admin_controller,
+)
 from src.app.interfaces.http.controllers.auth_controller import (
     auth_router as auth_controller,
 )

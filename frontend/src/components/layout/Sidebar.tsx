@@ -5,6 +5,7 @@
  * Admin section:  Users, Search Configs, Source Websites
  */
 
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import InventoryIcon from '@mui/icons-material/Inventory'
 import ManageSearchIcon from '@mui/icons-material/ManageSearch'
@@ -39,6 +40,7 @@ const USER_ITEMS = [
 ] as const
 
 const ADMIN_ITEMS = [
+  { label: 'Admin Dashboard', path: '/admin', icon: <AdminPanelSettingsIcon /> },
   { label: 'Users', path: '/admin/users', icon: <PeopleIcon /> },
   { label: 'Search Configs', path: '/admin/search-configs', icon: <ManageSearchIcon /> },
   { label: 'Source Websites', path: '/admin/source-websites', icon: <PublicIcon /> },
@@ -54,7 +56,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const isAdmin = isStaff || isSuperuser
 
   function renderItem(label: string, path: string, icon: React.ReactNode) {
-    const active = location.pathname.startsWith(path)
+    const active =
+      path === '/admin'
+        ? location.pathname === path
+        : location.pathname.startsWith(path)
     return (
       <Tooltip key={path} title={open ? '' : label} placement="right">
         <ListItemButton

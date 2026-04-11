@@ -109,6 +109,9 @@ export function AlertsPage() {
     {},
   )
 
+  // Last-check timestamps per search config (fetched from execution-status)
+  const [lastCheckMap, setLastCheckMap] = useState<Record<string, string>>({})
+
   // Cleanup polling on unmount
   useEffect(() => {
     const timers = pollingTimers.current
@@ -124,6 +127,33 @@ export function AlertsPage() {
   // Data fetcher
   const { items, total, loading, error, setPagination, reload } =
     usePaginatedResource(getPriceAlerts)
+
+  // Fetch last-check timestamps for every unique searchConfigId in the list
+  useEffect(() => {
+    if (!items.length) return
+
+    const uniqueIds = [
+      ...new Set(
+        items
+          .map((a) => a.searchConfigId)
+          .filter((id): id is number => id != null),
+      ),
+    ]
+
+    Promise.allSettled(
+      uniqueIds.map((id) =>
+        getExecutionStatus(String(id)).then((es) => ({ id, es })),
+      ),
+    ).then((results) => {
+      const map: Record<string, string> = {}
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.es.startedAt) {
+          map[String(r.value.id)] = r.value.es.startedAt
+        }
+      }
+      setLastCheckMap(map)
+    })
+  }, [items])
 
   // Sync pagination model → hook
   useEffect(() => {
@@ -280,6 +310,13 @@ export function AlertsPage() {
                 delete next[scIdStr]
                 return next
               })
+              // Update last-check timestamp immediately
+              if (execStatus.startedAt) {
+                setLastCheckMap((prev) => ({
+                  ...prev,
+                  [scIdStr]: execStatus.startedAt!,
+                }))
+              }
               reload()
               enqueueSnackbar(
                 execStatus.status === 'success'
@@ -461,8 +498,11 @@ export function AlertsPage() {
       field: 'lastTriggeredAt',
       headerName: 'Last Check',
       width: 170,
-      renderCell: ({ value }) =>
-        value ? formatDateTime(value as string) : 'Never',
+      renderCell: ({ row }) => {
+        const scId = row.searchConfigId ? String(row.searchConfigId) : null
+        const ts = scId ? lastCheckMap[scId] : null
+        return ts ? formatDateTime(ts) : 'Never'
+      },
     },
     {
       field: 'actions',

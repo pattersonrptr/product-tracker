@@ -32,7 +32,6 @@ services:
       context: ./scrapers
       args:
         BUILD_ENV: dev
-    container_name: scraper
     depends_on:
       - db
       - redis
@@ -51,7 +50,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 16G
+          memory: 2G
     volumes:
       - ./scrapers:/src
     command:
@@ -61,9 +60,9 @@ services:
         "src.celery.tasks",
         "worker",
         "--loglevel=info",
-        "--concurrency=4",
+        "--concurrency=2",
         "--pool=prefork",
-        "--hostname=scraper@%h",
+        "--hostname=scraper-%h",
       ]
 
   # ── Celery Beat (Scheduler) ─────────────────────────────────────────────

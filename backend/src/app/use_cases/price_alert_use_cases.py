@@ -179,7 +179,7 @@ class UpdatePriceAlertUseCase:
 
 
 class DeletePriceAlertUseCase:
-    """Delete a price alert, cleaning up orphaned SearchConfig."""
+    """Soft-delete a price alert, cleaning up orphaned SearchConfig."""
 
     def __init__(
         self,

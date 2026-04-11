@@ -2,7 +2,7 @@ import logging
 import time
 
 from celery.beat import ScheduleEntry, Scheduler
-from celery.schedules import schedule
+from celery.schedules import crontab, schedule
 from src.api.api_client import ApiClient
 
 logger = logging.getLogger(__name__)
@@ -110,3 +110,14 @@ class DynamicScheduler(Scheduler):
                 options=entry.get("options", {}),
                 app=self.app,
             )
+
+        # Static task: cleanup orphaned products daily at 04:00
+        self.schedule["cleanup_orphaned_products"] = ScheduleEntry(
+            name="cleanup_orphaned_products",
+            task="src.celery.tasks.cleanup_orphaned_products",
+            schedule=crontab(hour=4, minute=0),
+            args=(30,),
+            kwargs={},
+            options={},
+            app=self.app,
+        )

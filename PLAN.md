@@ -31,19 +31,24 @@ product-tracker/
 - **PriceAlert CRUD** (`/price-alerts`) — keyword + max price + source websites, M2M association
 - **SearchConfig ↔ PriceAlert linking** — auto-create/reuse on alert creation, orphan cleanup
 - **NotificationLog + SendGrid email notifications** — rate-limited (1/alert/hour), HTML templates
+- **`GET /dashboard/summary`** — server-side aggregated dashboard data (replaces client-side aggregation)
+- **`GET /price-alerts/{id}/opportunities`** — paginated products matching alert at or below max_price
 - `GET /price-alerts/{id}/products` — products matching alert term + sources + max_price
 - `POST /price-alerts/{id}/notify` — trigger notification check for a specific alert
+- **`POST /admin/cleanup-products`** — remove orphaned products (superuser-only, supports dry_run)
+- **Soft delete on PriceAlerts** — `deleted_at` field preserves history; all queries exclude soft-deleted
 - **`POST /products/{id}/evaluate-alerts`** — per-product alert evaluation with dedup guard
 - `EvaluateProductAlertsUseCase` — matches active alerts by keyword + source + price, sends emails, prevents duplicate notifications via `NotificationLog`
 - JSON:API compliant responses
 - Product repository with latest price JOIN (current_price from price_history)
 - JWT tokens include `is_staff` and `is_superuser` claims
-- 585+ tests passing
+- 597+ tests passing
 
 ### Scrapers (Celery)
 
 - 4 platforms: OLX, Mercado Livre, Enjoei, Estante Virtual
 - Celery Beat dynamic scheduler (syncs search configs from API)
+- **Daily cleanup task** — removes orphaned products (>30 days old, no matching alert) at 04:00
 - Playwright-based scraping (all 4 scrapers)
 - **Per-product notification trigger** — `evaluate_product_alerts` called after each product save (replaces old batch approach)
 - ML rate-limiting: 15s search delay, 10s product delay, shuffle, context rotation
@@ -53,7 +58,7 @@ product-tracker/
 
 ### Frontend (React)
 
-- **Dashboard page** (`/dashboard`) — Active Alerts, Recent Opportunities, Next Checks cards
+- **Dashboard page** (`/dashboard`) — Active Alerts, Recent Opportunities, Next Checks (server-side aggregation via `/dashboard/summary`)
 - **My Alerts page** (`/alerts`) — PriceAlert CRUD with DataGrid, create/edit modal, pause/resume
 - Product listing with pagination, sorting, filters + **🎯 Opportunity tag**
 - Price history charts (Recharts)
@@ -100,7 +105,9 @@ See **[ROADMAP.md](./ROADMAP.md)** for the full Garimpei product roadmap.
 
 **Phase 1 — Core is COMPLETE** ✅ (Issues #34, #35, #36, #37)
 
-**Next priority:** Phase 2 — Polish (landing page, new scrapers, admin dashboard).
+**Phase 2.4 — Backend Improvements COMPLETE** ✅ (Issue #42)
+
+**Next priority:** Phase 3 — Launch & Monetization.
 
 ## Planned Improvements
 

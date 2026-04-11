@@ -19,3 +19,4 @@ class PriceAlert(BaseModel):
     source_website_ids: list[int] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    deleted_at: datetime | None = None

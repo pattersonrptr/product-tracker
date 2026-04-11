@@ -9,7 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Playwright E2E test suite** — 74 tests (37 per browser × chromium + firefox)
+- **`GET /dashboard/summary` endpoint** — server-side aggregated dashboard data (active alerts, total alerts, recent opportunities, next checks) replacing client-side aggregation
+- **`GET /price-alerts/{id}/opportunities` endpoint** — paginated products matching alert criteria, always filtered by max_price
+- **`POST /admin/cleanup-products` endpoint** — remove orphaned products older than N days with no matching active alert (supports dry_run)
+- **`cleanup_orphaned_products` Celery task** — daily scheduled task (04:00) calling cleanup endpoint
+- `dashboard` entry in frontend API endpoints
+- `opportunities` entry in frontend price alerts endpoints
+- 12 new E2E tests for backend improvements (soft delete, dashboard summary, opportunities, cleanup)
+
+### Changed
+
+- **Soft delete on PriceAlerts** — `DELETE /price-alerts/{id}` now sets `deleted_at` + deactivates instead of hard delete; all queries exclude soft-deleted records
+- `PriceAlert` entity and model now include `deleted_at` field with database index
+- `PriceAlertRepository` — all query methods filter by `deleted_at IS NULL`
+- `AdminController.get_admin_summary` — alert counts exclude soft-deleted alerts
+- `dashboardService.ts` — rewritten to use backend `GET /dashboard/summary` endpoint instead of client-side aggregation
+- Beat schedule test updated for static cleanup task entry
+
+---
+ **Playwright E2E test suite** — 74 tests (37 per browser × chromium + firefox)
   - Auth tests (11): login, logout, register, validation, auth guards
   - Alerts CRUD tests (7): create, edit, pause/resume, delete, modal cancel
   - Dashboard tests (3): cards display, alert count, navigation

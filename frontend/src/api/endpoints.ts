@@ -48,6 +48,10 @@ export const ENDPOINTS = {
     byId: (id: string) => `${BASE}/price-alerts/${id}`,
     byUser: (userId: number) => `${BASE}/price-alerts/user/${userId}`,
     products: (id: string) => `${BASE}/price-alerts/${id}/products`,
+    opportunities: (id: string) => `${BASE}/price-alerts/${id}/opportunities`,
     notify: (id: string) => `${BASE}/price-alerts/${id}/notify`,
+  },
+  dashboard: {
+    summary: `${BASE}/dashboard/summary`,
   },
 } as const

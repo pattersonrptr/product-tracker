@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import asc, desc
 from sqlalchemy.orm import Session, joinedload
 
@@ -36,6 +38,7 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
             source_website_ids=[sw.id for sw in model.source_websites],
             created_at=model.created_at,
             updated_at=model.updated_at,
+            deleted_at=model.deleted_at,
         )
 
     def _sync_source_websites(
@@ -72,21 +75,27 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
         return self._to_entity(db_price_alert)
 
     def get_by_id(self, price_alert_id: int) -> PriceAlertEntity | None:
-        """Retrieve a price alert by its primary key."""
+        """Retrieve a non-deleted price alert by its primary key."""
         db_record = (
             self.db.query(PriceAlertModel)
             .options(joinedload(PriceAlertModel.source_websites))
-            .filter(PriceAlertModel.id == price_alert_id)
+            .filter(
+                PriceAlertModel.id == price_alert_id,
+                PriceAlertModel.deleted_at.is_(None),
+            )
             .first()
         )
         return self._to_entity(db_record) if db_record else None
 
     def get_by_user_id(self, user_id: int) -> list[PriceAlertEntity]:
-        """Return all price alerts for a given user."""
+        """Return all non-deleted price alerts for a given user."""
         records = (
             self.db.query(PriceAlertModel)
             .options(joinedload(PriceAlertModel.source_websites))
-            .filter(PriceAlertModel.user_id == user_id)
+            .filter(
+                PriceAlertModel.user_id == user_id,
+                PriceAlertModel.deleted_at.is_(None),
+            )
             .all()
         )
         return [self._to_entity(r) for r in records]
@@ -94,12 +103,13 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
     def get_by_search_term_and_user_id(
         self, search_term: str, user_id: int
     ) -> PriceAlertEntity | None:
-        """Return a price alert matching term + user (for uniqueness check)."""
+        """Return a non-deleted price alert matching term + user (for uniqueness check)."""
         db_record = (
             self.db.query(PriceAlertModel)
             .filter(
                 PriceAlertModel.search_term == search_term,
                 PriceAlertModel.user_id == user_id,
+                PriceAlertModel.deleted_at.is_(None),
             )
             .first()
         )
@@ -113,8 +123,10 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
         sort_order: str | None = None,
     ) -> tuple[list[PriceAlertEntity], int]:
         """Return a paginated list of all price alerts and the total count."""
-        query = self.db.query(PriceAlertModel).options(
-            joinedload(PriceAlertModel.source_websites)
+        query = (
+            self.db.query(PriceAlertModel)
+            .options(joinedload(PriceAlertModel.source_websites))
+            .filter(PriceAlertModel.deleted_at.is_(None))
         )
 
         total = query.count()
@@ -156,25 +168,30 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
         return self._to_entity(db_record)
 
     def delete(self, price_alert_id: int) -> bool:
-        """Delete a price alert by id. Returns True if deleted, False if not found."""
+        """Soft-delete a price alert by setting deleted_at. Returns True if deleted, False if not found."""
         db_record = (
             self.db.query(PriceAlertModel)
-            .filter(PriceAlertModel.id == price_alert_id)
+            .filter(
+                PriceAlertModel.id == price_alert_id,
+                PriceAlertModel.deleted_at.is_(None),
+            )
             .first()
         )
         if not db_record:
             return False
-        self.db.delete(db_record)
+        db_record.deleted_at = datetime.now(UTC)
+        db_record.is_active = False
         self.db.commit()
         return True
 
     def count_active_by_search_config_id(self, search_config_id: int) -> int:
-        """Count active price alerts that reference a given SearchConfig."""
+        """Count active, non-deleted price alerts that reference a given SearchConfig."""
         return (
             self.db.query(PriceAlertModel)
             .filter(
                 PriceAlertModel.search_config_id == search_config_id,
                 PriceAlertModel.is_active.is_(True),
+                PriceAlertModel.deleted_at.is_(None),
             )
             .count()
         )
@@ -203,6 +220,7 @@ class PriceAlertRepository(PriceAlertRepositoryInterface):
             )
             .filter(
                 PriceAlertModel.is_active.is_(True),
+                PriceAlertModel.deleted_at.is_(None),
                 PriceAlertModel.max_price >= current_price,
                 price_alert_source_website.c.source_website_id == source_website_id,
             )

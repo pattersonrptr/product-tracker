@@ -251,13 +251,13 @@ show to beta testers.
 - [ ] User management: activate/deactivate, promote to staff
 - [ ] Source website management: enable/disable scrapers
 
-### 2.4 — Backend Improvements
+### 2.4 — Backend Improvements ✅
 
-- [ ] Endpoint `GET /dashboard/summary` (aggregated data for dashboard)
-- [ ] Endpoint `GET /price-alerts/{id}/opportunities` (matched products)
-- [ ] Soft delete on PriceAlerts (preserve history)
-- [ ] Pagination on opportunity results
-- [ ] Background job: cleanup old products with no associated alert
+- [x] Endpoint `GET /dashboard/summary` (aggregated data for dashboard)
+- [x] Endpoint `GET /price-alerts/{id}/opportunities` (matched products)
+- [x] Soft delete on PriceAlerts (preserve history)
+- [x] Pagination on opportunity results
+- [x] Background job: cleanup old products with no associated alert
 
 ---
 

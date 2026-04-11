@@ -419,6 +419,33 @@ app.conf.timezone = "America/Sao_Paulo"
 app.conf.beat_scheduler = "src.celery.beat_schedule.DynamicScheduler"
 
 
+@app.task(name="src.celery.tasks.cleanup_orphaned_products")
+def cleanup_orphaned_products(days_old: int = 30):
+    """Daily task: remove products older than `days_old` days with no matching alert."""
+    token = get_celery_worker_token()
+    if not token:
+        logger.error("Cannot run cleanup: failed to get auth token")
+        return {"status": "error", "message": "Auth token unavailable"}
+
+    api_base_url = os.getenv("API_URL", "http://web:8000")
+    url = f"{api_base_url}/admin/cleanup-products?days_old={days_old}&dry_run=false"
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        response = requests.post(url, headers=headers, timeout=120)
+        response.raise_for_status()
+        result = response.json()
+        attrs = result.get("data", {}).get("attributes", {})
+        logger.info(
+            "Cleanup completed: %d products deleted",
+            attrs.get("deleted-count", 0),
+        )
+        return {"status": "success", **attrs}
+    except requests.exceptions.RequestException as e:
+        logger.error("Cleanup task failed: %s", e)
+        return {"status": "error", "message": str(e)}
+
+
 # ---------------------------------------------------------------------------
 # Notification tasks
 # ---------------------------------------------------------------------------

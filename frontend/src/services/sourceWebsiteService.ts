@@ -90,7 +90,7 @@ export async function updateSourceWebsite(
 ): Promise<SourceWebsite> {
   logger.info('Updating source website', { id })
   const body = wrapPayload('source_website', toApiPayload(payload), id)
-  const response = await apiClient.patch(
+  const response = await apiClient.put(
     ENDPOINTS.sourceWebsites.byId(id),
     body,
   )

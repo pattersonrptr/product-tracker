@@ -35,6 +35,9 @@ export const ENDPOINTS = {
   searchConfigs: {
     list: `${BASE}/search-configs/`,
     byId: (id: string) => `${BASE}/search-configs/${id}`,
+    trigger: (id: string) => `${BASE}/search-configs/${id}/trigger`,
+    executionStatus: (id: string) =>
+      `${BASE}/search-configs/${id}/execution-status`,
   },
   sourceWebsites: {
     list: `${BASE}/source-websites/`,

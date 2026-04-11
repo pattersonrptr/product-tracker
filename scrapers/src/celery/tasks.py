@@ -3,6 +3,7 @@ import os
 import random
 from datetime import datetime, timedelta
 
+import redis
 import requests
 
 from celery import Celery, chord, group
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 app = Celery(main="scrapers", broker=broker_url, backend="redis://redis:6379/0")
+
+_redis = redis.Redis.from_url(broker_url, decode_responses=True)
 
 
 def get_celery_worker_token():
@@ -45,11 +48,39 @@ def get_celery_worker_token():
 
 @app.task(name="src.celery.tasks.run_scraper_search")
 def run_scraper_search(search_config_id: int):
-    """Dispatch parallel search tasks for each active source website in a search config."""
+    """Dispatch parallel search tasks for each active source website in a search config.
+
+    Uses a Redis lock to prevent the same search config from running
+    concurrently.  The lock auto-expires after 30 minutes as a safety net.
+    """
+    lock_key = f"search_config_lock:{search_config_id}"
+
+    # Try to acquire lock (SET NX with 30-minute TTL)
+    if not _redis.set(lock_key, "running", nx=True, ex=1800):
+        logger.info(
+            "Search config %s is already running (lock held), skipping.",
+            search_config_id,
+        )
+        return {
+            "status": "skipped",
+            "message": f"Search config {search_config_id} is already running",
+        }
+
+    try:
+        return _run_scraper_search_locked(search_config_id)
+    except Exception:
+        # Release lock on unexpected failure so the config can be re-triggered
+        _redis.delete(lock_key)
+        raise
+
+
+def _run_scraper_search_locked(search_config_id: int):
+    """Inner implementation — called while the Redis lock is held."""
     client = ApiClient(get_celery_worker_token())
     search_config = client.get_search_config_by_id(search_config_id)
 
     if not search_config:
+        _redis.delete(f"search_config_lock:{search_config_id}")
         logger.error("Search config %s not found, skipping.", search_config_id)
         return {
             "status": "error",
@@ -77,6 +108,7 @@ def run_scraper_search(search_config_id: int):
                 )
 
     if not searches:
+        _redis.delete(f"search_config_lock:{search_config_id}")
         logger.warning(
             "No active source websites for search config %s", search_config_id
         )
@@ -364,7 +396,10 @@ def _finish_log(
     results_count: int,
     error_message: str | None = None,
 ):
-    """Update or create a SearchExecutionLog entry to mark a search as finished."""
+    """Update or create a SearchExecutionLog entry to mark a search as finished.
+
+    Also releases the Redis lock so the search config can be triggered again.
+    """
     if search_config_id is None:
         return
     # The API currently only supports creating logs; if a PATCH endpoint is
@@ -375,6 +410,8 @@ def _finish_log(
         results_count=results_count,
         error_message=error_message,
     )
+    # Release lock so the config can be re-triggered
+    _redis.delete(f"search_config_lock:{search_config_id}")
 
 
 app.conf.timezone = "America/Sao_Paulo"

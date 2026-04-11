@@ -14,6 +14,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://user:password@db:5432/price_monitor
       - PYTHONPATH=/src
+      - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_WORKER_USERNAME=celery_user
       - CELERY_WORKER_PASSWORD=celery_user_password
       - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}

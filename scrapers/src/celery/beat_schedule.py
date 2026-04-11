@@ -1,9 +1,8 @@
 import logging
 import time
-from datetime import datetime
 
 from celery.beat import ScheduleEntry, Scheduler
-from celery.schedules import crontab
+from celery.schedules import schedule
 from src.api.api_client import ApiClient
 
 logger = logging.getLogger(__name__)
@@ -39,48 +38,51 @@ def _get_celery_worker_token():
         return None
 
 
-def _parse_time(value) -> tuple[int, int]:
-    """Extract hour and minute from a time string or time object."""
-    if hasattr(value, "hour") and hasattr(value, "minute"):
-        return value.hour, value.minute
-    if isinstance(value, str):
-        try:
-            parsed = datetime.strptime(value, "%H:%M:%S").time()
-            return parsed.hour, parsed.minute
-        except ValueError:
-            parsed = datetime.strptime(value, "%H:%M").time()
-            return parsed.hour, parsed.minute
-    return 0, 0
-
-
 def get_dynamic_schedule():
-    """Fetch active search configs via the backend HTTP API."""
+    """Build a Celery Beat schedule from active price alerts.
+
+    Groups alerts by ``search_config_id`` and uses the **minimum**
+    ``frequency_minutes`` across all alerts that share the same config.
+    The Redis lock inside ``run_scraper_search`` guarantees that the
+    same config won't run concurrently — so the beat schedule is just
+    the desired interval; the task itself is safe to call repeatedly.
+    """
     token = _get_celery_worker_token()
     if not token:
         logger.error("Could not authenticate for beat schedule — skipping sync.")
         return {}
 
     client = ApiClient(token)
-    searches = client.get_active_search_configs()
+    alerts = client.get_active_price_alerts()
+
+    if not alerts:
+        logger.info("No active price alerts — nothing to schedule.")
+        return {}
+
+    # Group by search_config_id → min frequency_minutes
+    config_frequency: dict[int, int] = {}
+    for alert in alerts:
+        sc_id = alert.get("search_config_id")
+        freq = alert.get("frequency_minutes", 60)
+        if sc_id is None:
+            continue
+        sc_id = int(sc_id)
+        if sc_id not in config_frequency or freq < config_frequency[sc_id]:
+            config_frequency[sc_id] = freq
 
     schedules = {}
-    for search in searches:
-        search_id = search.get("id")
-        if not search_id:
-            continue
-
-        hour, minute = _parse_time(search.get("preferred_time", "00:00"))
-        frequency_days = search.get("frequency_days", 1)
-
-        schedules[f"run_search_{search_id}"] = {
+    for search_config_id, freq_minutes in config_frequency.items():
+        schedules[f"run_search_{search_config_id}"] = {
             "task": "src.celery.tasks.run_scraper_search",
-            "schedule": crontab(
-                hour=hour,
-                minute=minute,
-                day_of_month=f"*/{frequency_days}",
-            ),
-            "args": (search_id,),
+            "schedule": schedule(run_every=freq_minutes * 60),  # seconds
+            "args": (search_config_id,),
         }
+
+    logger.info(
+        "Beat schedule built: %d search config(s) from %d alert(s)",
+        len(schedules),
+        len(alerts),
+    )
     return schedules
 
 

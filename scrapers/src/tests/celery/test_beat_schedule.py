@@ -7,6 +7,8 @@ calls; patch celery.beat.ScheduleEntry / Scheduler internals to avoid Celery ini
 
 from unittest.mock import MagicMock, patch
 
+from celery.schedules import schedule
+
 # ---------------------------------------------------------------------------
 # get_dynamic_schedule
 # ---------------------------------------------------------------------------
@@ -22,12 +24,12 @@ def test_get_dynamic_schedule_returns_empty_when_no_token(mock_token):
 
 @patch("src.celery.beat_schedule._get_celery_worker_token", return_value="tok")
 @patch("src.celery.beat_schedule.ApiClient")
-def test_get_dynamic_schedule_returns_empty_when_no_searches(mock_client_cls, _):
+def test_get_dynamic_schedule_returns_empty_when_no_alerts(mock_client_cls, _):
     from src.celery.beat_schedule import get_dynamic_schedule
 
     mock_client = MagicMock()
     mock_client_cls.return_value = mock_client
-    mock_client.get_active_search_configs.return_value = []
+    mock_client.get_active_price_alerts.return_value = []
 
     result = get_dynamic_schedule()
     assert result == {}
@@ -35,14 +37,15 @@ def test_get_dynamic_schedule_returns_empty_when_no_searches(mock_client_cls, _)
 
 @patch("src.celery.beat_schedule._get_celery_worker_token", return_value="tok")
 @patch("src.celery.beat_schedule.ApiClient")
-def test_get_dynamic_schedule_builds_entry_for_each_search(mock_client_cls, _):
+def test_get_dynamic_schedule_builds_entry_per_search_config(mock_client_cls, _):
+    """Two alerts pointing at different search_configs → two schedule entries."""
     from src.celery.beat_schedule import get_dynamic_schedule
 
     mock_client = MagicMock()
     mock_client_cls.return_value = mock_client
-    mock_client.get_active_search_configs.return_value = [
-        {"id": 1, "preferred_time": "08:00:00", "frequency_days": 1},
-        {"id": 2, "preferred_time": "14:30:00", "frequency_days": 7},
+    mock_client.get_active_price_alerts.return_value = [
+        {"id": 10, "search_config_id": 1, "frequency_minutes": 30, "is_active": True},
+        {"id": 20, "search_config_id": 2, "frequency_minutes": 60, "is_active": True},
     ]
 
     result = get_dynamic_schedule()
@@ -52,48 +55,62 @@ def test_get_dynamic_schedule_builds_entry_for_each_search(mock_client_cls, _):
     assert result["run_search_1"]["task"] == "src.celery.tasks.run_scraper_search"
     assert result["run_search_1"]["args"] == (1,)
     assert result["run_search_2"]["args"] == (2,)
+    # Verify schedule intervals (in seconds)
+    assert result["run_search_1"]["schedule"] == schedule(run_every=30 * 60)
+    assert result["run_search_2"]["schedule"] == schedule(run_every=60 * 60)
 
 
 @patch("src.celery.beat_schedule._get_celery_worker_token", return_value="tok")
 @patch("src.celery.beat_schedule.ApiClient")
-def test_get_dynamic_schedule_skips_entries_without_id(mock_client_cls, _):
+def test_get_dynamic_schedule_groups_by_config_uses_min_frequency(mock_client_cls, _):
+    """Two alerts sharing the same search_config → single entry with min freq."""
     from src.celery.beat_schedule import get_dynamic_schedule
 
     mock_client = MagicMock()
     mock_client_cls.return_value = mock_client
-    mock_client.get_active_search_configs.return_value = [
-        {"preferred_time": "08:00:00", "frequency_days": 1},
+    mock_client.get_active_price_alerts.return_value = [
+        {"id": 10, "search_config_id": 5, "frequency_minutes": 120, "is_active": True},
+        {"id": 20, "search_config_id": 5, "frequency_minutes": 30, "is_active": True},
+    ]
+
+    result = get_dynamic_schedule()
+
+    assert len(result) == 1
+    assert "run_search_5" in result
+    assert result["run_search_5"]["schedule"] == schedule(run_every=30 * 60)
+
+
+@patch("src.celery.beat_schedule._get_celery_worker_token", return_value="tok")
+@patch("src.celery.beat_schedule.ApiClient")
+def test_get_dynamic_schedule_skips_alerts_without_search_config_id(mock_client_cls, _):
+    from src.celery.beat_schedule import get_dynamic_schedule
+
+    mock_client = MagicMock()
+    mock_client_cls.return_value = mock_client
+    mock_client.get_active_price_alerts.return_value = [
+        {"id": 10, "frequency_minutes": 30, "is_active": True},
     ]
 
     result = get_dynamic_schedule()
     assert result == {}
 
 
-# ---------------------------------------------------------------------------
-# _parse_time
-# ---------------------------------------------------------------------------
+@patch("src.celery.beat_schedule._get_celery_worker_token", return_value="tok")
+@patch("src.celery.beat_schedule.ApiClient")
+def test_get_dynamic_schedule_defaults_frequency_to_60(mock_client_cls, _):
+    """Alert without frequency_minutes should default to 60."""
+    from src.celery.beat_schedule import get_dynamic_schedule
 
+    mock_client = MagicMock()
+    mock_client_cls.return_value = mock_client
+    mock_client.get_active_price_alerts.return_value = [
+        {"id": 10, "search_config_id": 3, "is_active": True},
+    ]
 
-def test_parse_time_from_string():
-    from src.celery.beat_schedule import _parse_time
+    result = get_dynamic_schedule()
 
-    assert _parse_time("14:30:00") == (14, 30)
-    assert _parse_time("08:00") == (8, 0)
-
-
-def test_parse_time_from_time_object():
-    from datetime import time as dtime
-
-    from src.celery.beat_schedule import _parse_time
-
-    assert _parse_time(dtime(9, 15)) == (9, 15)
-
-
-def test_parse_time_fallback():
-    from src.celery.beat_schedule import _parse_time
-
-    assert _parse_time(None) == (0, 0)
-    assert _parse_time(12345) == (0, 0)
+    assert "run_search_3" in result
+    assert result["run_search_3"]["schedule"] == schedule(run_every=60 * 60)
 
 
 # ---------------------------------------------------------------------------

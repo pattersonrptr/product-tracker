@@ -202,7 +202,7 @@ describe('createPriceAlert', () => {
     // Verify the body is JSON:API wrapped with snake_case attributes
     const body = mockPost.mock.calls[0][1] as Record<string, unknown>
     const data = body.data as Record<string, unknown>
-    expect(data.type).toBe('price-alerts')
+    expect(data.type).toBe('price_alert')
     expect(data.attributes).toEqual(
       expect.objectContaining({
         search_term: 'Galaxy S24',
@@ -239,7 +239,7 @@ describe('updatePriceAlert', () => {
       expect.stringContaining('/price-alerts/7'),
       expect.objectContaining({
         data: expect.objectContaining({
-          type: 'price-alerts',
+          type: 'price_alert',
           id: '7',
           attributes: expect.objectContaining({
             max_price: 4000,

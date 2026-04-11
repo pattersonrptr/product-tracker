@@ -78,7 +78,7 @@ export async function createSourceWebsite(
   payload: SourceWebsiteCreatePayload,
 ): Promise<SourceWebsite> {
   logger.info('Creating source website', { name: payload.name })
-  const body = wrapPayload('source-websites', toApiPayload(payload))
+  const body = wrapPayload('source_website', toApiPayload(payload))
   const response = await apiClient.post(ENDPOINTS.sourceWebsites.list, body)
   const raw = unwrapSingle<RawSourceWebsiteAttributes>(response.data)
   return toSourceWebsite(raw)
@@ -89,7 +89,7 @@ export async function updateSourceWebsite(
   payload: SourceWebsiteUpdatePayload,
 ): Promise<SourceWebsite> {
   logger.info('Updating source website', { id })
-  const body = wrapPayload('source-websites', toApiPayload(payload), id)
+  const body = wrapPayload('source_website', toApiPayload(payload), id)
   const response = await apiClient.patch(
     ENDPOINTS.sourceWebsites.byId(id),
     body,

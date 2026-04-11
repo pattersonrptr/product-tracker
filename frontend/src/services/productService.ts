@@ -96,7 +96,7 @@ export async function createProduct(
   payload: ProductCreatePayload,
 ): Promise<Product> {
   logger.info('Creating product', { title: payload.title })
-  const body = wrapPayload('products', toApiPayload(payload))
+  const body = wrapPayload('product', toApiPayload(payload))
   const response = await apiClient.post(ENDPOINTS.products.list, body)
   const raw = unwrapSingle<RawProductAttributes>(response.data)
   return toProduct(raw)
@@ -107,7 +107,7 @@ export async function updateProduct(
   payload: ProductUpdatePayload,
 ): Promise<Product> {
   logger.info('Updating product', { id })
-  const body = wrapPayload('products', toApiPayload(payload), id)
+  const body = wrapPayload('product', toApiPayload(payload), id)
   const response = await apiClient.patch(ENDPOINTS.products.byId(id), body)
   const raw = unwrapSingle<RawProductAttributes>(response.data)
   return toProduct(raw)

@@ -21,9 +21,9 @@ describe('formatCurrency', () => {
 })
 
 describe('formatDate', () => {
-  it('returns a date string with month/day/year', () => {
+  it('returns a date string in dd/mm/yyyy format', () => {
     const result = formatDate('2026-03-01T10:00:00Z')
-    expect(result).toMatch(/03\/01\/2026/)
+    expect(result).toMatch(/01\/03\/2026/)
   })
 })
 
@@ -37,8 +37,8 @@ describe('formatDateTime', () => {
 })
 
 describe('formatChartDateLabel', () => {
-  it('returns a short month+day label', () => {
+  it('returns a short day+month label in pt-BR', () => {
     const result = formatChartDateLabel('2026-03-01T10:00:00Z')
-    expect(result).toMatch(/Mar\s+1/)
+    expect(result).toMatch(/1\s+de\s+mar/i)
   })
 })

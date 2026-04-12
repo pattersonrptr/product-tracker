@@ -12,6 +12,7 @@ import ManageSearchIcon from '@mui/icons-material/ManageSearch'
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import PeopleIcon from '@mui/icons-material/People'
 import PublicIcon from '@mui/icons-material/Public'
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
 import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
 import List from '@mui/material/List'
@@ -37,6 +38,7 @@ const USER_ITEMS = [
   { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
   { label: 'My Alerts', path: '/alerts', icon: <NotificationsActiveIcon /> },
   { label: 'Products', path: '/products', icon: <InventoryIcon /> },
+  { label: 'Plans', path: '/plans', icon: <WorkspacePremiumIcon /> },
 ] as const
 
 const ADMIN_ITEMS = [

@@ -54,4 +54,14 @@ export const ENDPOINTS = {
   dashboard: {
     summary: `${BASE}/dashboard/summary`,
   },
+  plans: {
+    list: `${BASE}/plans/`,
+    byId: (id: string) => `${BASE}/plans/${id}`,
+  },
+  subscriptions: {
+    me: `${BASE}/subscriptions/me`,
+    subscribe: (planId: string) => `${BASE}/subscriptions/subscribe/${planId}`,
+    cancel: `${BASE}/subscriptions/cancel`,
+    limits: `${BASE}/subscriptions/me/limits`,
+  },
 } as const

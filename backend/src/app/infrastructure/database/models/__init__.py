@@ -1,6 +1,7 @@
 from src.app.infrastructure.database.models.notification_log_model import (
     NotificationLog,
 )
+from src.app.infrastructure.database.models.plan_model import Plan
 from src.app.infrastructure.database.models.price_alert_model import PriceAlert
 from src.app.infrastructure.database.models.price_alert_source_website_model import (  # noqa: F401
     price_alert_source_website,
@@ -15,10 +16,13 @@ from src.app.infrastructure.database.models.search_execution_log_model import (
     SearchExecutionLog,
 )
 from src.app.infrastructure.database.models.source_website_model import SourceWebsite
+from src.app.infrastructure.database.models.subscription_model import Subscription
 from src.app.infrastructure.database.models.user_model import User
 
 __all__ = [
     "User",
+    "Plan",
+    "Subscription",
     "Product",
     "SourceWebsite",
     "PriceHistory",

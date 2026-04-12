@@ -11,6 +11,7 @@ import { AlertsPage } from '@/pages/AlertsPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { PlansPage } from '@/pages/PlansPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { ProductDetailPage } from '@/pages/ProductDetailPage'
 import { ProductsPage } from '@/pages/ProductsPage'
@@ -85,6 +86,7 @@ export function AppRouter() {
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/:id" element={<ProductDetailPage />} />
+        <Route path="/plans" element={<PlansPage />} />
 
         {/* Admin pages (staff/superuser only) */}
         <Route

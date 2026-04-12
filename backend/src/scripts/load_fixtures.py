@@ -3,6 +3,7 @@ import argparse
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.app.fixtures.fixtures import get_fixtures
+from src.app.infrastructure.database.models.plan_model import Plan
 from src.app.infrastructure.database.models.price_history_model import PriceHistory
 from src.app.infrastructure.database.models.product_model import Product
 from src.app.infrastructure.database.models.search_config_model import SearchConfig
@@ -14,7 +15,15 @@ from src.app.infrastructure.database.models.user_model import User
 from src.app.infrastructure.database_config import SessionLocal
 
 FIXTURE_DEPENDENCIES = {
-    "all": ["source_websites", "users", "products", "price_history", "search_configs"],
+    "all": [
+        "plans",
+        "source_websites",
+        "users",
+        "products",
+        "price_history",
+        "search_configs",
+    ],
+    "plans": [],
     "users": [],
     "source_websites": [],
     "products": ["source_websites"],
@@ -23,6 +32,7 @@ FIXTURE_DEPENDENCIES = {
 }
 
 FIXTURE_INSERT_ORDER = [
+    "plans",
     "source_websites",
     "users",
     "products",
@@ -58,6 +68,9 @@ def load_fixtures(selected_fixtures):
     db = SessionLocal()
     data = get_fixtures()
     try:
+        if "plans" in selected_fixtures:
+            _upsert(db, Plan, data.get("plans", []))
+
         if "source_websites" in selected_fixtures:
             _upsert(db, SourceWebsite, data["source_websites"])
 

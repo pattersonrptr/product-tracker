@@ -38,6 +38,7 @@ class PriceAlert(Base):
         onupdate=datetime.now(UTC),
         nullable=False,
     )
+    deleted_at = Column(DateTime, nullable=True, default=None)
 
     # Relationships
     user = relationship("User", back_populates="price_alerts")
@@ -54,4 +55,5 @@ class PriceAlert(Base):
         Index("ix_price_alert_active", is_active),
         Index("ix_price_alert_user_id", user_id),
         Index("ix_price_alert_search_config_id", search_config_id),
+        Index("ix_price_alert_deleted_at", deleted_at),
     )

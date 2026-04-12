@@ -301,6 +301,51 @@ def get_products_by_price_alert(
     return ProductPresenter.handle_collection_success(products, total)
 
 
+@router.get(
+    "/{price_alert_id}/opportunities", response_model=ProductsCollectionResponse
+)
+def get_opportunities_by_price_alert(
+    price_alert_id: int,
+    limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    price_alert_repo: PriceAlertRepository = Depends(get_price_alert_repository),
+    product_repo: ProductRepository = Depends(get_product_repository),
+    current_user: UserEntity = Depends(get_current_staff_user),
+):
+    """
+    Get opportunity products for a price alert (always filtered by max_price).
+
+    Returns products whose title matches the alert's search_term, belong to
+    one of the alert's source websites, and are priced at or below max_price.
+
+    Returns:
+        - 200: Collection of opportunity products with pagination meta
+        - 403: Permission denied
+        - 404: Price alert not found
+    """
+    logger.debug(
+        f"Getting opportunities for price alert ID: {price_alert_id}",
+        extra={
+            "action": "get_opportunities_by_price_alert",
+            "price_alert_id": price_alert_id,
+            "user_id": current_user.id,
+        },
+    )
+
+    use_case = GetProductsByPriceAlertUseCase(price_alert_repo, product_repo)
+    alert, products, total = use_case.execute(
+        price_alert_id,
+        limit=limit,
+        offset=offset,
+        filter_by_max_price=True,
+    )
+
+    if not alert:
+        return PriceAlertPresenter.handle_not_found(f"id {price_alert_id}", "/data/id")
+
+    return ProductPresenter.handle_collection_success(products, total)
+
+
 @router.put("/{price_alert_id}", response_model=PriceAlertReadResponse)
 def update_price_alert(
     price_alert_id: int,

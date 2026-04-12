@@ -8,6 +8,9 @@ from src.app.interfaces.http.controllers.admin_controller import (
 from src.app.interfaces.http.controllers.auth_controller import (
     auth_router as auth_controller,
 )
+from src.app.interfaces.http.controllers.dashboard_controller import (
+    router as dashboard_controller,
+)
 from src.app.interfaces.http.controllers.notification_log_controller import (
     router as notification_log_controller,
 )
@@ -36,6 +39,7 @@ from src.app.interfaces.http.controllers.user_controller import (
 __all__ = [
     "user_controller",
     "auth_controller",
+    "dashboard_controller",
     "product_controller",
     "source_website_controller",
     "price_history_controller",

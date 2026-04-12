@@ -143,7 +143,9 @@ def test_sync_from_api_populates_schedule(mock_entry_cls, mock_get_schedule):
 
     assert "run_search_1" in scheduler.schedule
     assert scheduler.schedule["run_search_1"] is mock_entry
-    mock_entry_cls.assert_called_once()
+    # +1 for the static cleanup_orphaned_products task
+    assert "cleanup_orphaned_products" in scheduler.schedule
+    assert mock_entry_cls.call_count == 2
 
 
 @patch("src.celery.beat_schedule.get_dynamic_schedule")
@@ -154,10 +156,10 @@ def test_sync_from_api_clears_old_entries_first(mock_entry_cls, mock_get_schedul
     mock_get_schedule.return_value = {}
 
     scheduler = DynamicScheduler.__new__(DynamicScheduler)
-    mock_schedule = MagicMock()
-    scheduler.schedule = mock_schedule
+    scheduler.schedule = {}
     scheduler.app = MagicMock()
 
     scheduler.sync_from_api()
 
-    mock_schedule.clear.assert_called_once()
+    # Even with no dynamic schedules, the static cleanup task should be present
+    assert "cleanup_orphaned_products" in scheduler.schedule

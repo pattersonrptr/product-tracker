@@ -24,6 +24,9 @@ os.environ["ENABLE_FILE_LOGGING"] = "false"
 from src.app.infrastructure.database.models.notification_log_model import (
     NotificationLog as NotificationLogModel,  # noqa: F401
 )
+from src.app.infrastructure.database.models.plan_model import (
+    Plan as PlanModel,  # noqa: F401
+)
 from src.app.infrastructure.database.models.price_alert_model import (
     PriceAlert as PriceAlertModel,  # noqa: F401
 )
@@ -47,6 +50,9 @@ from src.app.infrastructure.database.models.search_execution_log_model import ( 
 )
 from src.app.infrastructure.database.models.source_website_model import (  # noqa: F401
     SourceWebsite as SourceWebsiteModel,
+)
+from src.app.infrastructure.database.models.subscription_model import (
+    Subscription as SubscriptionModel,  # noqa: F401
 )
 from src.app.infrastructure.database.models.user_model import User  # noqa: F401
 

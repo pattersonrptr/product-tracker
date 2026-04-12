@@ -1,6 +1,14 @@
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 
+from src.app.domain.plan_limits import (
+    PlanLimits,
+    check_alert_limit,
+    check_frequency_limit,
+    check_source_limit,
+    get_user_plan_limits,
+)
 from src.app.domain.validators.price_alert_validator import PriceAlertValidator
 from src.app.entities.price_alert import PriceAlert as PriceAlertEntity
 from src.app.entities.user import User as UserEntity
@@ -106,6 +114,8 @@ def create_price_alert(
     search_config_repo: SearchConfigRepository = Depends(get_search_config_repository),
     price_alert_validator: PriceAlertValidator = Depends(get_price_alert_validator),
     current_user: UserEntity = Depends(get_current_staff_user),
+    plan_limits: PlanLimits = Depends(get_user_plan_limits),
+    db: Session = Depends(get_db),
 ):
     """
     Create a new price alert. Requires staff or superuser access.
@@ -138,6 +148,20 @@ def create_price_alert(
         return PriceAlertPresenter.handle_validation_errors(validation_errors)
 
     attrs = price_alert_in.data.attributes
+
+    # --- Plan limits enforcement ---
+    alert_limit_err = check_alert_limit(db, current_user.id, plan_limits)
+    if alert_limit_err:
+        return PriceAlertPresenter.handle_validation_errors([alert_limit_err])
+
+    freq_err = check_frequency_limit(attrs.frequency_minutes, plan_limits)
+    if freq_err:
+        return PriceAlertPresenter.handle_validation_errors([freq_err])
+
+    source_err = check_source_limit(len(attrs.source_website_ids), plan_limits)
+    if source_err:
+        return PriceAlertPresenter.handle_validation_errors([source_err])
+
     price_alert_entity = PriceAlertEntity(
         search_term=attrs.search_term,
         max_price=attrs.max_price,

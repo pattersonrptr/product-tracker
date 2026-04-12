@@ -49,10 +49,10 @@ def load_seed_data():
     """Load source websites and search configs from fixtures."""
     from src.scripts.load_fixtures import load_fixtures
 
-    fixtures_to_load = ["source_websites", "search_configs"]
+    fixtures_to_load = ["plans", "source_websites", "search_configs"]
     print(f"Loading seed data: {fixtures_to_load}")
     load_fixtures(fixtures_to_load)
-    print("✓ Seed data loaded (source websites + search configs)")
+    print("✓ Seed data loaded (plans + source websites + search configs)")
 
 
 if __name__ == "__main__":
